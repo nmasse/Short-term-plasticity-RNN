@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class spatial_stimulus():
+class spatial_stimulus:
     
     """
     This class allows one to generate trials of different spatial based tasks
