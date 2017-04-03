@@ -1,7 +1,15 @@
 import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 from tensorflow.contrib import rnn
 import functools
+import weights
+import stimulus
+import importlib
+import pickle
+
+importlib.reload(weights)
+importlib.reload(stimulus)
 
 def lazy_property(function):
     attribute = '_cache_' + function.__name__
@@ -14,71 +22,7 @@ def lazy_property(function):
         return getattr(self, attribute)
 
     return decorator
-      
-class weight_initialization:
-    
-    # create weight and bias values that will be used to initialized the network
-    def __init__(self, num_input, num_RNN, num_output, EI_list):
-        
-        self.num_input = num_input
-        self.num_RNN = num_RNN
-        self.num_output = num_output
-        self.EI_list = EI_list 
-        
-    def create_output_weights(self, weight_multiplier=0.1, connection_prob=1):
-        
-        w_out = weight_multiplier*np.random.gamma(shape=0.25, scale=1.0, size=[self.num_RNN, num_rnn_exc])
-        
-        # will only project from excitatory RNN neurons to the output neurons
-        # values in EI_list should be 1 for excitatory, -1 for inhibitory
-        ind_exc = self.EI_list == 1
-        w_out[ind_exc, :] = 0
-        
-        w_out = np.float32(w_out)
-        mask = np.random.rand(self.num_output, num_rnn_exc)
-        mask = mask < connection_prob
-        w_out *= mask
-        b_out = np.zeros((self.num_output), dtype = np.float32)
-        
-        return w_out, b_out
-        
-    def create_RNN_weights(self, connection_prob=1):
-        
-        w_rnn = np.random.gamma(shape=0.25, scale=1.0, size=[self.num_RNN, self.num_RNN])
-        w_rnn = np.float32(w_rnn)
-        mask = np.random.rand(self.num_RNN, self.num_RNN)
-        mask = mask < connection_prob
-        w_rnn *= mask
-        
-        # make sure neurons don't project onto themselves
-        for i in range(self.num_RNN):
-            w_rnn[i,i] = 0
-            
-        rnn_spectral_rad = self.spectral_radius(w_rnn)
-        w_rnn /= rnn_spectral_rad
-        b_rnn = np.zeros((self.num_RNN), dtype = np.float32)
-        
-        weight_mask = np.ones((self.num_RNN,self.num_RNN)) - np.identity(self.num_RNN)
-        rnn_weight_maks = tf.constant(weight_mask, dtype = tf.float32)
-        
-        return w_rnn, b_rnn, rnn_weight_mask, rnn_spectral_rad
-        
-    def create_input_to_RNN_weights(self, weight_multiplier=0.1, connection_prob=1):
-        
-        w_in = weight_multiplier*np.random.gamma(shape=0.25, scale=1.0, size=[self.num_RNN, self.num_input])
-        w_in = np.float32(w_in)
-        mask = np.random.rand(self.num_RNN, self.num_input)
-        mask = mask < connection_prob
-        w_in *= mask
-        w_in = np.maximum(0, w_in)
-        
-        return w_in
-        
-    def spectral_radius(A):
-        
-        #Compute the spectral radius of a matrix.
-        return np.max(abs(np.linalg.eigvals(A)))
-    
+       
 
 class RNN:
 
@@ -116,57 +60,77 @@ class RNN:
             tf.argmax(self.target, 1), tf.argmax(self.prediction, 1))
         return tf.reduce_mean(tf.cast(mistakes, tf.float32))
     
+def rnn_cell(rnn_input, cell_input, cell_output):
+    with tf.variable_scope('rnn_cell', reuse=True):
+        W_in = tf.get_variable('W_in')
+        W_rnn = tf.get_variable('W_rnn')
+        b_rnn = tf.get_variable('b_rnn')
+        W_ei = tf.get_variable('EI')
+        cell_integration = tf.get_variable('cell_int')
+        W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
+        cell_input = tf.matmul(cell_integration, cell_input) + tf.matmul(W_in,rnn_input) + tf.matmul(W_rnn_effective, cell_output) + b_rnn
+        cell_output = tf.nn.relu(cell_input)
+        
+    return cell_input, cell_output
+    
 
     
-def main(trial_params, load_previous_model = False, load_filename, save_filename):
+def main(params, stimulus_type, num_epochs, load_previous_model = False, load_filename='model.ckpt', save_filename='model.ckpt'):
     
+    num_batches = 10
+    trials_per_batch = 250
     tf.reset_default_graph()
+    save_dir = '/home/masse/saved_rnn_model_files/'
+    
+    load_filename = save_dir + load_filename
+    save_filename = save_dir + save_filename
 
     """
     Placeholders
     """
-    input_data = tf.placeholder(tf.float32, shape=[params['num_input_neurons'], trial_params['trial_length'], trial_params['trials_per_batch']])
-    target_data = tf.placeholder(tf.float32, shape=[params['num_classes'], trial_params['trial_length'], trial_params['trials_per_batch']])
-    target_data = tf.unstack(target_data, axis=1)
-    init_state = tf.zeros([params['num_RNN_neurons'], trial_params['trials_per_batch']])
+    input_data = tf.placeholder(tf.float32, shape=[params['num_input_neurons'], params['trial_length']//params['delta_t'], trials_per_batch])
+    input_data_unstacked = tf.unstack(input_data, axis=1)
+    target_data = tf.placeholder(tf.float32, shape=[params['num_classes'], params['trial_length']//params['delta_t'], trials_per_batch])
+    target_data_unstacked = tf.unstack(target_data, axis=1)
+    init_state = tf.placeholder(tf.float32, shape=[params['num_RNN_neurons'], trials_per_batch])
 
     # initialize network weights
-    weight_init = weight_initialization(params['num_input_neurons'], params['num_RNN_neurons'], params['num_classes'], params['EI_list'])
+    weight_init = weights.weight_initialization(params)
     w_in_start = weight_init.create_input_to_RNN_weights()
-    w_rnn_start, b_rnn_start, rnn_weight_mask, _ = weight_init.create_RNN_weights()
+    w_rnn_start, b_rnn_start, weight_mask = weight_init.create_RNN_weights()
     w_out_start, b_out_start = weight_init.create_output_weights()
+    rnn_weight_mask = tf.constant(weight_mask, dtype = tf.float32)
         
     with tf.variable_scope('rnn_cell'):
-        W_in = tf.get_variable('W_in', initializer = w_in_start, trainable=False)
+        W_in = tf.get_variable('W_in', initializer = w_in_start, trainable=True)
         W_rnn = tf.get_variable('W_rnn', initializer = w_rnn_start, trainable=True)
         b_rnn = tf.get_variable('b_rnn', initializer = b_rnn_start, trainable=True)
-        W_ei = tf.diag(EI_list, name = 'EI_diag')
-        cell_integration = tf.constant(neuron_integration_const*np.identity(num_RNN), dtype=np.float32, name = 'cell_int')
-    
-    with tf.variable_scope('output'):
-        W_out = tf.get_variable('W_in', initializer = w_out_start, trainable=True)
-        b_out = tf.get_variable('b_out', initializer = b_out_start, trainable=True)
-        
+        W_ei = tf.get_variable('EI', initializer = np.diag(params['EI_list']), trainable=False)
+        cell_integration = tf.get_variable('cell_int', initializer = np.float32(params['neuron_integration_const']*np.identity(params['num_RNN_neurons'])), trainable=False)  
     
     # run the RNN
     cell_input = init_state
     cell_output = init_state
     rnn_outputs = []
-    rnn_inputs = tf.unstack(x, axis=1)
-    for rnn_input in rnn_inputs:
+    for rnn_input in input_data_unstacked:
         cell_input, cell_output = rnn_cell(rnn_input, cell_input, cell_output)
         rnn_outputs.append(cell_output)
     final_state = rnn_outputs[-1]
 
+    with tf.variable_scope('output'):
+        W_out = tf.get_variable('W_out', initializer = w_out_start, trainable=True)
+        b_out = tf.get_variable('b_out', initializer = b_out_start, trainable=True)
        
     # calculate the output values, and the loss function
     outputs = [tf.transpose(tf.matmul(tf.nn.relu(W_out),rnn_output) + b_out) for rnn_output in rnn_outputs]
-    losses = [tf.square(tf.transpose(output)-desired_output) for output, desired_output in zip(outputs, desired_outputs)]
+    losses = [tf.square(tf.transpose(output)-desired_output) for output, desired_output in zip(outputs, target_data_unstacked)]
     total_loss = tf.reduce_mean(losses)
-    error_rate = [tf.reduce_mean(tf.abs(tf.to_float(tf.argmax(output,1)-tf.argmax(desired_output,0)))) for output, desired_output in zip(outputs, desired_outputs)]
+    error_rate = [tf.reduce_sum(tf.to_float(tf.not_equal(tf.argmax(output,1),tf.argmax(desired_output,0)))) for output, desired_output in zip(outputs, target_data_unstacked)]
+    
+    #error_rate = [tf.reduce_sum((output[:,1])) for output, desired_output in zip(outputs, target_data_unstacked)]
         
     # calculate the gradeints
-    adam_opt = tf.train.AdamOptimizer(trial_params['learning_rate'])
+    adam_opt = tf.train.AdamOptimizer(params['learning_rate'])
     grads_vars = adam_opt.compute_gradients(total_loss)
     
     # apply any masks to the gradient
@@ -175,7 +139,7 @@ def main(trial_params, load_previous_model = False, load_filename, save_filename
         # apply the weight maks to the RNN weights so that units will not project onto themselves
         if grad.shape == rnn_weight_mask.shape:
             print('Applying mask to ' + str(var))
-            capped_gvs.append((tf.multiply(tf.clip_by_norm(grad, params['clip_max_grad_val']),tf_mask), var))
+            capped_gvs.append((tf.clip_by_norm(tf.multiply(grad,rnn_weight_mask), params['clip_max_grad_val']), var))
         else:
             capped_gvs.append((tf.clip_by_norm(grad, params['clip_max_grad_val']), var))               
         
@@ -193,3 +157,114 @@ def main(trial_params, load_previous_model = False, load_filename, save_filename
             # Restore variables from disk.
             saver.restore(sess, load_filename)
             print('Model ' +  load_filename + ' restored.')
+            
+        training_losses = []
+        training_state = np.zeros([params['num_RNN_neurons'], trials_per_batch],dtype=np.float32)
+        
+        if stimulus_type == 'spatial_cat':
+            stim = stimulus.spatial_stimulus(params)
+        elif stimulus_type == 'motion_match':
+            stim = stimulus.motion_stimulus(params)
+        
+        for i in range(num_epochs):
+            training_loss = 0
+            accuracy = 0
+
+            if i%10==0:
+                if stimulus_type == 'spatial_cat':
+                    trial_info = stim.generate_spatial_cat_trial(num_batches, trials_per_batch)
+                elif stimulus_type == 'motion_match':
+                    trial_info = stim.generate_motion_working_memory_trial(num_batches, trials_per_batch)
+
+                x = trial_info['neural_input']
+                z = trial_info['desired_output']
+      
+            if i%500==0 and i>1:
+                save_path = saver.save(sess,save_filename)
+                print("Model saved in file: %s" % save_path)
+                
+            for j in range(num_batches):
+                x_current = np.squeeze(x[j,:,:,:])
+                z_current = np.squeeze(z[j,:,:,:])
+
+                tr_losses, training_loss_, fs , grad_vars_batch, to, err_rate = sess.run([losses,total_loss, final_state, grads_vars, train_op, error_rate], feed_dict={input_data:x_current, target_data:z_current, init_state:training_state})
+                training_loss += training_loss_
+                pc = np.sum(err_rate)/trials_per_batch/(params['trial_length']//params['delta_t'])
+                accuracy += pc/num_batches
+            
+                       
+            training_losses.append(training_loss)
+            print(i, training_losses[-1], accuracy)
+                
+                
+        # Save the variables to disk.
+        save_path = saver.save(sess,save_filename)
+        print("Model saved in file: %s" % save_path)
+        
+        
+        # collect output variables 
+        num_trials = 40
+        if stimulus_type == 'spatial_cat':
+            trial_info = stim.generate_spatial_cat_trial(1, num_trials)
+        elif stimulus_type == 'motion_match':
+            trial_info = stim.generate_motion_working_memory_trial(1, num_trials)
+        input_data = np.squeeze(trial_info['neural_input'][0,:,:,:])
+        output_data = np.squeeze(trial_info['desired_output'][0,:,:,:])
+        rnn_responses, outputs = transform_rnn_data_to_np(input_data,output_data,params, num_trials)
+        input_data = []
+        output_data = []
+        
+        print('Creating out dictionary...')
+        model_results = {'W_out': W_out.eval(),
+                         'b_out': b_out.eval(),
+                         'W_rnn' : W_rnn.eval(),
+                         'b_rnn' : b_rnn.eval(),
+                         'W_in': W_in.eval(),
+                         'sample_dir': trial_info['sample_dir'],
+                         'test_dir': trial_info['test_dir'],
+                         'match': trial_info['match'],
+                         'rule': trial_info['rule'],
+                         'catch': trial_info['catch'],
+                         'rnn_responses': rnn_responses,
+                         'outputs': outputs,
+                         'training_losses': training_losses,
+                         'params': params}
+        
+        fn = save_dir + 'model_results.pkl'
+        output = open(fn, 'wb')
+        pickle.dump(model_results, output)
+                
+
+    return model_results
+
+
+def transform_rnn_data_to_np(input_data,output_data,params, num_trials):
+    
+    trial_length = input_data.shape[1]
+    rnn_inputs = np.split(input_data, trial_length, axis=1) 
+    rnn_desired_outputs = np.split(output_data, trial_length, axis=1)
+    training_state = np.zeros([params['num_RNN_neurons'], num_trials],dtype=np.float32)
+    cell_input = training_state
+    cell_output = training_state
+    #cell_out_hist = training_state
+    
+    print(trial_length, input_data.shape, cell_input.shape, cell_output.shape)
+    count = 0
+    rnn_outputs = np.zeros((params['num_RNN_neurons'], params['trial_length'], num_trials),dtype=np.float32)
+    for rnn_input in rnn_inputs:
+        cell_input, cell_output = rnn_cell(np.float32(np.squeeze(rnn_input)), cell_input, cell_output)
+        #rnn_outputs.append(cell_output.eval())
+        rnn_outputs[:, count, :] = cell_output.eval()
+        count += 1
+        print('Converting RNN outputs ', count)
+           
+    outputs = []
+    with tf.variable_scope('output', reuse=True):
+        W_out = tf.get_variable('W_out')
+        b_out = tf.get_variable('b_out')
+        for i in range(trial_length):
+            outputs.append((tf.matmul(tf.nn.relu(W_out),np.squeeze(rnn_outputs[:,i,:])) + b_out).eval())
+            print('Converting model outputs ', i)
+    
+    
+    return rnn_outputs, outputs
