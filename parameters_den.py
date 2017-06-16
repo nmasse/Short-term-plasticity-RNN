@@ -18,13 +18,13 @@ class Parameters:
         print('\nInitializing paramaters...')
 
         self.params = {
-        'num_motion_tuned':      36,
+        'num_motion_tuned':      9, # usually 36
         'num_fix_tuned':         0,
         'num_rule_tuned':        0,
         'num_exc_units':         16,
         'num_inh_units':         4,
         'den_per_unit':          5, # adding dendrites
-        'n_output':              3,
+        'n_output':              1, # usually 3
         'dead_time':             400,
         'fix_time':              500,
         'sample_time':           500,
@@ -40,7 +40,7 @@ class Parameters:
         'input_mean':            0,
         'input_sd':              0.1,
         'noise_sd':              0.5,
-        'connection_prob':       0.25, # down from 1
+        'connection_prob':       0.25, # usually 1
         'dt':                    100,
         'catch_trial_pct':       0.2,
         'probe_trial_pct':       0,
@@ -56,11 +56,11 @@ class Parameters:
         'U_std':                 0.45,
         'stop_perf_th':          1,
         'stop_error_th':         0.005,
-        'batch_train_size':      128,
+        'batch_train_size':      5, # usually 128
         'num_batches':           8,
-        'num_iterations':        50,
+        'num_iterations':        30, # usually 50
         'synapse_config':        None,
-        'stimulus_type':         'motion',
+        'stimulus_type':         'experimental', # usually 'motion'
         'load_previous_model':   False,
         'var_delay':             False,
         'debug_model':           False,

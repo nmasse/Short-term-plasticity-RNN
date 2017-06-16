@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-import stimulus
+import stimulus_updated as stimulus
 import importlib
 import pickle
 import model_den as model

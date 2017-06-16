@@ -6,7 +6,7 @@ Edited: 2017/06/13 Gregory Grant
 import tensorflow as tf
 import numpy as np
 import pickle
-import stimulus
+import stimulus_updated as stimulus
 import time
 
 
@@ -246,7 +246,6 @@ def main(params):
 
         for i in range(params['num_iterations']):
 
-            var_delay = params['var_delay']
             end_training = False
             save_trial = False
 
@@ -262,7 +261,7 @@ def main(params):
                     end_training = True
 
             # generate batch of N (batch_train_size X num_batches) trials
-            trial_info = stim.generate_trial(N, var_delay=var_delay)
+            trial_info = stim.generate_trial(N)
 
             # keep track of the model performance for this batch
             loss = []
