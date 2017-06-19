@@ -1,0 +1,10 @@
+List of Events
+Time	Event	Data
+
+0	start
+200	input	stim
+200	mask	off
+400	input	test
+400	mask	on
+600	mask	off
+1200	finish

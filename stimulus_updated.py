@@ -5,6 +5,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import copy
 
 
 class Stimulus:
@@ -15,75 +16,26 @@ class Stimulus:
         for key, value in params.items():
             setattr(self, key, value)
 
-    def generate_trial(self, trials_per_batch=64):
 
+    def generate_trial(self, num):
+
+        # Note that num will typically be self.batch_train_size * self.num_batches
         if self.stimulus_type == 'experimental':
-            trial_setup = self.generate_experimental_trials()
+            trial_setup = self.generate_experimental_trials(num)
         else:
             print("Invalid stimulus type.")
             quit()
 
+        schedules = self.generate_schedule(copy.deepcopy(self.events), trial_setup, num)
 
-        events = [[200, 'input', 'stim'], [400, 'mask', False], [400, 'input', 'test'], [1200, 'mask', True]]
-        schedules = self.generate_schedule(events, trial_setup)
-
-
-        """
-        trial_info = {'desired_output'  :  np.zeros((self.n_output, trial_length, trials_per_batch),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, trials_per_batch),dtype=np.float32),
-                      'sample'          :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'test'            :  np.zeros((trials_per_batch,2,2),dtype=np.int8),
-                      'test_mod'        :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'rule'            :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'match'           :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'catch'           :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'probe'           :  np.zeros((trials_per_batch,2),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(self.input_mean, self.input_sd, size=(self.n_input, trial_length, trials_per_batch))}
-        """
-
-        #print(trial_setup)
-        quit()
+        trial_info = {'desired_output' : schedules[1],
+                        'train_mask' : np.asarray(schedules[2]),
+                        'neural_input' : schedules[0]}
 
         return trial_info
 
-    def generate_experimental_trials(self):
-        """
-        Generates a set of random trials for the experimental tests
-        based on the batch size, and returns the stimuli, tests,
-        intended outputs, and the default intended output for the set.
 
-        The output arrays are [batch_train_size] long.
-        """
-        default_input = [[0,0,0,0,0,0,0,0,0]] * self.batch_train_size
-        stimuli =  [[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
-                    [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]]
-        tests =     [[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
-                    [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]]
-
-        setup = np.random.randint(0,4,size=(2,self.batch_train_size))
-
-        stimulus = []
-        test = []
-        desired_output = np.float32(setup[0] == setup[1])
-        default_desired_output = [0.] * self.batch_train_size
-
-        for i in range(self.batch_train_size):
-            stimulus.append(stimuli[setup[0][i]])
-            test.append(tests[setup[1][i]])
-
-        inputs = {'stim' : stimulus,
-                  'test' : test
-                  }
-
-        trial_setup = {'default_input' : default_input,
-                       'inputs' : inputs,
-                       'default_desired_output' : default_desired_output,
-                       'desired_output' : desired_output
-                       }
-
-        return trial_setup
-
-    def generate_schedule(self, events, trial_setup, mask_starts_on=True):
+    def generate_schedule(self, events, trial_setup, N, mask_starts_on=True):
         """
         Takes in a sequence of events and trial setup information
         and returns three schedules:
@@ -119,20 +71,19 @@ class Stimulus:
                 mask_events.append(events[i])
 
         input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], trial_setup['default_input'])
+        output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], trial_setup['default_output'])
+        mask_schedule = self.scheduler(steps, mask_events, {'on':[0]*N,'off':[1]*N}, [0]*N if mask_starts_on else [1]*N, flag="mask")
 
-    def scheduler(self, steps, events, inputs_batch, default_input):
+        return input_schedule, output_schedule, mask_schedule
+
+
+    def scheduler(self, steps, events, batch, default, flag=None):
         """
         Takes in a set of events and combines it with the batch_train_size
         to produce a neural input schedule of size [neurons, steps, batch_size]
         """
-        print("\nInput neurons:", self.n_input)
-        print("Steps:", steps)
-        print("Batch size:", self.batch_train_size)
-        print("Input events:", events)
-        print("Default input:", np.shape(default_input), "\n")
 
-        #schedule = np.zeros(self.n_input, steps, self.batch_train_size)
-        value = default_input
+        value = default
         schedule = [np.zeros(steps)]
 
         # Starting with the 0th step, edits schedule
@@ -140,15 +91,54 @@ class Stimulus:
         for i in range(len(events)):
             schedule[step_val:events[i][0]] = [value]*(events[i][0]-step_val)
             step_val = events[i][0]
-            value = inputs_batch[events[i][2]]
+            value = batch[events[i][2]]
 
         # Edits the last portion of the mask
         schedule[step_val:steps] = [value]*(steps-step_val)
 
-        # Transposes the schedule into the proper output form as described in
-        # the docstring
-        schedule = np.transpose(schedule, (2,0,1))
-        print(np.shape(schedule))
-        print(schedule)
+        if flag != "mask":
+            # Transposes the schedule into the proper output orientation
+            # Mask does not require this step -- it already is correctly shaped.
+            schedule = np.transpose(schedule, (2,0,1))
 
         return schedule
+
+
+    def generate_experimental_trials(self, N):
+        """
+        Generates a set of random trials for the experimental tests
+        based on the batch size, and returns the stimuli, tests,
+        intended outputs, and the default intended output for the set.
+
+        The output arrays are [batch_train_size] long.
+        """
+        default_input = [[0,0,0,0,0,0,0,0,0]] * N
+        stimuli =  [[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
+                    [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]]
+        tests =     [[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
+                    [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]]
+
+        setup = np.random.randint(0,4,size=(2,N))
+
+        stimulus = []
+        test = []
+        desired_output = np.transpose([np.float32(setup[0] == setup[1])])
+        default_desired_output = np.transpose([[0.] * N])
+
+        for i in range(N):
+            stimulus.append(stimuli[setup[0][i]])
+            test.append(tests[setup[1][i]])
+
+        inputs = {'stim' : stimulus,
+                  'test' : test
+                  }
+        outputs = {'stim' : default_desired_output,
+                   'test' : desired_output}
+
+        trial_setup = {'default_input' : default_input,
+                       'inputs' : inputs,
+                       'default_output' : default_desired_output,
+                       'outputs' : outputs
+                       }
+
+        return trial_setup

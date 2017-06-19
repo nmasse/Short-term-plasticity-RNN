@@ -10,6 +10,7 @@ Default parameters for training.
 
 import numpy as np
 import tensorflow as tf
+import reader
 
 class Parameters:
 
@@ -21,8 +22,8 @@ class Parameters:
         'num_motion_tuned':      9, # usually 36
         'num_fix_tuned':         0,
         'num_rule_tuned':        0,
-        'num_exc_units':         16,
-        'num_inh_units':         4,
+        'n_hidden':              20,
+        'exc_inh_prop':          0.8, # the percentage of excitatory neurons, with inhibitory neurons being the rest
         'den_per_unit':          5, # adding dendrites
         'n_output':              1, # usually 3
         'dead_time':             400,
@@ -41,7 +42,7 @@ class Parameters:
         'input_sd':              0.1,
         'noise_sd':              0.5,
         'connection_prob':       0.25, # usually 1
-        'dt':                    100,
+        'dt':                    25,
         'catch_trial_pct':       0.2,
         'probe_trial_pct':       0,
         'probe_time':            25,
@@ -56,15 +57,16 @@ class Parameters:
         'U_std':                 0.45,
         'stop_perf_th':          1,
         'stop_error_th':         0.005,
-        'batch_train_size':      5, # usually 128
+        'batch_train_size':      128,
         'num_batches':           8,
-        'num_iterations':        30, # usually 50
+        'num_iterations':        50,
         'synapse_config':        None,
-        'stimulus_type':         'experimental', # usually 'motion'
+        'stimulus_type':         'experimental',
         'load_previous_model':   False,
         'var_delay':             False,
         'debug_model':           False,
-        'save_dir':              'D:/Masse/RNN STP/saved_models/'
+        'save_dir':              'D:/Masse/RNN STP/saved_models/',
+        'profile_path' :         "./profiles/exp_events.txt"
         }
 
     def return_params(self):
@@ -74,6 +76,23 @@ class Parameters:
         self.initialize_vals_weights_biases()
 
         return self.params
+
+    def get_events(self):
+
+        with open(self.params['profile_path']) as event_list:
+            raw_content = event_list.read().split("\n")
+
+        text = list(filter(None, raw_content))
+
+        for line in range(len(text)):
+            if text[line][0] == "0":
+                content = text[line:]
+
+        for line in range(len(content)):
+            content[line] = content[line].split("\t")
+            content[line][0] = int(content[line][0])
+
+        return content
 
     def create_dependencies(self):
 
@@ -90,47 +109,47 @@ class Parameters:
             self.params['delay_time']  = 8*stim_duration
             self.params['dt']  = 20
 
+        # Event list from stimulus profile
+        self.params['events'] = self.get_events()
+        # Length of trial based on stimulus profile
+        self.params['trial_length'] = self.params['events'][-1][0]
+        # Number of input neurons
         self.params['n_input'] = self.params['num_motion_tuned'] + self.params['num_fix_tuned'] + self.params['num_rule_tuned']
-        self.params['n_hidden'] = self.params['num_exc_units'] + self.params['num_inh_units']
-
-        """
-        If num_inh_units is set > 0, then neurons can be either excitatory or inihibitory; is num_inh_units = 0,
-        then the weights projecting from a single neuron can be a mixture of excitatory or inhibiotry
-        """
-        if self.params['num_inh_units'] > 0:
-            self.params['EI'] = True
-            print('Using EI network.')
-        else:
-            self.params['EI'] = False
-            print('Not using EI network.')
-        self.params['EI_list'] = np.ones((self.params['n_hidden']), dtype=np.float32)
-        self.params['EI_list'][-self.params['num_inh_units']:] = -1
-
-        self.params['EI_matrix'] = np.diag(self.params['EI_list'])
-
+        # General network shape
         self.params['shape'] = (self.params['n_input'], self.params['n_hidden'],self.params['n_output'])
 
-        # rule cue will be presented during the 3rd quarter of the delay epoch
-        self.params['rule_onset_time'] = (self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+self.params['delay_time']//2)//self.params['dt']
-        self.params['rule_offset_time'] = (self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+3*self.params['delay_time']//4)//self.params['dt']
-
-        self.params['trial_length'] = self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+self.params['delay_time']+self.params['test_time']
-
-        #self.params['trial_length'] = 135*20
-        #print('HARD CODED Trial length: paramters.py')
-
-        # Membrane time constant of RNN neurons
-        self.params['alpha_neuron'] = self.params['dt']/self.params['membrane_time_constant']
-        # The standard deviation of the gaussian noise added to each RNN neuron at each time step
-        self.params['noise_sd'] = np.sqrt(2*self.params['alpha_neuron'])*self.params['noise_sd']
         # The time step in seconds
         self.params['dt_sec'] = np.float32(self.params['dt']/1000)
         # Number of time steps
         self.params['num_time_steps'] = self.params['trial_length']//self.params['dt']
         # The delay between test stimuli in the ABBA task (rule = 4)
 
+        # If num_inh_units is set > 0, then neurons can be either excitatory or
+        # inihibitory; is num_inh_units = 0, then the weights projecting from
+        # a single neuron can be a mixture of excitatory or inhibiotry
+        if self.params['exc_inh_prop'] < 1.:
+            self.params['EI'] = True
+            print('Using EI network.')
+        else:
+            self.params['EI'] = False
+            print('Not using EI network.')
+
+        self.params['num_exc_units'] = int(np.round(self.params['n_hidden']*(self.params['exc_inh_prop'])))
+        self.params['num_inh_units'] = self.params['n_hidden'] - self.params['num_exc_units']
+
+        self.params['EI_list'] = np.ones((self.params['n_hidden']), dtype=np.float32)
+        self.params['EI_list'][-self.params['num_inh_units']:] = -1
+
+        self.params['EI_matrix'] = np.diag(self.params['EI_list'])
+
+        # Membrane time constant of RNN neurons
+        self.params['alpha_neuron'] = self.params['dt']/self.params['membrane_time_constant']
+        # The standard deviation of the gaussian noise added to each RNN neuron at each time step
+        self.params['noise_sd'] = np.sqrt(2*self.params['alpha_neuron'])*self.params['noise_sd']
+
     def initialize(self, param, dims):
-        # Takes a string such as 'w_in0' for param
+        # Takes a string such as 'w_in0' for param, generates a tensor of
+        # randomly generated numbers, and checks it against connection probability.
         self.params[param] = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
         self.params[param] *= (np.random.rand(*dims) < self.params['connection_prob'])
 

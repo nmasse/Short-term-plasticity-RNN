@@ -269,7 +269,6 @@ def main(params):
             spike_loss = []
             accuracy = []
 
-
             for j in range(params['num_batches']):
 
                 """
