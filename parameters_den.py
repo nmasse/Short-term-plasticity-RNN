@@ -10,7 +10,6 @@ Default parameters for training.
 
 import numpy as np
 import tensorflow as tf
-import reader
 
 class Parameters:
 
@@ -22,17 +21,10 @@ class Parameters:
         'num_motion_tuned':      9, # usually 36
         'num_fix_tuned':         0,
         'num_rule_tuned':        0,
-        'n_hidden':              20,
+        'n_hidden':              50,
         'exc_inh_prop':          0.8, # the percentage of excitatory neurons, with inhibitory neurons being the rest
         'den_per_unit':          5, # adding dendrites
         'n_output':              1, # usually 3
-        'dead_time':             400,
-        'fix_time':              500,
-        'sample_time':           500,
-        'delay_time':            1000,
-        'test_time':             500,
-        'variable_delay_scale':  20,
-        'variable_delay_max':    500,
         'possible_rules':        [0],
         'clip_max_grad_val':     0.25,
         'learning_rate':         5e-3,
@@ -43,7 +35,7 @@ class Parameters:
         'noise_sd':              0.5,
         'connection_prob':       0.25, # usually 1
         'dt':                    25,
-        'catch_trial_pct':       0.2,
+        'catch_rate':            0.2,
         'probe_trial_pct':       0,
         'probe_time':            25,
         'spike_cost':            5e-5,
@@ -63,10 +55,10 @@ class Parameters:
         'synapse_config':        None,
         'stimulus_type':         'experimental',
         'load_previous_model':   False,
-        'var_delay':             False,
+        'var_delay':             True,
         'debug_model':           False,
         'save_dir':              'D:/Masse/RNN STP/saved_models/',
-        'profile_path' :         "./profiles/exp_events.txt"
+        'profile_path' :         "./profiles/dms_example.txt"
         }
 
     def return_params(self):

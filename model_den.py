@@ -26,7 +26,6 @@ class Model:
         # Load the intial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(self.h_init)
 
-
         # Build the TensorFlow graph
         self.run_model()
 
@@ -162,7 +161,6 @@ class Model:
             print('Soma Output:\t\t', h_soma.shape)
             print('-' * 40)
             quit()
-
 
         return h_soma_out
 

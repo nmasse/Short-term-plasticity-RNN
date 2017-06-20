@@ -45,21 +45,20 @@ class Stimulus:
         """
 
         num_events = len(events)
-        finish_time = events[num_events-1][0]
 
         # Checks for a reasonable time step, and then sets it up if reasonable
-        if self.dt >= finish_time:
+        if self.dt >= self.trial_length:
             print("ERROR:  Time step is longer than entire trial time.")
             quit()
         else:
-            steps = finish_time//self.dt
+            steps = self.trial_length//self.dt
 
         # Converts times to time step values in the event list
         for i in range(num_events):
             events[i][0] = events[i][0]//self.dt
 
         # Sets up individual event lists, then picks out relevant
-        # information for each
+        # information for each.
         input_events = []
         mask_events = []
         output_events = []
@@ -73,6 +72,11 @@ class Stimulus:
         input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], trial_setup['default_input'])
         output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], trial_setup['default_output'])
         mask_schedule = self.scheduler(steps, mask_events, {'on':[0]*N,'off':[1]*N}, [0]*N if mask_starts_on else [1]*N, flag="mask")
+
+        if self.var_delay:
+            input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
+        else:
+            pass
 
         return input_schedule, output_schedule, mask_schedule
 
@@ -104,6 +108,75 @@ class Stimulus:
         return schedule
 
 
+    def time_adjust(self, input_events, input_schedule, output_schedule, mask_schedule, N, steps):
+        """
+        Uses np.random.exponential to add a variable delay to requisite parts
+        of the input, output, and mask schedules.
+        """
+
+        # Sets up a pair of timing arrays to be used in blocking out variable scopes
+        timings_on = []
+        timings_off = []
+
+        for i in range(len(input_events)):
+            if len(input_events[i]) > 3:
+                timings_on.append(input_events[i][0])
+                if len(input_events) > i + 1:
+                    timings_off.append(input_events[i+1][0])
+
+        if len(timings_on) != len(timings_off):
+            timings_off.append(steps)
+
+        mask_schedule = np.array(mask_schedule)
+
+        # Finds the template mask lengths
+        template = []
+        mask_length = []
+        c = 0
+        for i in range(len(mask_schedule)):
+            template.append(mask_schedule[i][0])
+        for i in range(len(template)-1):
+            if template[i] == 0 and template[i+1] == 0:
+                c = c + 1
+            elif template[i] == 0 and template[i+1] == 1:
+                mask_length.append(c)
+                c = 0
+            elif template[i] == 1 and template[i+1] == 0:
+                c = 1
+            elif template[i] == 1 and template[i+1] == 1:
+                c = 0
+
+        # Removes dead time mask
+        mask_length.pop(0)
+
+        # Generate the timing variances from the two arrays
+        for s in range(len(timings_on)):
+            steps_eff = (timings_off[s] - timings_on[s]) - (mask_length[s] + 1)
+            var = np.int32(np.round(np.random.exponential(-(steps_eff)/np.log(self.catch_rate), N)))
+            for n in range(N):
+                for m in range(timings_on[s],timings_off[s]):
+                    mask_schedule[m][n] = mask_schedule[m-1][n]
+                if var[n] <= steps_eff:
+                    for d in range(var[n]):
+                        for i in range(self.n_input):
+                            input_schedule[i][timings_on[s]+d][n] = input_schedule[i][timings_on[s]-1][n]
+                        for o in range(self.n_output):
+                            output_schedule[o][timings_on[s]+d][n] = output_schedule[o][timings_on[s]-1][n]
+                    for m in range(timings_on[s],timings_off[s]):
+                        if m >= var[n]+timings_on[s]:
+                            mask_schedule[m][n] = 0
+                        if m >= var[n]+mask_length[s]+timings_on[s]:
+                            mask_schedule[m][n] = 1
+                else:
+                    for d in range(timings_off[s]-timings_on[s]):
+                        for i in range(self.n_input):
+                            input_schedule[i][timings_on[s]+d][n] = input_schedule[i][timings_on[s]-1][n]
+                        for o in range(self.n_output):
+                            output_schedule[o][timings_on[s]+d][n] = output_schedule[o][timings_on[s]-1][n]
+
+        return input_schedule, output_schedule, mask_schedule
+
+
     def generate_experimental_trials(self, N):
         """
         Generates a set of random trials for the experimental tests
@@ -113,10 +186,12 @@ class Stimulus:
         The output arrays are [batch_train_size] long.
         """
         default_input = [[0,0,0,0,0,0,0,0,0]] * N
+        fixation = [[0,0,0,0,1,0,0,0,0]] * N
         stimuli =  [[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
                     [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]]
         tests =     [[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
                     [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]]
+        none =      [[0,0,0,0,0,0,0,0,0]] * N
 
         setup = np.random.randint(0,4,size=(2,N))
 
@@ -129,11 +204,15 @@ class Stimulus:
             stimulus.append(stimuli[setup[0][i]])
             test.append(tests[setup[1][i]])
 
-        inputs = {'stim' : stimulus,
-                  'test' : test
+        inputs = {'sample' : stimulus,
+                  'test' : test,
+                  'fix'  : fixation,
+                  'none' : none
                   }
-        outputs = {'stim' : default_desired_output,
-                   'test' : desired_output}
+        outputs = {'sample' : default_desired_output,
+                   'test' : desired_output,
+                   'fix'  : default_desired_output,
+                   'none': default_desired_output}
 
         trial_setup = {'default_input' : default_input,
                        'inputs' : inputs,
