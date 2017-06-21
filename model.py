@@ -7,12 +7,21 @@ import numpy as np
 import pickle
 import stimulus
 import time
+from collections import namedtuple
+from network import RNNCellSTP
+from tensorflow.contrib.rnn import LSTMCell, BasicRNNCell
+import sys
+import os #added to ignore warning messages about CPU
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #added to ignore warning messages about CPU
 
 
 class Model:
 
     def __init__(self, params, input_data, target_data, mask):  
         
+        # added
+        self.params = params
+
         """
         Load all variables from the params dictionary
         """
@@ -22,9 +31,9 @@ class Model:
         """
         Load the input activity, the target data, and the training mask for this batch of trials
         """
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
-        self.mask = tf.unstack(mask, axis=0)
+        self.input_data = input_data
+        self.target_data = target_data
+        self.mask = mask
         
         """
         Load the intial hidden state activity, and the initial synaptic depression and facilitation terms
@@ -51,7 +60,27 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """  
-        self.rnn_cell_loop(self.input_data, self.hidden_init, syn_x = tf.constant(self.syn_x_init), syn_u = tf.constant(self.syn_u_init))
+    
+        # original
+        # self.rnn_cell_loop(self.input_data, self.hidden_init, syn_x = self.synapse_x_init, syn_u = self.synapse_u_init)
+        
+        # need to make tuples for the input_data, hidden_init, syn_x/u
+        # double check synapse_config value
+
+        if self.synapse_config is None:
+            state = self.hidden_init
+            hidden_state_size = sys.getsizeof(state)
+        else:
+            State_tuple = namedtuple('State', ['hidden', 'syn_x', 'syn_u'])
+            state = State_tuple(self.hidden_init, self.synapse_x_init, self.synapse_u_init)
+            hidden_state_size = sys.getsizeof(state)
+
+        # print("hidden_state_size: ")
+        # print(hidden_state_size)
+
+        # cell = RNNCellSTP(self.params, hidden_state_size)
+        cell = BasicRNNCell(hidden_state_size)
+        self.hidden_state = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = np.float32(self.w_out0), trainable=True)
@@ -62,7 +91,7 @@ class Model:
         Only use excitatory projections from the RNN to the output layer
         """   
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
-            
+
     
     def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
     
@@ -237,7 +266,7 @@ def main(params):
             Save the data if this is the last iteration, if performance threshold has been reached, and once every 500 trials.
             Before saving data, generate trials with a fixed delay period
             """
-            if i>0 and (i == params['num_iterations']-1 or np.mean(accuracy) > params['stop_perf_th'] or (i+1)%500==0):
+            if i>0 and (i == params['num_iterations']-1 or np.mean(accuracy) > params['stop_perf_th'] or (i+1)%25==0):
                 var_delay = False
                 save_trial = True
                 model_results = create_save_dict()
@@ -259,9 +288,14 @@ def main(params):
                 Select batches of size batch_train_size 
                 """
                 ind = range(j*params['batch_train_size'],(j+1)*params['batch_train_size'])
-                target_data = trial_info['desired_output'][:,:,ind]
-                input_data = trial_info['neural_input'][:,:,ind]
-                train_mask = trial_info['train_mask'][:,ind]
+
+                input_data = np.transpose(trial_info['neural_input'][:,:,ind],(1,2,0)).reshape((-1,batch_size,n_input))
+                target_data = np.transpose(trial_info['desired_output'][:,:,ind],(1,2,0)).reshape((-1,n_output)) 
+                train_mask = np.transpose(trial_info['train_mask'][:,ind],(0,1)).reshape((-1,1))
+
+                # target_data = trial_info['desired_output'][:,:,ind]
+                # input_data = trial_info['neural_input'][:,:,ind]
+                # train_mask = trial_info['train_mask'][:,ind]
 
                 """
                 Run the model
