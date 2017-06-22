@@ -24,7 +24,8 @@ import_parameters()
 
 print("--> Loading parameters...")
 
-profile_path            =   './profiles/exp_events.txt'
+stimulus_type           =   'dms'
+profile_path            =   './profiles/motion.txt'
 save_dir                =   './savedir/'
 debug_model             =   False
 
@@ -52,7 +53,7 @@ kappa                   =   1       # concentration scaling factor for von Mises
 match_rate              =   0.5     # tends a little higher than chosen rate
 
 connection_prob         =   1       # Usually 1
-dt                      =   50
+dt                      =   25
 catch_rate              =   0.2
 probe_trial_pct         =   0
 probe_time              =   25
@@ -73,10 +74,9 @@ stop_error_th           =   1
 
 batch_train_size        =   128
 num_batches             =   8
-num_iterations          =   100
-trials_between_outputs  =   5      # Ususally 500
+num_iterations          =   1500
+trials_between_outputs  =   100     # Ususally 500
 synapse_config          =   None
-stimulus_type           =   'dms'
 load_previous_model     =   False
 var_delay               =   True
 

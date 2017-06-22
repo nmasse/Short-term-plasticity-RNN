@@ -8,17 +8,17 @@ Time	Event	Data	Var
 0	start
 
 200	input	sample
-200	mask	off
+200	mask	on
 
 400	input	test	x
-400	mask	on
-600	mask	off
+400	mask	off
+600	mask	on
 
 800	input	sample
 900	input	none
 
 1000	input	test	x
-1000	mask	on
-1300	mask	off
+1000	mask	off
+1300	mask	on
 
 1800	finish

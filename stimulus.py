@@ -43,7 +43,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_schedule(self, events, trial_setup, N, mask_starts_on=True):
+    def generate_schedule(self, events, trial_setup, N, mask_starts_off=True):
         """
         Takes in a sequence of events and trial setup information
         and returns three schedules:
@@ -79,7 +79,7 @@ class Stimulus:
 
         input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], trial_setup['default_input'])
         output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], trial_setup['default_output'])
-        mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_on else [1]*N, flag="mask")
+        mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_off else [1]*N, flag="mask")
         # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
 
         if par.var_delay:
