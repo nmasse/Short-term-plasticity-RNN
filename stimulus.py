@@ -4,8 +4,8 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
 import trial_generators as gen
+import copy
 import imp
 
 def import_parameters():
@@ -21,9 +21,7 @@ import_parameters()
 class Stimulus:
 
     def __init__(self):
-
         pass
-
 
     def generate_trial(self, num):
 
@@ -31,8 +29,7 @@ class Stimulus:
         if par.stimulus_type == 'exp':
             trial_setup = gen.experimental(num)
         elif par.stimulus_type == 'dms':
-            neural_tuning = gen.motion_tuning(1, par.num_motion_tuned, par.num_fix_tuned, par.num_rule_tuned)
-            trial_setup = gen.dms(num, neural_tuning)
+            trial_setup = gen.direction_dms(num)
         else:
             print("Invalid stimulus type.")
             quit()
@@ -82,7 +79,8 @@ class Stimulus:
 
         input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], trial_setup['default_input'])
         output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], trial_setup['default_output'])
-        mask_schedule = self.scheduler(steps, mask_events, {'on':[0]*N,'off':[1]*N}, [0]*N if mask_starts_on else [1]*N, flag="mask")
+        mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_on else [1]*N, flag="mask")
+        # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
 
         if par.var_delay:
             input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
@@ -94,6 +92,7 @@ class Stimulus:
 
     def scheduler(self, steps, events, batch, default, flag=None):
         """
+        steps = integer, events = list
         Takes in a set of events and combines it with the batch_train_size
         to produce a neural input schedule of size [neurons, steps, batch_size]
         """

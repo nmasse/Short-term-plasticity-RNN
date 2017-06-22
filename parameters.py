@@ -24,25 +24,35 @@ import_parameters()
 
 print("--> Loading parameters...")
 
-num_motion_tuned        =   9
+profile_path            =   './profiles/exp_events.txt'
+save_dir                =   './savedir/'
+debug_model             =   False
+
+num_motion_tuned        =   36
 num_fix_tuned           =   0
 num_rule_tuned          =   0
 n_hidden                =   50
 exc_inh_prop            =   0.8
 den_per_unit            =   5
-n_output                =   1
-possible_rules          =   [0]
-clip_max_grad_val       =   0.25
+n_output                =   3
+
 learning_rate           =   5e-3
 membrane_time_constant  =   100
 
-num_motion_dirs         =   8
+possible_rules          =   [0]
+clip_max_grad_val       =   0.25
 input_mean              =   0
 input_sd                =   0.1
 noise_sd                =   0.5
+input_clip_max          =   1000    # keep this high unless limiting inputs
 
-connection_prob         =   0.25    # Usually 1
-dt                      =   25
+num_motion_dirs         =   8
+tuning_height           =   1       # height scaling factor
+kappa                   =   1       # concentration scaling factor for von Mises
+match_rate              =   0.5     # tends a little higher than chosen rate
+
+connection_prob         =   1       # Usually 1
+dt                      =   50
 catch_rate              =   0.2
 probe_trial_pct         =   0
 probe_time              =   25
@@ -63,15 +73,12 @@ stop_error_th           =   1
 
 batch_train_size        =   128
 num_batches             =   8
-num_iterations          =   50
+num_iterations          =   100
 trials_between_outputs  =   5      # Ususally 500
 synapse_config          =   None
-stimulus_type           =   'exp'
+stimulus_type           =   'dms'
 load_previous_model     =   False
 var_delay               =   True
-debug_model             =   False
-save_dir                =   './savedir/'
-profile_path            =   './profiles/exp_events.txt'
 
 save_fn = 'DMS_stp_delay_' + str(0) + '_' + str(0) + '.pkl'
 ckpt_save_fn = 'model_' + str(0) + '.ckpt'
@@ -162,6 +169,10 @@ trial_length = events[-1][0]
 # Length of each trial in time steps
 num_time_steps = trial_length//dt
 
+
+# Number of rules - used in input tuning
+num_rules = len(possible_rules)
+
 ####################################################################
 ### Setting up assorted intial weights, biases, and other values ###
 ####################################################################
@@ -211,5 +222,53 @@ if EI:
     ind_inh = np.where(EI_list == -1)[0]
     w_out0[:, ind_inh] = 0
     w_out_mask[:, ind_inh] = 0
+
+######################################
+### Setting up synaptic parameters ###
+######################################
+
+# 0 = static
+# 1 = facilitating
+# 2 = depressing
+
+synapse_type = np.zeros(n_hidden, dtype=np.int8)
+
+# only facilitating synapses
+if synapse_config == 'stf':
+    synapse_type = np.ones(n_hidden, dtype=np.int8)
+
+# only depressing synapses
+elif synapse_config == 'std':
+    synapse_type = 2*np.ones(n_hidden, dtype=np.int8)
+
+# even numbers facilitating, odd numbers depressing
+elif synapse_config == 'std_stf':
+    synapse_type = np.ones(n_hidden, dtype=np.int8)
+    ind = range(1,n_hidden,2)
+    synapose_type[ind] = 2
+
+alpha_stf = np.ones((n_hidden, 1), dtype=np.float32)
+alpha_std = np.ones((n_hidden, 1), dtype=np.float32)
+U = np.ones((n_hidden, 1), dtype=np.float32)
+
+# initial synaptic values
+syn_x_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
+syn_y_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
+
+for i in range(n_hidden):
+    if synapse_type[i] == 1:
+        alpha_stf[i][0] = dt/tau_slow
+        alpha_std[i][0] = dt/tau_fast
+        U[i,0] = 0.15
+        syn_x_init[i][:] = 1
+        syn_u_init[i][:] = U[i][0]
+
+    elif synapse_type[i] == 2:
+        alpha_stf[i][0] = dt/tau_fast
+        alpha_std[i][0] = dt/tau_slow
+        U[i,0] = 0.45
+        syn_x_init[i][:] = 1
+        syn_u_init[i][:] = U[i][0]
+
 
 print("--> Parameters successfully loaded.\n")
