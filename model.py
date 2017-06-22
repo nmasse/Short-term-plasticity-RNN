@@ -32,7 +32,7 @@ import_parameters()
 if par.EI:
     print('Using EI network.')
 else:
-    print('Not using EI network')
+    print('Not using EI network.')
 
 #################################
 ### Model setup and execution ###
@@ -47,8 +47,13 @@ class Model:
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
 
-        # Load the intial hidden state activity to be used at the start of each trial
+        # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par.h_init)
+
+        # Load the initial synaptic depression and facilitation to be used at
+        # the start of each trial
+        self.synapse_x_init = tf.constant(par.syn_x_init)
+        self.synapse_u_init = tf.constant(par.syn_u_init)
 
         # Build the TensorFlow graph
         self.run_model()
@@ -63,7 +68,7 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """
-        self.rnn_cell_loop(self.input_data, self.hidden_init)
+        self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = np.float32(par.w_out0), trainable=True)
@@ -76,7 +81,7 @@ class Model:
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
 
-    def rnn_cell_loop(self, x_unstacked, h):
+    def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
 
         """
         Initialize weights and biases
@@ -88,17 +93,21 @@ class Model:
             W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par.EI_matrix), trainable=False)
 
         self.hidden_state_hist = []
+        self.syn_x_hist = []
+        self.syn_u_hist = []
 
         """
         Loop through the neural inputs to the RNN, indexed in time
         """
 
         for rnn_input in x_unstacked:
-            h = self.rnn_cell(rnn_input, h)
+            h = self.rnn_cell(rnn_input, h, syn_x, syn_u)
             self.hidden_state_hist.append(h)
+            self.syn_x_hist.append(syn_x)
+            self.syn_u_hist.append(syn_u)
 
 
-    def rnn_cell(self, rnn_input, h_soma):
+    def rnn_cell(self, rnn_input, h_soma, syn_x, syn_u):
         """
         Main computation of the recurrent network
         """
@@ -117,6 +126,37 @@ class Model:
         else:
             W_rnn_effective = W_rnn
 
+        # syn_x and syn_u will be capped at 1
+        C = tf.constant(np.float32(1))
+
+        """
+        Update the synaptic plasticity parameters
+        """
+        if par.synapse_config == 'std_stf':
+            # implement both synaptic short term facilitation and depression
+            syn_x += par.alpha_std*(1-syn_x) - par.dt_sec*syn_x*h_soma
+            syn_u += par.alpha_std*(par.U-syn_u) + par.dt_sec*par.U*(1-syn_u)*h_soma
+            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
+            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            h_soma = syn_u*syn_x*h_soma
+        elif par.synapse_config == 'std':
+            # implement synaptic short term depression, but no facilitation
+            # assume that syn_u remains constant at 1
+            syn_x += par.alpha_std*(1-syn_x) - par.dt_sec*syn_x*h_soma
+            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
+            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            h_soma = syn_x*h_soma
+        elif par.synapse_config == 'stf':
+            # implement synaptic short term facilitation, but no depression
+            # assume that syn_x remains constant at 1
+            syn_u += par.alpha_stf*(par.U-syn_u) + par.dt_sec*par.U*(1-syn_u)*h_soma
+            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            h_soma = syn_u*h_soma
+        else:
+            # no synaptic plasticity
+            pass
+
+
         """
         Update the hidden state by way of the dendrites
         Only use excitatory projections from input layer to RNN
@@ -130,17 +170,7 @@ class Model:
 
         # Processes each element of h_in to simulate dendrite action
         def dendrite_process(dend_in):
-
             dend_out = tf.nn.sigmoid(dend_in)
-
-            """
-            t = 0.5 # Threshold
-
-            # Tests if each element is equal to or greater than one
-            # Returns 1 if so, returns 0 if less than one
-            dend_out = tf.where(tf.less(dend_in, t*tf.ones(dend_in.shape)), \
-                                tf.zeros(dend_in.shape), tf.ones(dend_in.shape))
-            """
             return dend_out
 
         h_den_out = dendrite_process(h_den_in)
@@ -148,17 +178,15 @@ class Model:
         # Accumulates the results of the dendrites per neuron and produces
         # the input to the following hidden neuron
         def dendrite_accum(dend_in):
-
             # Sums along the dendritic dimension and normalizes by the Number
             # of dendrites per neuron
             dend_out = tf.reduce_sum(dend_in,1)/par.den_per_unit
-
             return dend_out
 
         h_soma_in = dendrite_accum(h_den_out)
 
         # Applies, in order: alpha decay, dendritic input, bias terms,
-        # and a little bit of randomness.
+        # and Gaussian randomness.
         h_soma_out = tf.nn.relu(h_soma*(1-par.alpha_neuron) \
                             + h_soma_in \
                             + b_rnn \

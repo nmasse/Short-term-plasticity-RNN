@@ -33,7 +33,7 @@ num_motion_tuned        =   36
 num_fix_tuned           =   0
 num_rule_tuned          =   0
 n_hidden                =   50
-exc_inh_prop            =   0.8
+exc_inh_prop            =   1.0       # Literature 0.8, for EI off 1
 den_per_unit            =   5
 n_output                =   3
 
@@ -197,7 +197,10 @@ if EI:
             eye[i][j][i] = 1
     w_rec_mask = np.ones((rnn_to_rnn_dims), dtype=np.float32) - eye
 else:
-    w_rnn0 = 0.975*np.identity((n_hidden), dtype=np.float32)
+    w_rnn0 = np.zeros([*rnn_to_rnn_dims], dtype=np.float32)
+    for j in range(den_per_unit):
+        for i in range(n_hidden):
+            w_rnn0[i][j][i] = 0.975
     w_rec_mask = np.ones((rnn_to_rnn_dims), dtype=np.float32)
 
 # Initialize starting recurrent biases
@@ -253,7 +256,7 @@ U = np.ones((n_hidden, 1), dtype=np.float32)
 
 # initial synaptic values
 syn_x_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
-syn_y_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
+syn_u_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
 
 for i in range(n_hidden):
     if synapse_type[i] == 1:
