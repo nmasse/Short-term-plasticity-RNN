@@ -6,7 +6,7 @@ from __future__ import division
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import RNNCell
+from tensorflow.contrib.rnn import RNNCell, BasicRNNCell
 from tensorflow.python.ops import variable_scope as vs
 #from tensorflow.python.platform import tf_logging as logging
 #from tensorflow.python.ops import math_ops
@@ -15,39 +15,18 @@ from tensorflow.python.ops import variable_scope as vs
 
 class RNNCellSTP(RNNCell):
 
-	def __init__(self, params, hidden_state_size):
+	def __init__(self, params, hidden_state_size, activation=None, reuse=None):
 
 		"""
 		Load all variables from the params dictionary
 		"""
+		super(RNNCellSTP, self).__init__()
+		self._num_units = hidden_state_size
+		self._activation = activation
+		self.hidden_state_size = hidden_state_size
+
 		for key,value in params.items():
 			setattr(self, key, value) 
-
-		# """
-		# Load network paramaters
-		# """
-		# # network shape
-		# self.n_hidden = params.n_hidden
-		# self.batch_train_size = params.batch_train_size
-		# self.hidden_state_size = hidden_state_size
-		
-		# # initial weights, biases
-		# self.w_rnn0 = params.w_rnn0
-		# self.w_in0 = params.w_in0
-		# self.b_rnn0 = params.b_rnn0
-		# self.EI_matrix = params.EI_matrix
-		# self.EI = params.EI
-		# self.noise_sd = params.noise_sd
-		
-		# # time constants
-		# self.dt = params.dt
-		# self.alpha_neuron = params.alpha_neuron
-		
-		# # synaptic plastcity params
-		# self.alpha_stf = params.alpha_stf
-		# self.alpha_std = params.alpha_std
-		# self.U = params.U
-		# self.synapse_config = params.synapse_config
 		
 	@property
 	def state_size(self):
@@ -57,11 +36,7 @@ class RNNCellSTP(RNNCell):
 	def output_size(self):
 		return self.hidden_state_size
 
-	@property
-	def zero_state(self, batch_size=128, dtype=tf.float32):
-		super()
-
-	def __call__(self, inputs, state, scope=None):
+	def call(self, inputs, state, scope=None):
 		"""Leaky RNN: output = new_state = (1-alpha)*state + alpha*activation(W * input + U * state + B)."""   
 		
 		"""
@@ -75,7 +50,6 @@ class RNNCellSTP(RNNCell):
 		and the hiddent activity
 		"""
 
-		print(state) # this is the slow portion
 		if self.synapse_config == 'stf':
 			hidden_state = state.hidden
 			syn_u = state.syn_u
@@ -119,8 +93,8 @@ class RNNCellSTP(RNNCell):
 		"""
 		Initialize weights and biases
 		"""
-		#with tf.variable_scope(scope or 'rnn_cell'):
-		with vs.variable_scope(scope or 'rnn_cell'):
+		# with tf.variable_scope(scope or 'rnn_cell'):
+		with vs.variable_scope('rnn_cell'):
 			W_in = vs.get_variable('W_in', initializer = self.w_in0, trainable=True)
 			W_rnn = vs.get_variable('W_rnn', initializer = self.w_rnn0, trainable=True)
 			b_rnn = vs.get_variable('b_rnn', initializer = self.b_rnn0, trainable=True)

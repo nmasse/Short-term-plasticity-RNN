@@ -110,6 +110,7 @@ class Paramaters:
         self.params['rule_onset_time'] = (self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+self.params['delay_time']//2)//self.params['dt']
         self.params['rule_offset_time'] = (self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+3*self.params['delay_time']//4)//self.params['dt']
         
+
         self.params['trial_length'] = self.params['dead_time']+self.params['fix_time']+self.params['sample_time']+self.params['delay_time']+self.params['test_time'] 
         
         #self.params['trial_length'] = 135*20
@@ -238,6 +239,16 @@ class Paramaters:
         self.params['alpha_std'] = self.params['alpha_std'].transpose()  
         self.params['U'] = self.params['U'].transpose() 
         """
+        self.params['alpha_stf'] = self.params['alpha_stf'].transpose()        
+        self.params['alpha_std'] = self.params['alpha_std'].transpose()  
+        self.params['U'] = self.params['U'].transpose() 
+        self.params['w_in0'] = self.params['w_in0'].transpose() 
+        self.params['b_rnn0'] = self.params['b_rnn0'].transpose() 
+        self.params['w_out0'] = self.params['w_out0'].transpose() 
+        self.params['b_out0'] = self.params['b_out0'].transpose() 
+        self.params['h_init'] = self.params['h_init'].transpose() 
+        self.params['syn_x_init'] = self.params['syn_x_init'].transpose() 
+        self.params['syn_u_init'] = self.params['syn_u_init'].transpose() 
                 
     def define_neuron_location(self):
         

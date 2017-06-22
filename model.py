@@ -26,7 +26,7 @@ class Model:
         Load all variables from the params dictionary
         """
         for key,value in params.items():
-            setattr(self, key, value) 
+            setattr(self, key, value)
         
         """
         Load the input activity, the target data, and the training mask for this batch of trials
@@ -75,12 +75,12 @@ class Model:
             state = State_tuple(self.hidden_init, self.synapse_x_init, self.synapse_u_init)
             hidden_state_size = sys.getsizeof(state)
 
-        # print("hidden_state_size: ")
-        # print(hidden_state_size)
+        # temporarily fixing shape invariant problem
+        hidden_state_size = self.n_hidden
 
-        # cell = RNNCellSTP(self.params, hidden_state_size)
-        cell = BasicRNNCell(hidden_state_size)
-        self.hidden_state = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
+        cell = RNNCellSTP(self.params, hidden_state_size)
+        # cell = BasicRNNCell(hidden_state_size)
+        self.hidden_state, _ = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = np.float32(self.w_out0), trainable=True)
@@ -90,7 +90,9 @@ class Model:
         Network output 
         Only use excitatory projections from the RNN to the output layer
         """   
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
+        
+        self.y_hat = tf.matmul(tf.reshape(self.hidden_state, (-1, self.n_hidden)), W_out)+b_out
+        # self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
     
     def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
@@ -187,13 +189,11 @@ class Model:
         
         """
         Calculate the loss functions and optimize the weights
-        """     
-        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
-                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        """
+        perf_loss = self.mask*tf.reduce_mean(tf.square(self.y_hat-self.target_data),axis=0)
         
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [self.spike_cost*tf.reduce_mean(tf.square(h), axis=0) for (h, mask) 
-                            in zip(self.hidden_state_hist, self.mask)]
+        spike_loss = self.spike_cost*tf.reduce_mean(tf.square(self.hidden_state), axis=0)
       
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
@@ -236,9 +236,13 @@ def main(params):
     """
     Define all placeholder
     """
-    mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
-    x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
+    mask = tf.placeholder(tf.float32, shape=[None, 1])
+    x = tf.placeholder(tf.float32, shape=[None, None, n_input]) # input data, time * batch * n_input
+    y = tf.placeholder(tf.float32, shape=[None, n_output]) # target data
+    
+    # mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
+    # x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
+    # y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
    
     with tf.Session() as sess:
         
@@ -293,6 +297,7 @@ def main(params):
                 target_data = np.transpose(trial_info['desired_output'][:,:,ind],(1,2,0)).reshape((-1,n_output)) 
                 train_mask = np.transpose(trial_info['train_mask'][:,ind],(0,1)).reshape((-1,1))
 
+
                 # target_data = trial_info['desired_output'][:,:,ind]
                 # input_data = trial_info['neural_input'][:,:,ind]
                 # train_mask = trial_info['train_mask'][:,ind]
@@ -300,12 +305,15 @@ def main(params):
                 """
                 Run the model
                 """
-                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
+                ############## NEED FIX ##################
+                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state], {x: input_data, y: target_data, mask: train_mask})
+                # _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
           
                 # append the data before saving
                 if save_trial:
                     start_save_time = time.time()
-                    model_results = append_hidden_data(model_results, y_hat, state_hist, syn_x_hist, syn_u_hist)
+                    model_results = append_hidden_data(model_results, y_hat, state_hist)
+                    # model_results = append_hidden_data(model_results, y_hat, state_hist, syn_x_hist, syn_u_hist)
                 
                 # keep track of performance for each batch
                 accuracy.append(get_perf(target_data, y_hat, train_mask))
@@ -342,20 +350,30 @@ def get_perf(y, y_hat, mask):
     only examine time points when test stimulus is on
     in another words, when y[0,:,:] is not 0
     """
-    
-    y_hat = np.stack(y_hat,axis=1)
-    mask *= y[0,:,:]==0
+    # y_hat = np.stack(y_hat,axis=1)
+    # mask *= y[0,:,:]==0
+    mask *= np.reshape(y[:,0],(-1, 1))==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
 
-    return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
+    # return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
+    return np.sum(np.float32(y == y_hat)*mask)/np.sum(mask)
 
 
-def append_hidden_data(model_results, y_hat, state, syn_x, syn_u):  
+# def append_hidden_data(model_results, y_hat, state, syn_x, syn_u):  
+    
+#     model_results['hidden_state'].append(state)
+#     model_results['syn_x'].append(syn_x)
+#     model_results['syn_u'].append(syn_u)
+#     model_results['model_outputs'].append(y_hat)
+    
+#     return model_results
+
+def append_hidden_data(model_results, y_hat, state):  
     
     model_results['hidden_state'].append(state)
-    model_results['syn_x'].append(syn_x)
-    model_results['syn_u'].append(syn_u)
+    # model_results['syn_x'].append(syn_x)
+    # model_results['syn_u'].append(syn_u)
     model_results['model_outputs'].append(y_hat)
     
     return model_results
