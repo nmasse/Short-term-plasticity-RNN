@@ -16,7 +16,7 @@ import_parameters()
 
 
 #######################################
-### Tuning and Adjustment functions ###
+### Tuning and adjustment functions ###
 #######################################
 
 def motion_tuning():
@@ -41,7 +41,7 @@ def motion_tuning():
             # Finds the difference between each motion diretion and preferred direction
             d = np.cos(motion_dirs[i] - pref_dirs[n])
             # Transforms the direction variances with a von Mises
-            motion_tuning[n][i] = par.tuning_height*(np.exp(par.kappa*d) \
+            motion_tuning[n,i] = par.tuning_height*(np.exp(par.kappa*d) \
                                                      - np.exp(-par.kappa))/np.exp(par.kappa)
 
     for n in range(par.num_fix_tuned):
@@ -60,7 +60,7 @@ def motion_tuning():
 def add_noise(m):
     """
     Add Gaussian noise to a matrix, and return only non-negative
-    numbers within the matrix.
+    numbers within the matrix.  Used to provide noise to each time step.
     """
 
     gauss = np.random.normal(0, par.input_sd, np.shape(m))
@@ -97,8 +97,8 @@ def experimental(N):
     default_desired_output = np.transpose([[0.] * N])
 
     for i in range(N):
-        stimulus.append(stimuli[setup[0][i]])
-        test.append(tests[setup[1][i]])
+        stimulus.append(stimuli[setup[0,i]])
+        test.append(tests[setup[1,i]])
 
     inputs = {'sample' : stimulus,
               'test' : test,
@@ -134,7 +134,7 @@ def direction_dms(N):
 
     ### Default case
     default_input = np.zeros((N, par.n_input), dtype=np.float32)
-    default_output = [[0. ,0. ,0.]] * N
+    default_output = np.array([[0. ,0. ,0.]] * N) # Standardize to zeros
 
     ### Fixation case
     fix_out = [[1., 0., 0.]] * N
@@ -149,6 +149,7 @@ def direction_dms(N):
     sample = []
     for i in range(len(sample_setup)):
         sample.append(stim_tuning[sample_setup[i]])
+    sample = np.array(sample)
 
     ### Test case
 
@@ -185,10 +186,10 @@ def direction_dms(N):
 
     ### End of cases
 
-    # Adding noise to inputs
-    default_input   = add_noise(default_input)
-    sample          = add_noise(sample)
-    test            = add_noise(test)
+    # Add noise to each input
+    #default_input   = add_noise(default_input)
+    #sample          = add_noise(sample)
+    #test            = add_noise(test)
 
     # Putting together trial_setup
     inputs = {'none'        : default_input,

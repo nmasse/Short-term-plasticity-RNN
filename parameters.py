@@ -24,65 +24,85 @@ import_parameters()
 
 print("--> Loading parameters...")
 
+
+##############################
+### Independent parameters ###
+##############################
+
+# Setup parameters
 stimulus_type           =   'dms'
 profile_path            =   './profiles/motion.txt'
 save_dir                =   './savedir/'
 debug_model             =   False
+load_previous_model     =   False
 
+# Network configuration
+synapse_config          =   None    # Full is 'std_stf'
+exc_inh_prop            =   1.0     # Literature 0.8, for EI off 1
+var_delay               =   False
+
+# Network shape
 num_motion_tuned        =   36
 num_fix_tuned           =   0
 num_rule_tuned          =   0
 n_hidden                =   50
-exc_inh_prop            =   1.0       # Literature 0.8, for EI off 1
-den_per_unit            =   5
+den_per_unit            =   1
 n_output                =   3
 
+# Timings and rates
+dt                      =   25
 learning_rate           =   5e-3
 membrane_time_constant  =   100
+connection_prob         =   1       # Usually 1
 
-possible_rules          =   [0]
+# Variance values
 clip_max_grad_val       =   0.25
 input_mean              =   0
-input_sd                =   0.1
-noise_sd                =   0.5
-input_clip_max          =   1000    # keep this high unless limiting inputs
+input_sd                =   0.1   # from 0.1
+noise_sd                =   0.5   # from 0.5
+input_clip_max          =   10000   # keep this high unless limiting inputs
 
+# Tuning function data
 num_motion_dirs         =   8
 tuning_height           =   1       # height scaling factor
 kappa                   =   1       # concentration scaling factor for von Mises
-match_rate              =   0.5     # tends a little higher than chosen rate
-
-connection_prob         =   1       # Usually 1
-dt                      =   25
 catch_rate              =   0.2
+match_rate              =   0.5     # tends a little higher than chosen rate
+possible_rules          =   [0]
+
+# Probe specs
 probe_trial_pct         =   0
 probe_time              =   25
 
+# Cost parameters
 spike_cost              =   5e-5
 wiring_cost             =   5e-7
-match_test_prob         =   0.3
-repeat_pct              =   0.5
 
-max_num_tests           =   4
+# Synaptic plasticity specs
 tau_fast                =   200
 tau_slow                =   1500
 U_stf                   =   0.15
 U_std                   =   0.45
 
+# Performance thresholds
 stop_perf_th            =   1
 stop_error_th           =   1
 
+# Training specs
 batch_train_size        =   128
 num_batches             =   8
 num_iterations          =   1500
-trials_between_outputs  =   100     # Ususally 500
-synapse_config          =   None
-load_previous_model     =   False
-var_delay               =   True
+trials_between_outputs  =   5     # Ususally 500
 
+# Pickle save paths
 save_fn = 'DMS_stp_delay_' + str(0) + '_' + str(0) + '.pkl'
 ckpt_save_fn = 'model_' + str(0) + '.ckpt'
 ckpt_load_fn = 'model_' + str(0) + '.ckpt'
+
+
+############################
+### Dependent parameters ###
+############################
 
 # Number of input neurons
 n_input = num_motion_tuned + num_fix_tuned + num_rule_tuned
@@ -194,13 +214,13 @@ if EI:
     eye = np.zeros([*rnn_to_rnn_dims], dtype=np.float32)
     for j in range(den_per_unit):
         for i in range(n_hidden):
-            eye[i][j][i] = 1
+            eye[i,j,i] = 1
     w_rec_mask = np.ones((rnn_to_rnn_dims), dtype=np.float32) - eye
 else:
     w_rnn0 = np.zeros([*rnn_to_rnn_dims], dtype=np.float32)
     for j in range(den_per_unit):
         for i in range(n_hidden):
-            w_rnn0[i][j][i] = 0.975
+            w_rnn0[i,j,i] = 0.975
     w_rec_mask = np.ones((rnn_to_rnn_dims), dtype=np.float32)
 
 # Initialize starting recurrent biases
@@ -248,7 +268,7 @@ elif synapse_config == 'std':
 elif synapse_config == 'std_stf':
     synapse_type = np.ones(n_hidden, dtype=np.int8)
     ind = range(1,n_hidden,2)
-    synapose_type[ind] = 2
+    synapse_type[ind] = 2
 
 alpha_stf = np.ones((n_hidden, 1), dtype=np.float32)
 alpha_std = np.ones((n_hidden, 1), dtype=np.float32)
@@ -260,18 +280,18 @@ syn_u_init = np.zeros((n_hidden, batch_train_size), dtype=np.float32)
 
 for i in range(n_hidden):
     if synapse_type[i] == 1:
-        alpha_stf[i][0] = dt/tau_slow
-        alpha_std[i][0] = dt/tau_fast
+        alpha_stf[i,0] = dt/tau_slow
+        alpha_std[i,0] = dt/tau_fast
         U[i,0] = 0.15
-        syn_x_init[i][:] = 1
-        syn_u_init[i][:] = U[i][0]
+        syn_x_init[i,:] = 1
+        syn_u_init[i,:] = U[i,0]
 
     elif synapse_type[i] == 2:
-        alpha_stf[i][0] = dt/tau_fast
-        alpha_std[i][0] = dt/tau_slow
+        alpha_stf[i,0] = dt/tau_fast
+        alpha_std[i,0] = dt/tau_slow
         U[i,0] = 0.45
-        syn_x_init[i][:] = 1
-        syn_u_init[i][:] = U[i][0]
+        syn_x_init[i,:] = 1
+        syn_u_init[i,:] = U[i,0]
 
 
 print("--> Parameters successfully loaded.\n")

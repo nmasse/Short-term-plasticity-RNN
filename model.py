@@ -13,6 +13,7 @@ import time
 import imp
 import os
 
+
 # Reset TensorFlow before running anythin
 tf.reset_default_graph()
 
@@ -29,10 +30,8 @@ def import_parameters():
 
 import_parameters()
 
-if par.EI:
-    print('Using EI network.')
-else:
-    print('Not using EI network.')
+print('Using EI Network:\t', par.EI)
+print('Synaptic configuration:\t', par.synapse_config)
 
 #################################
 ### Model setup and execution ###
@@ -101,7 +100,7 @@ class Model:
         """
 
         for rnn_input in x_unstacked:
-            h = self.rnn_cell(rnn_input, h, syn_x, syn_u)
+            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
             self.hidden_state_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
@@ -170,7 +169,8 @@ class Model:
 
         # Processes each element of h_in to simulate dendrite action
         def dendrite_process(dend_in):
-            dend_out = tf.nn.sigmoid(dend_in)
+            #dend_out = tf.nn.sigmoid(dend_in)
+            dend_out = dend_in
             return dend_out
 
         h_den_out = dendrite_process(h_den_in)
@@ -214,7 +214,7 @@ class Model:
             print('-' * 40)
             quit()
 
-        return h_soma_out
+        return h_soma_out, syn_x, syn_u
 
 
     def optimize(self):
@@ -292,7 +292,7 @@ def main():
 
         # Write intermittent results to text file
         with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
-            f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tAccuracy\n')
+            f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
         for i in range(par.num_iterations):
 
@@ -352,14 +352,15 @@ def main():
             """
 
             if save_trial:
-                """
-                model_results = append_fixed_data(model_results, trial_info, params)
+
+                model_results = append_fixed_data(model_results, trial_info, par)
                 model_results['performance'] = model_performance
-                with open(params['save_dir'] + params['save_fn'], 'wb') as f:
+                with open(par.save_dir + par.save_fn, 'wb') as f:
+                    """
                     pickle.dump(model_results, f)
-                    save_path = saver.save(sess,params['save_dir'] + params['ckpt_save_fn'])
-                    print(params['save_fn'] + ' pickled!, file save time = ', time.time() - start_save_time)
-                """
+                    save_path = saver.save(sess,par.save_dir + par.ckpt_save_fn)
+                    print(par.save_fn + ' pickled!, file save time = ', time.time() - start_save_time)
+                    """
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
                     f.write('{:7d}'.format((i+1)*N) \
@@ -372,7 +373,7 @@ def main():
 
                 # output model performance to screen
                 print('Trial {:7d}'.format((i+1)*N) + ' | Time {:0.2f} s'.format(iteration_time) +
-                  ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
+                  ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Test Accuracy {:0.4f}'.format(np.mean(accuracy)))
 
 
             if end_training:
@@ -417,19 +418,19 @@ def append_model_performance(model_performance, accuracy, loss, trial_num, itera
 
 def append_fixed_data(model_results, trial_info, params):
 
-    model_results['sample_dir'] = trial_info['sample']
-    model_results['test_dir'] = trial_info['test']
-    model_results['match'] = trial_info['match']
-    model_results['catch'] = trial_info['catch']
-    model_results['rule'] = trial_info['rule']
-    model_results['probe'] = trial_info['probe']
+    #model_results['sample_dir'] = trial_info['sample']
+    #model_results['test_dir'] = trial_info['test']
+    #model_results['match'] = trial_info['match']
+    #model_results['catch'] = trial_info['catch']
+    #model_results['rule'] = trial_info['rule']
+    #model_results['probe'] = trial_info['probe']
     model_results['rnn_input'] = trial_info['neural_input']
     model_results['desired_output'] = trial_info['desired_output']
     model_results['train_mask'] = trial_info['train_mask']
-    model_results['params'] = params
+    model_results['params'] = par
 
     # add extra trial paramaters for the ABBA task
-    if 4 in params['possible_rules']:
+    if 4 in par.possible_rules:
         print('Adding ABB specific data')
         model_results['num_test_stim'] = trial_info['num_test_stim']
         model_results['repeat_test_stim'] = trial_info['repeat_test_stim']

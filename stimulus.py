@@ -85,7 +85,11 @@ class Stimulus:
         if par.var_delay:
             input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
         else:
+            # Still use catch trials!
             pass
+
+        # Add noise to each time step
+        input_schedule = self.add_noise(input_schedule)
 
         return input_schedule, output_schedule, mask_schedule
 
@@ -114,6 +118,8 @@ class Stimulus:
             # Transposes the schedule into the proper output orientation
             # Mask does not require this step -- it already is correctly shaped.
             schedule = np.transpose(schedule, (2,0,1))
+        else:
+            schedule = np.array(schedule)
 
         return schedule
 
@@ -145,7 +151,7 @@ class Stimulus:
         mask_length = []
         c = 0
         for i in range(len(mask_schedule)):
-            template.append(mask_schedule[i][0])
+            template.append(mask_schedule[i,0])
         for i in range(len(template)-1):
             if template[i] == 0 and template[i+1] == 0:
                 c = c + 1
@@ -166,25 +172,37 @@ class Stimulus:
             var = np.int32(np.round(np.random.exponential(-(steps_eff)/np.log(par.catch_rate), N)))
             for n in range(N):
                 for m in range(timings_on[s],timings_off[s]):
-                    mask_schedule[m][n] = mask_schedule[m-1][n]
+                    mask_schedule[m,n] = mask_schedule[m-1,n]
                 # If there is not a catch:
                 if var[n] <= steps_eff:
                     for d in range(var[n]):
                         for i in range(par.n_input):
-                            input_schedule[i][timings_on[s]+d][n] = input_schedule[i][timings_on[s]-1][n]
+                            input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
                         for o in range(par.n_output):
-                            output_schedule[o][timings_on[s]+d][n] = output_schedule[o][timings_on[s]-1][n]
+                            output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
                     for m in range(timings_on[s],timings_off[s]):
                         if m >= var[n]+timings_on[s]:
-                            mask_schedule[m][n] = 0
+                            mask_schedule[m,n] = 0
                         if m >= var[n]+mask_length[s]+timings_on[s]:
-                            mask_schedule[m][n] = 1
+                            mask_schedule[m,n] = 1
                 # If there IS a catch:
                 else:
                     for d in range(timings_off[s]-timings_on[s]):
                         for i in range(par.n_input):
-                            input_schedule[i][timings_on[s]+d][n] = input_schedule[i][timings_on[s]-1][n]
+                            input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
                         for o in range(par.n_output):
-                            output_schedule[o][timings_on[s]+d][n] = output_schedule[o][timings_on[s]-1][n]
+                            output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
 
         return input_schedule, output_schedule, mask_schedule
+
+
+    def add_noise(self, m):
+        """
+        Add Gaussian noise to a matrix, and return only non-negative
+        numbers within the matrix.
+        """
+
+        gauss = np.random.normal(0, par.input_sd, np.shape(m))
+        m = np.clip(m + gauss, 0, par.input_clip_max)
+
+        return m
