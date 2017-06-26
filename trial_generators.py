@@ -4,19 +4,11 @@
 
 import numpy as np
 import imp
-
-def import_parameters():
-    print('Trial generator module:')
-    f = open('parameters.py')
-    global par
-    par = imp.load_source('data', '', f)
-    f.close()
-
-import_parameters()
+from parameters import *
 
 
 #######################################
-### Tuning and Adjustment functions ###
+### Tuning and adjustment functions ###
 #######################################
 
 def motion_tuning():
@@ -28,30 +20,30 @@ def motion_tuning():
 
     # Essentially, creates matrices of the number of requisite neurons
     # by the number of possible states introduced to that neuron
-    motion_tuning   = np.zeros((par.num_motion_tuned, par.num_motion_dirs))
-    fix_tuning      = np.zeros((par.num_fix_tuned, 2))
-    rule_tuning     = np.zeros((par.num_rule_tuned, par.num_rules))
+    motion_tuning   = np.zeros((par['num_motion_tuned'], par['num_motion_dirs']))
+    fix_tuning      = np.zeros((par['num_fix_tuned'], 2))
+    rule_tuning     = np.zeros((par['num_rule_tuned'], par['num_rules']))
 
     # Generates lists of preferred and possible motion directions
-    pref_dirs   = np.float32(np.arange(0,2*np.pi,2*np.pi/par.num_motion_tuned))
-    motion_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par.num_motion_dirs))
+    pref_dirs   = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
+    motion_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
 
-    for n in range(par.num_motion_tuned):
+    for n in range(par['num_motion_tuned']):
         for i in range(len(motion_dirs)):
             # Finds the difference between each motion diretion and preferred direction
             d = np.cos(motion_dirs[i] - pref_dirs[n])
             # Transforms the direction variances with a von Mises
-            motion_tuning[n][i] = par.tuning_height*(np.exp(par.kappa*d) \
-                                                     - np.exp(-par.kappa))/np.exp(par.kappa)
+            motion_tuning[n,i] = par['tuning_height']*(np.exp(par['kappa']*d) \
+                                                     - np.exp(-par['kappa']))/np.exp(par['kappa'])
 
-    for n in range(par.num_fix_tuned):
+    for n in range(par['num_fix_tuned']):
         for i in range(2):
             if n%2 == i:
                 fix_tuning[n,i] = scale
 
-    for n in range(par.num_rule_tuned):
-        for i in range(par.num_rules):
-            if n%par.num_rules == i:
+    for n in range(par['num_rule_tuned']):
+        for i in range(par['num_rules']):
+            if n%par['num_rules'] == i:
                 rule_tuning[n,i] = scale
 
     return motion_tuning, fix_tuning, rule_tuning
@@ -60,11 +52,11 @@ def motion_tuning():
 def add_noise(m):
     """
     Add Gaussian noise to a matrix, and return only non-negative
-    numbers within the matrix.
+    numbers within the matrix.  Used to provide noise to each time step.
     """
 
-    gauss = np.random.normal(0, par.input_sd, np.shape(m))
-    m = np.clip(m + gauss, 0, par.input_clip_max)
+    gauss = np.random.normal(0, par['input_sd'], np.shape(m))
+    m = np.clip(m + gauss, 0, par['input_clip_max'])
 
     return m
 
@@ -97,8 +89,8 @@ def experimental(N):
     default_desired_output = np.transpose([[0.] * N])
 
     for i in range(N):
-        stimulus.append(stimuli[setup[0][i]])
-        test.append(tests[setup[1][i]])
+        stimulus.append(stimuli[setup[0,i]])
+        test.append(tests[setup[1,i]])
 
     inputs = {'sample' : stimulus,
               'test' : test,
@@ -133,8 +125,8 @@ def direction_dms(N):
     stim_tuning, fix_tuning, rule_tuning = motion_tuning()
 
     ### Default case
-    default_input = np.zeros((N, par.n_input), dtype=np.float32)
-    default_output = [[0. ,0. ,0.]] * N
+    default_input = np.zeros((N, par['n_input']), dtype=np.float32)
+    default_output = np.array([[0. ,0. ,0.]] * N) # Standardize to zeros
 
     ### Fixation case
     fix_out = [[1., 0., 0.]] * N
@@ -143,12 +135,13 @@ def direction_dms(N):
     stim_tuning = np.transpose(stim_tuning)
 
     # Choose random samples to start test
-    sample_setup = np.random.randint(0, par.num_motion_dirs, size=N)
+    sample_setup = np.random.randint(0, par['num_motion_dirs'], size=N)
 
     # Map to the desired sample inputs
     sample = []
     for i in range(len(sample_setup)):
         sample.append(stim_tuning[sample_setup[i]])
+    sample = np.array(sample)
 
     ### Test case
 
@@ -165,12 +158,12 @@ def direction_dms(N):
     for i in range(len(sample_setup)):
         applied = False
         while applied == False:
-            if np.random.rand() < par.match_rate:
+            if np.random.rand() < par['match_rate']:
                 test_setup.append(sample_setup[i])
                 output.append(match_out)
                 applied = True
             else:
-                y = np.random.randint(0, par.num_motion_dirs)
+                y = np.random.randint(0, par['num_motion_dirs'])
                 if y == sample_setup[i]:
                     pass
                 else:
@@ -185,10 +178,10 @@ def direction_dms(N):
 
     ### End of cases
 
-    # Adding noise to inputs
-    default_input   = add_noise(default_input)
-    sample          = add_noise(sample)
-    test            = add_noise(test)
+    # Add noise to each input
+    #default_input   = add_noise(default_input)
+    #sample          = add_noise(sample)
+    #test            = add_noise(test)
 
     # Putting together trial_setup
     inputs = {'none'        : default_input,
