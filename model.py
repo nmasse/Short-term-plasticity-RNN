@@ -12,6 +12,7 @@ import stimulus
 import time
 import imp
 import os
+from parameters import *
 
 
 # Reset TensorFlow before running anythin
@@ -20,18 +21,8 @@ tf.reset_default_graph()
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-# Import all parameters as par.[parameter_name]
-def import_parameters():
-    print('Model module:')
-    f = open('parameters.py')
-    global par
-    par = imp.load_source('data', '', f)
-    f.close()
-
-import_parameters()
-
-print('Using EI Network:\t', par.EI)
-print('Synaptic configuration:\t', par.synapse_config)
+print('Using EI Network:\t', par['EI'])
+print('Synaptic configuration:\t', par['synapse_config'])
 
 #################################
 ### Model setup and execution ###
@@ -47,12 +38,12 @@ class Model:
         self.mask = tf.unstack(mask, axis=0)
 
         # Load the initial hidden state activity to be used at the start of each trial
-        self.hidden_init = tf.constant(par.h_init)
+        self.hidden_init = tf.constant(par['h_init'])
 
         # Load the initial synaptic depression and facilitation to be used at
         # the start of each trial
-        self.synapse_x_init = tf.constant(par.syn_x_init)
-        self.synapse_u_init = tf.constant(par.syn_u_init)
+        self.synapse_x_init = tf.constant(par['syn_x_init'])
+        self.synapse_u_init = tf.constant(par['syn_u_init'])
 
         # Build the TensorFlow graph
         self.run_model()
@@ -70,8 +61,8 @@ class Model:
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
-            W_out = tf.get_variable('W_out', initializer = np.float32(par.w_out0), trainable=True)
-            b_out = tf.get_variable('b_out', initializer = np.float32(par.b_out0), trainable=True)
+            W_out = tf.get_variable('W_out', initializer = np.float32(par['w_out0']), trainable=True)
+            b_out = tf.get_variable('b_out', initializer = np.float32(par['b_out0']), trainable=True)
 
         """
         Network output
@@ -86,10 +77,10 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            W_in = tf.get_variable('W_in', initializer = np.float32(par.w_in0), trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par.w_rnn0), trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par.b_rnn0), trainable=True)
-            W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par.EI_matrix), trainable=False)
+            W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
+            W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
+            b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
+            W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
 
         self.hidden_state_hist = []
         self.syn_x_hist = []
@@ -117,7 +108,7 @@ class Model:
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.get_variable('EI_matrix')
 
-        if par.EI:
+        if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
             W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), W_ei, ([2],[0]))
@@ -131,24 +122,24 @@ class Model:
         """
         Update the synaptic plasticity parameters
         """
-        if par.synapse_config == 'std_stf':
+        if par['synapse_config'] == 'std_stf':
             # implement both synaptic short term facilitation and depression
-            syn_x += par.alpha_std*(1-syn_x) - par.dt_sec*syn_x*h_soma
-            syn_u += par.alpha_std*(par.U-syn_u) + par.dt_sec*par.U*(1-syn_u)*h_soma
+            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
+            syn_u += par['alpha_std']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_x = tf.minimum(C, tf.nn.relu(syn_x))
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
             h_soma = syn_u*syn_x*h_soma
-        elif par.synapse_config == 'std':
+        elif par['synapse_config'] == 'std':
             # implement synaptic short term depression, but no facilitation
             # assume that syn_u remains constant at 1
-            syn_x += par.alpha_std*(1-syn_x) - par.dt_sec*syn_x*h_soma
+            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
             syn_x = tf.minimum(C, tf.nn.relu(syn_x))
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
             h_soma = syn_x*h_soma
-        elif par.synapse_config == 'stf':
+        elif par['synapse_config'] == 'stf':
             # implement synaptic short term facilitation, but no depression
             # assume that syn_x remains constant at 1
-            syn_u += par.alpha_stf*(par.U-syn_u) + par.dt_sec*par.U*(1-syn_u)*h_soma
+            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
             h_soma = syn_u*h_soma
         else:
@@ -180,27 +171,27 @@ class Model:
         def dendrite_accum(dend_in):
             # Sums along the dendritic dimension and normalizes by the Number
             # of dendrites per neuron
-            dend_out = tf.reduce_sum(dend_in,1)/par.den_per_unit
+            dend_out = tf.reduce_sum(dend_in,1)/par['den_per_unit']
             return dend_out
 
         h_soma_in = dendrite_accum(h_den_out)
 
         # Applies, in order: alpha decay, dendritic input, bias terms,
         # and Gaussian randomness.
-        h_soma_out = tf.nn.relu(h_soma*(1-par.alpha_neuron) \
+        h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                             + h_soma_in \
                             + b_rnn \
-                            + tf.random_normal([par.n_hidden, par.batch_train_size], 0, par.noise_sd, dtype=tf.float32))
+                            + tf.random_normal([par['n_hidden'], par['batch_train_size]'], 0, par['noise_sd'], dtype=tf.float32))
 
-        if par.debug_model:
+        if par['debug_model']:
             print('\n')
             print('-' * 40)
-            print('N Input:\t', par.n_input)
-            print('N Hidden:\t', par.n_hidden)
-            print('N Dendrites:\t', par.den_per_unit)
-            print('N Output:\t', par.n_output)
-            print('Batch Size:\t', par.batch_train_size)
-            print('Alpha Neuron:\t', par.alpha_neuron)
+            print('N Input:\t', par['n_input'])
+            print('N Hidden:\t', par['n_hidden'])
+            print('N Dendrites:\t', par['den_per_unit'])
+            print('N Output:\t', par['n_output'])
+            print('Batch Size:\t', par['batch_train_size'])
+            print('Alpha Neuron:\t', par['alpha_neuron'])
             print('-' * 40)
             print('W In:\t\t\t', W_in.shape)
             print('W Rnn:\t\t\t', W_rnn_effective.shape)
@@ -226,7 +217,7 @@ class Model:
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par.spike_cost*tf.reduce_mean(tf.square(h), axis=0) for (h, mask)
+        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for (h, mask)
                             in zip(self.hidden_state_hist, self.mask)]
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
@@ -234,7 +225,7 @@ class Model:
 
         self.loss = self.perf_loss + self.spike_loss
 
-        opt = tf.train.AdamOptimizer(learning_rate = par.learning_rate)
+        opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
 
         """
@@ -242,13 +233,13 @@ class Model:
         """
         capped_gvs = []
         for grad, var in grads_and_vars:
-            if grad.shape == par.w_rec_mask.shape:
-                grad *= par.w_rec_mask
+            if grad.shape == par['w_rec_mask.shape']:
+                grad *= par['w_rec_mask']
                 print('Applied weight mask to w_rec.')
-            elif grad.shape == par.w_out_mask.shape:
-                grad *= par.w_out_mask
+            elif grad.shape == par['w_out_mask.shape']:
+                grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
-            capped_gvs.append((tf.clip_by_norm(grad, par.clip_max_grad_val), var))
+            capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -261,10 +252,10 @@ def main():
     """
     stim = stimulus.Stimulus()
 
-    n_input, n_hidden, n_output = par.shape
-    trial_length = par.num_time_steps
-    batch_size = par.batch_train_size
-    N = par.batch_train_size * par.num_batches # trials per iteration, calculate gradients after batch_train_size
+    n_input, n_hidden, n_output = par['shape']
+    trial_length = par['num_time_steps']
+    batch_size = par['batch_train_size']
+    N = par['batch_train_size'] * par['num_batches'] # trials per iteration, calculate gradients after batch_train_size
 
     """
     Define all placeholder
@@ -283,9 +274,9 @@ def main():
 
         saver = tf.train.Saver()
         # Restore variables from previous model if desired
-        if par.load_previous_model:
-            saver.restore(sess, par.save_dir + par.ckpt_load_fn)
-            print('Model ' + par.ckpt_load_fn + ' restored.')
+        if par['load_previous_model']:
+            saver.restore(sess, par['save_dir'] + par['ckpt_load_fn'])
+            print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'loss': [], 'trial': [], 'time': []}
@@ -294,7 +285,7 @@ def main():
         with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
-        for i in range(par.num_iterations):
+        for i in range(par['num_iterations']):
 
             end_training = False
             save_trial = False
@@ -303,11 +294,11 @@ def main():
             Save the data if this is the last iteration, if performance threshold has been reached, and once every 500 trials.
             Before saving data, generate trials with a fixed delay period
             """
-            if i>0 and (i == par.num_iterations-1 or np.mean(accuracy) > par.stop_perf_th or (i+1)%par.trials_between_outputs==0):
+            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%par['trials_between_outputs==0']):
                 var_delay = False
                 save_trial = True
                 model_results = create_save_dict()
-                if np.mean(accuracy) > par.stop_perf_th:
+                if np.mean(accuracy) > par['stop_perf_th']:
                     end_training = True
 
             # generate batch of N (batch_train_size X num_batches) trials
@@ -319,12 +310,12 @@ def main():
             spike_loss = []
             accuracy = []
 
-            for j in range(par.num_batches):
+            for j in range(par['num_batches']):
 
                 """
                 Select batches of size batch_train_size
                 """
-                ind = range(j*par.batch_train_size,(j+1)*par.batch_train_size)
+                ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
                 target_data = trial_info['desired_output'][:,:,ind]
                 input_data = trial_info['neural_input'][:,:,ind]
                 train_mask = trial_info['train_mask'][:,ind]
@@ -355,11 +346,11 @@ def main():
 
                 model_results = append_fixed_data(model_results, trial_info, par)
                 model_results['performance'] = model_performance
-                with open(par.save_dir + par.save_fn, 'wb') as f:
+                with open(par['save_dir'] + par['save_fn'], 'wb') as f:
                     """
                     pickle.dump(model_results, f)
-                    save_path = saver.save(sess,par.save_dir + par.ckpt_save_fn)
-                    print(par.save_fn + ' pickled!, file save time = ', time.time() - start_save_time)
+                    save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
+                    print(par['save_fn'] + ' pickled!, file save time = ', time.time() - start_save_time)
                     """
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
@@ -430,7 +421,7 @@ def append_fixed_data(model_results, trial_info, params):
     model_results['params'] = par
 
     # add extra trial paramaters for the ABBA task
-    if 4 in par.possible_rules:
+    if 4 in par['possible_rules']:
         print('Adding ABB specific data')
         model_results['num_test_stim'] = trial_info['num_test_stim']
         model_results['repeat_test_stim'] = trial_info['repeat_test_stim']

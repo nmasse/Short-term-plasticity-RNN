@@ -16,7 +16,7 @@ def import_parameters():
 
 import_parameters()
 stim = stimulus.Stimulus()
-N = par.batch_train_size * par.num_batches
+N = par['batch_train_size'] * par['num_batches']
 
 trial_info = stim.generate_trial(N)
 
@@ -28,7 +28,7 @@ def plot_neural_input(trial_info):
     #ax3 = f.add_subplot(4,1,3)
     ax4 = f.add_subplot(1,1,1)
     f.subplots_adjust(hspace=1)
-    t = np.arange(0,par.trial_length,par.dt)
+    t = np.arange(0,par['trial_length'],par['dt'])
     #print(np.shape(trial_info['neural_input']))
     #print(np.shape(trial_info['neural_input'][0,:,:]))     # One neuron
     #print(np.shape(trial_info['neural_input'][:,0,:]))     # One time step
@@ -48,18 +48,18 @@ def plot_neural_input(trial_info):
     ax2.set_yticks([0, 1, 2])
     ax2.set_yticklabels(["no response", "match", "nonmatch"])
 
-    ax1.set_xlabel('Time step (%s ms/step)' % par.dt)
+    ax1.set_xlabel('Time step (%s ms/step)' % par['dt'])
     ax1.set_ylabel('Neurons')
     ax1.set_title('Motion Input')
 
-    ax2.set_xlabel('Time step (%s ms/step)' % par.dt)
+    ax2.set_xlabel('Time step (%s ms/step)' % par['dt'])
     ax2.set_title('Motion Output')
     """
-    #ax3.set_xlabel('Time step (%s ms/step)' % par.dt)
+    #ax3.set_xlabel('Time step (%s ms/step)' % par['dt'])
     #ax3.set_ylabel('Neurons')
     #ax3.set_title('Motion Output (Non-match)')
 
-    ax4.set_xlabel('Time step (%s ms/step)' % par.dt)
+    ax4.set_xlabel('Time step (%s ms/step)' % par['dt'])
     ax4.set_ylabel('Trial number')
     ax4.set_title('Train Mask')
 

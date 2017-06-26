@@ -6,24 +6,9 @@ Overhauling the parameters setup
 import numpy as np
 import tensorflow as tf
 
-"""
-To have access to all parameters in other modules, put the following code
-snippet at the top of the file.
-
-import imp
-
-def import_parameters():
-    f = open('parameters.py')
-    global par
-    par = imp.load_source('data', '', f)
-    f.close()
-
-import_parameters()
-
-"""
-
 print("--> Loading parameters...")
 
+par = {}
 
 ##############################
 ### Independent parameters ###

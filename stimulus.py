@@ -7,15 +7,7 @@ import matplotlib.pyplot as plt
 import trial_generators as gen
 import copy
 import imp
-
-def import_parameters():
-    print('Stimulus module:')
-    f = open('parameters.py')
-    global par
-    par = imp.load_source('data', '', f)
-    f.close()
-
-import_parameters()
+from parameters import *
 
 
 class Stimulus:
@@ -25,16 +17,16 @@ class Stimulus:
 
     def generate_trial(self, num):
 
-        # Note that num will typically be par.batch_train_size * par.num_batches
-        if par.stimulus_type == 'exp':
+        # Note that num will typically be par['batch_train_size'] * par['num_batches']
+        if par['stimulus_type'] == 'exp':
             trial_setup = gen.experimental(num)
-        elif par.stimulus_type == 'dms':
+        elif par['stimulus_type'] == 'dms':
             trial_setup = gen.direction_dms(num)
         else:
             print("Invalid stimulus type.")
             quit()
 
-        schedules = self.generate_schedule(copy.deepcopy(par.events), trial_setup, num)
+        schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 
         trial_info = {'desired_output' : schedules[1],
                         'train_mask' : np.asarray(schedules[2]),
@@ -55,15 +47,15 @@ class Stimulus:
         num_events = len(events)
 
         # Checks for a reasonable time step, and then sets it up if reasonable
-        if par.dt >= par.trial_length:
+        if par['dt'] >= par['trial_length']:
             print("ERROR:  Time step is longer than entire trial time.")
             quit()
         else:
-            steps = par.trial_length//par.dt
+            steps = par['trial_length']//par['dt']
 
         # Converts times to time step values in the event list
         for i in range(num_events):
-            events[i][0] = events[i][0]//par.dt
+            events[i][0] = events[i][0]//par['dt']
 
         # Sets up individual event lists, then picks out relevant
         # information for each.
@@ -82,7 +74,7 @@ class Stimulus:
         mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_off else [1]*N, flag="mask")
         # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
 
-        if par.var_delay:
+        if par['var_delay']:
             input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
         else:
             # Still use catch trials!
@@ -169,16 +161,16 @@ class Stimulus:
         # Generate the timing variances and catches from the two timings arrays
         for s in range(len(timings_on)):
             steps_eff = (timings_off[s] - timings_on[s]) - (mask_length[s] + 1)
-            var = np.int32(np.round(np.random.exponential(-(steps_eff)/np.log(par.catch_rate), N)))
+            var = np.int32(np.round(np.random.exponential(-(steps_eff)/np.log(par['catch_rate']), N)))
             for n in range(N):
                 for m in range(timings_on[s],timings_off[s]):
                     mask_schedule[m,n] = mask_schedule[m-1,n]
                 # If there is not a catch:
                 if var[n] <= steps_eff:
                     for d in range(var[n]):
-                        for i in range(par.n_input):
+                        for i in range(par['n_input']):
                             input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
-                        for o in range(par.n_output):
+                        for o in range(par['n_output']):
                             output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
                     for m in range(timings_on[s],timings_off[s]):
                         if m >= var[n]+timings_on[s]:
@@ -188,9 +180,9 @@ class Stimulus:
                 # If there IS a catch:
                 else:
                     for d in range(timings_off[s]-timings_on[s]):
-                        for i in range(par.n_input):
+                        for i in range(par['n_input']):
                             input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
-                        for o in range(par.n_output):
+                        for o in range(par['n_output']):
                             output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
 
         return input_schedule, output_schedule, mask_schedule
@@ -202,7 +194,7 @@ class Stimulus:
         numbers within the matrix.
         """
 
-        gauss = np.random.normal(0, par.input_sd, np.shape(m))
-        m = np.clip(m + gauss, 0, par.input_clip_max)
+        gauss = np.random.normal(0, par['input_sd'], np.shape(m))
+        m = np.clip(m + gauss, 0, par['input_clip_max'])
 
         return m
