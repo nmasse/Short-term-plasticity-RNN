@@ -181,7 +181,7 @@ class Model:
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                             + h_soma_in \
                             + b_rnn \
-                            + tf.random_normal([par['n_hidden'], par['batch_train_size]'], 0, par['noise_sd'], dtype=tf.float32))
+                            + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
         if par['debug_model']:
             print('\n')
@@ -233,10 +233,10 @@ class Model:
         """
         capped_gvs = []
         for grad, var in grads_and_vars:
-            if grad.shape == par['w_rec_mask.shape']:
+            if grad.shape == par['w_rec_mask'].shape:
                 grad *= par['w_rec_mask']
                 print('Applied weight mask to w_rec.')
-            elif grad.shape == par['w_out_mask.shape']:
+            elif grad.shape == par['w_out_mask'].shape:
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
             capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
@@ -294,7 +294,7 @@ def main():
             Save the data if this is the last iteration, if performance threshold has been reached, and once every 500 trials.
             Before saving data, generate trials with a fixed delay period
             """
-            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%par['trials_between_outputs==0']):
+            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%par['trials_between_outputs']==0):
                 var_delay = False
                 save_trial = True
                 model_results = create_save_dict()
@@ -347,11 +347,10 @@ def main():
                 model_results = append_fixed_data(model_results, trial_info, par)
                 model_results['performance'] = model_performance
                 with open(par['save_dir'] + par['save_fn'], 'wb') as f:
-                    """
                     pickle.dump(model_results, f)
                     save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
                     print(par['save_fn'] + ' pickled!, file save time = ', time.time() - start_save_time)
-                    """
+
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
                     f.write('{:7d}'.format((i+1)*N) \

@@ -6,15 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import stimulus
 import imp
+from parameters import *
 
-def import_parameters():
-        print('Plotting module:')
-        f = open('parameters.py')
-        global par
-        par = imp.load_source('data', '', f)
-        f.close()
-
-import_parameters()
 stim = stimulus.Stimulus()
 N = par['batch_train_size'] * par['num_batches']
 
