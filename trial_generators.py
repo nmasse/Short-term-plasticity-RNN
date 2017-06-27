@@ -73,24 +73,24 @@ def experimental(N):
 
     The output arrays are [batch_train_size] long.
     """
-    default_input = [[0,0,0,0,0,0,0,0,0]] * N
-    fixation = [[0,0,0,0,1,0,0,0,0]] * N
-    stimuli =  [[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
-                [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]]
-    tests =     [[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
-                [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]]
-    none =      [[0,0,0,0,0,0,0,0,0]] * N
-
+    # default_input = np.zeros((N, 9), dtype=np.float32)
+    default_input = np.array([[0,0,0,0,0,0,0,0,0]] * N, dtype=np.float32)
+    fixation = np.array([[0,0,0,0,1,0,0,0,0]] * 5, dtype=np.float32)
+    stimuli = np.array([[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
+                        [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]], dtype=np.float32)
+    tests = np.arry([[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
+                    [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]], dtype=np.float32)
+    none = np.zeros((N, 9), dtype=np.float32)
     setup = np.random.randint(0,4,size=(2,N))
 
-    stimulus = []
-    test = []
+    stimulus = np.array([], dtype=np.float32)
+    test = np.arry([], dtype=np.float32)
     desired_output = np.transpose([np.float32(setup[0] == setup[1])])
     default_desired_output = np.transpose([[0.] * N])
 
     for i in range(N):
-        stimulus.append(stimuli[setup[0,i]])
-        test.append(tests[setup[1,i]])
+        np.append(stimulus, stimuli[setup[0,i]])
+        np.append(test, tests[setup[1,i]])
 
     inputs = {'sample' : stimulus,
               'test' : test,
@@ -126,10 +126,10 @@ def direction_dms(N):
 
     ### Default case
     default_input = np.zeros((N, par['n_input']), dtype=np.float32)
-    default_output = np.array([[0. ,0. ,0.]] * N) # Standardize to zeros
+    default_output = np.zeros((N, 3), dtype=np.float32)
 
     ### Fixation case
-    fix_out = [[1., 0., 0.]] * N
+    fix_out = np.array([[1., 0., 0.]] * N)
 
     ### Sample case
     stim_tuning = np.transpose(stim_tuning)
@@ -138,10 +138,9 @@ def direction_dms(N):
     sample_setup = np.random.randint(0, par['num_motion_dirs'], size=N)
 
     # Map to the desired sample inputs
-    sample = []
+    sample = np.array([])
     for i in range(len(sample_setup)):
-        sample.append(stim_tuning[sample_setup[i]])
-    sample = np.array(sample)
+        np.append(sample, stim_tuning[sample_setup[i]])
 
     ### Test case
 
@@ -150,31 +149,31 @@ def direction_dms(N):
     #   If yes, keep the same direction number as the sample.  If no, generate
     #   a random direction and compare that.  If it is the same, try everything
     #   again.  If it is different, use that direction.
-    output          = []
-    match_out       = [0., 1., 0.]
-    non_match_out   = [0., 0., 1.]
+    output          = np.array([])
+    match_out       = np.array([0., 1., 0.])
+    non_match_out   = np.array([0., 0., 1.])
 
-    test_setup = []
+    test_setup = np.array([])
     for i in range(len(sample_setup)):
         applied = False
         while applied == False:
             if np.random.rand() < par['match_rate']:
-                test_setup.append(sample_setup[i])
-                output.append(match_out)
+                np.append(test_setup, sample_setup[i])
+                np.append(output, match_out)
                 applied = True
             else:
                 y = np.random.randint(0, par['num_motion_dirs'])
                 if y == sample_setup[i]:
                     pass
                 else:
-                    test_setup.append(y)
-                    output.append(non_match_out)
+                    np.append(test_setup, y)
+                    np.append(output, non_match_out)
                     applied = True
 
     # Map to the desired test inputs
-    test = []
+    test = np.array([])
     for i in range(len(test_setup)):
-        test.append(stim_tuning[test_setup[i]])
+        np.append(test, stim_tuning[test_setup[i]])
 
     ### End of cases
 
