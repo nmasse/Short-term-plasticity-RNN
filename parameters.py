@@ -20,7 +20,7 @@ par = {
     'profile_path'      : './profiles/motion.txt',
     'save_dir'          : './savedir/',
     'debug_model'       : False,
-    'load_previous_model'   : False,
+    'load_previous_model' : False,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -44,8 +44,8 @@ par = {
     # Variance values
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
-    'input_sd'          : 0.1,       # from 0.1
-    'noise_sd'          : 0.5,       # from 0.5
+    'input_sd'          : 0.1,
+    'noise_sd'          : 0.5,
     'input_clip_max'    : 10000,     # keep this high unless limiting inputs
 
     # Tuning function data
@@ -78,10 +78,10 @@ par = {
     'batch_train_size'  : 128,
     'num_batches'       : 8,
     'num_iterations'    : 1500,
-    'trials_between_outputs'    : 5,        # Ususally 500
+    'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
-    'save_fn'           : 'DMS_stp_delay_' + str(0) + '_' + str(0) + '.pkl',
+    'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 }

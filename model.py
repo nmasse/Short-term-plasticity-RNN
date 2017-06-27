@@ -3,15 +3,15 @@
 Edited: 2017/06/13 Gregory Grant
 """
 
-print("\nRunning model...\n\n")
+print("\n\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
 import pickle
 import stimulus
 import time
-import imp
 import os
+from model_saver import *
 from parameters import *
 
 
@@ -232,11 +232,12 @@ class Model:
         Apply any applicable weights masks to the gradient and clip
         """
         capped_gvs = []
+
         for grad, var in grads_and_vars:
-            if grad.shape == par['w_rec_mask'].shape:
+            if var.name == "rnn_cell/W_rnn:0":
                 grad *= par['w_rec_mask']
                 print('Applied weight mask to w_rec.')
-            elif grad.shape == par['w_out_mask'].shape:
+            elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
             capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
@@ -294,7 +295,7 @@ def main():
             Save the data if this is the last iteration, if performance threshold has been reached, and once every 500 trials.
             Before saving data, generate trials with a fixed delay period
             """
-            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%par['trials_between_outputs']==0):
+            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%par['iterations_between_outputs']==0):
                 var_delay = False
                 save_trial = True
                 model_results = create_save_dict()
@@ -323,7 +324,8 @@ def main():
                 """
                 Run the model
                 """
-                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist], {x: input_data, y: target_data, mask: train_mask})
+                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist], \
+                                                                                    {x: input_data, y: target_data, mask: train_mask})
 
                 # append the data before saving
                 if save_trial:
@@ -346,10 +348,9 @@ def main():
 
                 model_results = append_fixed_data(model_results, trial_info, par)
                 model_results['performance'] = model_performance
-                with open(par['save_dir'] + par['save_fn'], 'wb') as f:
-                    pickle.dump(model_results, f)
-                    save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
-                    print(par['save_fn'] + ' pickled!, file save time = ', time.time() - start_save_time)
+
+                json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
+                print("Info saved to JSON file in \savedir in", np.round(time.time() - start_save_time, 2), "seconds.")
 
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
