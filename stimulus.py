@@ -13,6 +13,9 @@ from parameters import *
 class Stimulus:
 
     def __init__(self):
+        """
+        # Consider putting tuning functions here
+        """
         pass
 
     def generate_trial(self, num):
@@ -22,6 +25,8 @@ class Stimulus:
             trial_setup = gen.experimental(num)
         elif par['stimulus_type'] == 'dms':
             trial_setup = gen.direction_dms(num)
+        elif par['stimulus_type'] == 'att':
+            trial_setup = gen.attention(num)
         else:
             print("Invalid stimulus type.")
             quit()
@@ -75,9 +80,13 @@ class Stimulus:
         # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
 
         if par['var_delay']:
+            # Staggers the starting times of indicated events, and triggers catch trials for a proportion of those
             input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
+        elif par['catch_trials']:
+            # Applies catch trials to a proportion of the indicated events
+            input_schedule, output_schedule, mask_schedule = self.catch_trials(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
         else:
-            # Still use catch trials!
+            # Apply neither variable start times for tests nor catch trials
             pass
 
         # Add noise to each time step
@@ -103,7 +112,7 @@ class Stimulus:
             step_val = events[i][0]
             value = batch[events[i][2]]
 
-        # Edits the last portion of the mask
+        # Edits the last portion of the schedule
         schedule[step_val:steps] = [value]*(steps-step_val)
 
         if flag != "mask":
@@ -187,6 +196,44 @@ class Stimulus:
 
         return input_schedule, output_schedule, mask_schedule
 
+
+    def catch_trials(self, input_events, input_schedule, output_schedule, mask_schedule, N, steps):
+        """
+        Uses np.random.rand to match against a catch rate to block requisite parts
+        of the input, output, and mask schedules.  These catch trials have no
+        test, and the output behaves accordingly.
+        """
+
+        # Sets up a pair of timing arrays to be used in blocking out variable scopes
+        timings_on = []
+        timings_off = []
+
+        for i in range(len(input_events)):
+            if len(input_events[i]) > 3:
+                timings_on.append(input_events[i][0])
+                if len(input_events) > i + 1:
+                    timings_off.append(input_events[i+1][0])
+
+        if len(timings_on) != len(timings_off):
+            timings_off.append(steps)
+
+        for s in range(len(timings_on)):
+            for n in range(N):
+                # If there IS a catch
+                if np.random.rand <= par['catch_rate']:
+                    for d in range(timings_off[s]-timings_on[s]):
+                        for i in range(par['n_input']):
+                            input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
+                        for o in range(par['n_output']):
+                            output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
+                        for m in range(timings_on[s],timings_off[s]):
+                            mask_schedule[m,n] = mask_schedule[m-1,n]
+                # If there is NOT a catch
+                else:
+                    # The input, output, and mask schedules stay the same
+                    pass
+
+        return input_schedule, output_schedule, mask_schedule
 
     def add_noise(self, m):
         """

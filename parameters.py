@@ -16,8 +16,8 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'dms',
-    'profile_path'      : './profiles/motion.txt',
+    'stimulus_type'     : 'att',
+    'profile_path'      : './profiles/attention.txt',
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
@@ -26,11 +26,12 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 1.0,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
+    'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
-    'num_motion_tuned'  : 36,
+    'num_motion_tuned'  : 24,
     'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 0,
+    'num_rule_tuned'    : 8,
     'n_hidden'          : 50,
     'den_per_unit'      : 1,
     'n_output'          : 3,
@@ -54,7 +55,11 @@ par = {
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
-    'possible_rules'    : [0],
+    'num_receptive_fields'  : 4,    # contributes to 'possible_rules'
+    'num_categorizations'   : 2,    # contributes to 'possible_rules'
+    'allowed_fields'        : [0,1,2,3],
+    'allowed_categories'    : [0],  # Can be 0,1
+    'num_active_fields'     : 3,    # the number of accessible allowed fields
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -107,12 +112,20 @@ def update_dependencies():
 
     # Number of input neurons
     par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
-
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
-    # The time step in seconds
-    par['dt_sec'] = par['dt']/1000
+    # Possible rules based on rule type values
+    par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+    # Number of rules - used in input tuning
+    par['num_rules'] = len(par['possible_rules'])
+    # Checks to ensure valid receptor fields
+    if len(par['allowed_fields']) < par['num_active_fields']:
+        print("ERROR: More active fields than allowed receptor fields.")
+        quit()
+    elif par['num_active_fields'] <= 0:
+        print("ERROR: Must have 1 or more active receptor fields.")
+        quit()
 
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
@@ -187,14 +200,13 @@ def update_dependencies():
     par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
     par['events'] = get_events(par['profile_path'])
+    # The time step in seconds
+    par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
     par['trial_length'] = par['events'][-1][0]
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 
-
-    # Number of rules - used in input tuning
-    par['num_rules'] = len(par['possible_rules'])
 
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###

@@ -350,7 +350,7 @@ def main():
                 model_results['performance'] = model_performance
 
                 json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                print("Info saved to JSON file in \savedir in", np.round(time.time() - start_save_time, 2), "seconds.")
+                save_time = time.time() - start_save_time
 
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
@@ -363,9 +363,9 @@ def main():
                             + '\n')
 
                 # output model performance to screen
-                print('Trial {:7d}'.format((i+1)*N) + ' | Time {:0.2f} s'.format(iteration_time) +
-                  ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Test Accuracy {:0.4f}'.format(np.mean(accuracy)))
-
+                print('Trial: {:12d}   |'.format((i+1)*N))
+                print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
+                print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
 
             if end_training:
                 return None
@@ -421,11 +421,11 @@ def append_fixed_data(model_results, trial_info, params):
     model_results['params'] = par
 
     # add extra trial paramaters for the ABBA task
-    if 4 in par['possible_rules']:
-        print('Adding ABB specific data')
-        model_results['num_test_stim'] = trial_info['num_test_stim']
-        model_results['repeat_test_stim'] = trial_info['repeat_test_stim']
-        model_results['test_stim_code'] = trial_info['test_stim_code']
+    #if 4 in par['possible_rules']:
+    #    print('Adding ABB specific data')
+    #    model_results['num_test_stim'] = trial_info['num_test_stim']
+    #    model_results['repeat_test_stim'] = trial_info['repeat_test_stim']
+    #    model_results['test_stim_code'] = trial_info['test_stim_code']
 
     with tf.variable_scope('rnn_cell', reuse=True):
         W_in = tf.get_variable('W_in')
