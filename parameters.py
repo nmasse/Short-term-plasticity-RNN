@@ -29,7 +29,7 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
-    'num_motion_tuned'  : 24,
+    'num_motion_tuned'  : 96,
     'num_fix_tuned'     : 0,
     'num_rule_tuned'    : 8,
     'n_hidden'          : 50,
@@ -57,9 +57,8 @@ par = {
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
     'num_receptive_fields'  : 4,    # contributes to 'possible_rules'
     'num_categorizations'   : 2,    # contributes to 'possible_rules'
-    'allowed_fields'        : [0,1,2,3],
-    'allowed_categories'    : [0],  # Can be 0,1
-    'num_active_fields'     : 3,    # the number of accessible allowed fields
+    'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
+    'allowed_categories'    : [1],  # Can be 0,1
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -119,6 +118,10 @@ def update_dependencies():
     par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
     # Number of rules - used in input tuning
     par['num_rules'] = len(par['possible_rules'])
+
+    # Sets the number of accessible allowed fields, if equal, all allowed fields
+    # are accessible, but no more than those.
+    par['num_active_fields'] = len(par['allowed_fields'])
     # Checks to ensure valid receptor fields
     if len(par['allowed_fields']) < par['num_active_fields']:
         print("ERROR: More active fields than allowed receptor fields.")
