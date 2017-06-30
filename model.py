@@ -79,6 +79,7 @@ class Model:
         with tf.variable_scope('rnn_cell'):
             W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
             W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
+            W_rnn_soma = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
             W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
 
@@ -105,6 +106,7 @@ class Model:
         with tf.variable_scope('rnn_cell', reuse=True):
             W_in = tf.get_variable('W_in')
             W_rnn = tf.get_variable('W_rnn')
+            W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.get_variable('EI_matrix')
 
@@ -195,6 +197,7 @@ class Model:
             print('-' * 40)
             print('W In:\t\t\t', W_in.shape)
             print('W Rnn:\t\t\t', W_rnn_effective.shape)
+            print('W Rnn soma:\t\t', W_rnn_soma.shape)
             print('Neural Input:\t\t', rnn_input.shape)
             print('RNN Input:\t\t', h_soma.shape)
             print('Dendrite Input:\t\t', h_den_in.shape)
@@ -430,6 +433,7 @@ def append_fixed_data(model_results, trial_info, params):
     with tf.variable_scope('rnn_cell', reuse=True):
         W_in = tf.get_variable('W_in')
         W_rnn = tf.get_variable('W_rnn')
+        W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
         W_ei = tf.get_variable('EI_matrix')
             #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
@@ -439,6 +443,7 @@ def append_fixed_data(model_results, trial_info, params):
 
     model_results['w_in'] = W_in.eval()
     model_results['w_rnn'] = W_rnn.eval()
+    model_results['w_rnn_soma'] = W_rnn_soma.eval()
     model_results['w_out'] = W_out.eval()
     model_results['b_rnn'] = b_rnn.eval()
     model_results['b_out'] = b_out.eval()
@@ -463,6 +468,7 @@ def create_save_dict():
         'U':               [],
         'w_in':            [],
         'w_rnn':           [],
+        'w_rnn_soma':      [],
         'w_out':           [],
         'b_rnn':           [],
         'b_out':           [],
