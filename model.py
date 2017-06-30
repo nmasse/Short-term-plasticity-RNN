@@ -79,7 +79,7 @@ class Model:
         with tf.variable_scope('rnn_cell'):
             W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
             W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
-            W_rnn_soma = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
+            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
             W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
 
@@ -114,9 +114,11 @@ class Model:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
             W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), W_ei, ([2],[0]))
+            W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
 
         else:
             W_rnn_effective = W_rnn
+            W_rnn_soma_effective = W_rnn_soma
 
         # syn_x and syn_u will be capped at 1
         C = tf.constant(np.float32(1))
@@ -178,10 +180,11 @@ class Model:
 
         h_soma_in = dendrite_accum(h_den_out)
 
-        # Applies, in order: alpha decay, dendritic input, bias terms,
-        # and Gaussian randomness.
+        # Applies, in order: alpha decay, dendritic input, soma recurrence,
+        # bias terms, and Gaussian randomness.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                             + h_soma_in \
+                            + tf.matmul(W_rnn_soma_effective, h_soma) \
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
@@ -290,6 +293,14 @@ def main():
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
         for i in range(par['num_iterations']):
+
+            def change_task(i):
+                
+                return 0
+
+
+
+            change_task(i)
 
             end_training = False
             save_trial = False

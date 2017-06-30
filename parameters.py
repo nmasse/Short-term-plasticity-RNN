@@ -81,7 +81,7 @@ par = {
     # Training specs
     'batch_train_size'  : 128,
     'num_batches'       : 8,
-    'num_iterations'    : 1500,
+    'num_iterations'    : 1200,
     'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
@@ -246,18 +246,22 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = initialize(par['rnn_to_rnn_dims'], par['connection_prob'])
         par['w_rnn_soma0'] = initialize(par['rnn_to_rnn_soma_dims'], par['connection_prob'])
+
         par['eye'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
-        for j in range(par['den_per_unit']):
-            for i in range(par['n_hidden']):
-                par['eye'][i,j,i] = 1
+        for i in range(par['n_hidden']):
+            par['w_rnn_soma0'][i,i] = 0
+            par['eye'][i,:,i] = 1
+            par['w_rnn0'][i,:,i] = 0
+
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32) - par['eye']
     else:
         par['w_rnn0'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
         par['w_rnn_soma0'] = np.zeros([*par['rnn_to_rnn_soma_dims']], dtype=np.float32)
-        for j in range(par['den_per_unit']):
-            for i in range(par['n_hidden']):
-                par['w_rnn0'][i,j,i] = 0.975
-                par['w_rnn_soma0'][i,j,i] = 0.975
+
+        for i in range(par['n_hidden']):
+            par['w_rnn_soma0'][i,i] = 1
+            par['w_rnn0'][i,:,i] = 1
+
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
 
     # Initialize starting recurrent biases
@@ -270,8 +274,8 @@ def update_dependencies():
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
-        par['w_rnn0'] = par['w_rnn0']/spectral_radius(par['w_rnn0'])
-        par['w_rnn_soma0'] = par['w_rnn_soma0']/spectral_radius(par['w_rnn_soma0'])
+        par['w_rnn0'] = par['w_rnn0']/(2*spectral_radius(par['w_rnn0']))
+        par['w_rnn_soma0'] = par['w_rnn_soma0']/(2*spectral_radius(par['w_rnn_soma0']))
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
