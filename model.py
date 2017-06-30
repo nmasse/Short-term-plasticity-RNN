@@ -450,10 +450,10 @@ def append_fixed_data(model_results, trial_info, params):
     model_results['desired_output'] = trial_info['desired_output']
     model_results['train_mask'] = trial_info['train_mask']
     model_results['params'] = par
-    model_results['location_rules'] = trial_info['location_rules']
-    model_results['category_rules'] = trial_info['category_rules']
-    model_results['field_directions'] = trial_info['field_directions']
-    model_results['target_directions'] = trial_info['target_directions']
+    model_results['location_rule'] = trial_info['location_rules']
+    model_results['category_rule'] = trial_info['category_rules']
+    model_results['sample_dirs'] = trial_info['field_directions']
+    model_results['attended_sample_dir'] = trial_info['target_directions']
 
     # add extra trial paramaters for the ABBA task
     #if 4 in par['possible_rules']:
