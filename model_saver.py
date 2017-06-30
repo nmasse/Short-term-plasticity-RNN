@@ -11,6 +11,10 @@ global multi_types
 global singlet_types
 global other_types
 
+###############################################################################
+### This saver assumes that the toplevel structure is a list or dictionary. ###
+###############################################################################
+
 # JSON will only handle dictionaries, lists, strings, numbers, booleans, and None/null.
 multi_types = [type({}), type([])]
 singlet_types = [type(""), type(1), type(True), type(None)]
@@ -47,6 +51,8 @@ def json_save(x, savedir="save.json", toplevel=True):
     elif type(x) == multi_types[1]:
         for i in range(len(x)):
             x[i] = item(x, i)
+    else:
+        pass
 
     if toplevel == True:
         with open(savedir, 'w') as f:
@@ -64,7 +70,7 @@ def json_load(savedir="save.json", toplevel=True, a=None):
     else:
         x = copy.deepcopy(a)
 
-    for i in x:
+    def item(x, i):
         s = type(x[i])
         if s == multi_types[0]:
             x[i] = json_load(toplevel=False, a=x[i])
@@ -77,5 +83,15 @@ def json_load(savedir="save.json", toplevel=True, a=None):
                 x[i] = json_load(toplevel=False, a=x[i])
         if s in singlet_types:
             pass
+        return x[i]
+
+    if type(x) == multi_types[0]:
+        for i in x:
+            x[i] = item(x, i)
+    elif type(x) == multi_types[1]:
+        for i in range(len(x)):
+            x[i] = item(x, i)
+    else:
+        pass
 
     return x
