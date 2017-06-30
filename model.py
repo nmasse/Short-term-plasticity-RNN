@@ -7,12 +7,12 @@ print("\n\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
-import pickle
 import stimulus
 import time
 import os
 from model_saver import *
 from parameters import *
+import dendrite_functions as df
 
 
 # Reset TensorFlow before running anythin
@@ -21,9 +21,9 @@ tf.reset_default_graph()
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-print('Using EI Network:\t', par['EI'])
-print('Synaptic configuration:\t', par['synapse_config'])
 print('Using dendrites:\t', par['use_dendrites'])
+print('Using EI Network:\t', par['EI'])
+print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
 #################################
 ### Model setup and execution ###
@@ -78,8 +78,12 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
+            if par['use_dendrites']:
+                W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
+                W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
+            else:
+                W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
+
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
             W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
@@ -105,8 +109,12 @@ class Model:
         """
 
         with tf.variable_scope('rnn_cell', reuse=True):
-            W_in = tf.get_variable('W_in')
-            W_rnn = tf.get_variable('W_rnn')
+            if par['use_dendrites']:
+                W_in = tf.get_variable('W_in')
+                W_rnn = tf.get_variable('W_rnn')
+            else:
+                W_in_soma = tf.get_variable('W_in_soma')
+
             W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.get_variable('EI_matrix')
@@ -114,11 +122,13 @@ class Model:
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), W_ei, ([2],[0]))
+            if par['use_dendrites']:
+                W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), W_ei, ([2],[0]))
             W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
 
         else:
-            W_rnn_effective = W_rnn
+            if par['use_dendrites']:
+                W_rnn_effective = W_rnn
             W_rnn_soma_effective = W_rnn_soma
 
         # syn_x and syn_u will be capped at 1
@@ -158,28 +168,13 @@ class Model:
         All input and RNN activity will be non-negative
         """
 
-        # Sums and multiplies the weights and inputs that are
-        # entered into the dendrites
-        h_den_in = tf.tensordot(W_in, rnn_input, ([2],[0])) \
-                                + tf.tensordot(W_rnn_effective, h_soma, ([2],[0]))
+        if par['use_dendrites']:
 
-        # Processes each element of h_in to simulate dendrite action
-        def dendrite_process(dend_in):
-            #dend_out = tf.nn.sigmoid(dend_in)
-            dend_out = dend_in
-            return dend_out
+            # Creates the input to the soma based on the inputs to the dendrites
+            h_soma_in = df.dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma)
 
-        h_den_out = dendrite_process(h_den_in)
-
-        # Accumulates the results of the dendrites per neuron and produces
-        # the input to the following hidden neuron
-        def dendrite_accum(dend_in):
-            # Sums along the dendritic dimension and normalizes by the Number
-            # of dendrites per neuron
-            dend_out = tf.reduce_sum(dend_in,1)/par['den_per_unit']
-            return dend_out
-
-        h_soma_in = dendrite_accum(h_den_out)
+        else:
+            h_soma_in = par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)))
 
         # Applies, in order: alpha decay, dendritic input, soma recurrence,
         # bias terms, and Gaussian randomness.
@@ -241,13 +236,18 @@ class Model:
         capped_gvs = []
 
         for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0":
+            if var.name == "rnn_cell/W_rnn:0" and par['use_dendrites']:
                 grad *= par['w_rec_mask']
-                print('Applied weight mask to w_rec.')
+                print('Applied weight mask to w_rec.\t\t(to dendrites)')
+            elif var.name == "rnn_cell/W_rnn_soma:0":
+                grad *= par['w_rec_mask_soma']
+                print('Applied weight mask to w_rec_soma.\t(to soma)')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
-            capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
+
+            if not str(type(grad)) == "<class 'NoneType'>":
+                capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -300,13 +300,13 @@ def main():
                 if iteration == (prev_iteration + 200):
                     if par['allowed_categories'] == [0]:
                         par['allowed_categories'] = [1]
-                        print("Switching to category 1.")
+                        print("Switching to category 1.\n")
                         with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                             f.write('Switching to category 1.\n')
                         return iteration
                     elif par['allowed_categories'] == [1]:
                         par['allowed_categories'] = [0]
-                        print("Switching to category 0.")
+                        print("Switching to category 0.\n")
                         with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                             f.write('Switching to category 0.\n')
                         return iteration
@@ -377,7 +377,7 @@ def main():
 
             if save_trial:
 
-                model_results = append_fixed_data(model_results, trial_info, par)
+                model_results = append_fixed_data(model_results, trial_info)
                 model_results['performance'] = model_performance
 
                 json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
@@ -438,7 +438,7 @@ def append_model_performance(model_performance, accuracy, loss, trial_num, itera
     return model_performance
 
 
-def append_fixed_data(model_results, trial_info, params):
+def append_fixed_data(model_results, trial_info):
 
     #model_results['sample_dir'] = trial_info['sample']
     #model_results['test_dir'] = trial_info['test']
@@ -446,7 +446,7 @@ def append_fixed_data(model_results, trial_info, params):
     #model_results['catch'] = trial_info['catch']
     #model_results['rule'] = trial_info['rule']
     #model_results['probe'] = trial_info['probe']
-    model_results['rnn_input'] = trial_info['neural_input']
+    model_results['rnn_input'].append(trial_info['neural_input'])
     model_results['desired_output'] = trial_info['desired_output']
     model_results['train_mask'] = trial_info['train_mask']
     model_results['params'] = par
@@ -463,8 +463,14 @@ def append_fixed_data(model_results, trial_info, params):
     #    model_results['test_stim_code'] = trial_info['test_stim_code']
 
     with tf.variable_scope('rnn_cell', reuse=True):
-        W_in = tf.get_variable('W_in')
-        W_rnn = tf.get_variable('W_rnn')
+        if par['use_dendrites']:
+            W_in = tf.get_variable('W_in')
+            W_rnn = tf.get_variable('W_rnn')
+            W_in_soma = None
+        else:
+            W_in = None
+            W_rnn = None
+            W_in_soma = tf.get_variable('W_in_soma')
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
         W_ei = tf.get_variable('EI_matrix')
@@ -473,8 +479,15 @@ def append_fixed_data(model_results, trial_info, params):
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
-    model_results['w_in'] = W_in.eval()
-    model_results['w_rnn'] = W_rnn.eval()
+
+    if par['use_dendrites']:
+        model_results['w_in'] = W_in.eval()
+        model_results['w_in_soma'] = None
+        model_results['w_rnn'] = W_rnn.eval()
+    else:
+        model_results['w_in'] = None
+        model_results['w_in_soma'] = W_in_soma.eval()
+        model_results['w_rnn'] = None
     model_results['w_rnn_soma'] = W_rnn_soma.eval()
     model_results['w_out'] = W_out.eval()
     model_results['b_rnn'] = b_rnn.eval()

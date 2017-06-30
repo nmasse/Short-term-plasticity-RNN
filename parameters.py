@@ -34,7 +34,7 @@ par = {
     'num_fix_tuned'     : 0,
     'num_rule_tuned'    : 8,
     'n_hidden'          : 50,
-    'den_per_unit'      : 1,
+    'den_per_unit'      : 5,
     'n_output'          : 3,
 
     # Timings and rates
@@ -234,11 +234,13 @@ def update_dependencies():
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
+    par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['n_input']]
     par['rnn_to_rnn_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
     par['rnn_to_rnn_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
+    par['w_in_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -255,6 +257,7 @@ def update_dependencies():
             par['w_rnn0'][i,:,i] = 0
 
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32) - par['eye']
+        par['w_rec_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
         par['w_rnn0'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
         par['w_rnn_soma0'] = np.zeros([*par['rnn_to_rnn_soma_dims']], dtype=np.float32)
@@ -264,6 +267,7 @@ def update_dependencies():
             par['w_rnn0'][i,:,i] = 1
 
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
+        par['w_rec_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
     # Initialize starting recurrent biases
     # Note that the second dimension in the bias initialization term can be either
