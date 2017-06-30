@@ -24,7 +24,7 @@ par = {
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
-    'exc_inh_prop'      : 1.0,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
@@ -51,7 +51,7 @@ par = {
 
     # Tuning function data
     'num_motion_dirs'   : 8,
-    'tuning_height'     : 1,        # height scaling factor
+    'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
@@ -215,6 +215,21 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
+    def spectral_radius(A):
+        """
+        Compute the spectral radius of each dendritic dimension of a weight array,
+        and normalize using square room of the sum of squares of those radii.
+        """
+        if A.ndim == 2:
+            return np.max(abs(np.linalg.eigvals(A)))
+        elif A.ndim == 3:
+            # Assumes the second axis is the target (for dendritic setup)
+            r = 0
+            for n in range(np.shape(A)[1]):
+                r = r + np.max(abs(np.linalg.eigvals(np.squeeze(A[:,n,:]))))
+
+            return r / np.shape(A)[1]
+
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
@@ -251,7 +266,7 @@ def update_dependencies():
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
-        par['w_rnn0'] /= 3
+        par['w_rnn0'] = par['w_rnn0']/spectral_radius(par['w_rnn0'])
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
