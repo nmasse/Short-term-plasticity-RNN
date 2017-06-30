@@ -35,7 +35,12 @@ class Stimulus:
 
         trial_info = {'desired_output' : schedules[1],
                         'train_mask' : np.asarray(schedules[2]),
-                        'neural_input' : schedules[0]}
+                        'neural_input' : schedules[0],
+                        'location_rules' : trial_setup['location_rules'],
+                        'category_rules' : trial_setup['category_rules'],
+                        'field_directions' : trial_setup['field_directions'],
+                        'target_directions' : trial_setup['target_directions']
+                        }
 
         return trial_info
 

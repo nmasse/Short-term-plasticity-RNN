@@ -15,7 +15,9 @@ global other_types
 multi_types = [type({}), type([])]
 singlet_types = [type(""), type(1), type(True), type(None)]
 # Other types that we have written conversions for go here.
-other_types = [type(np.array([0])), type(np.float32(0.)), type(np.float64(0.)), type(range(0,1))]
+other_types = [type(np.array([0])), type(np.float32(0.)), type(np.float64(0.)), \
+                type(range(0,1)), type(np.int8(0.)), type(np.int16(0.)), type(np.int32(0.)), \
+                type(np.int64(0.))]
 
 def json_save(x, savedir="save.json", toplevel=True):
     x = copy.deepcopy(x)
@@ -32,6 +34,8 @@ def json_save(x, savedir="save.json", toplevel=True):
                     x[i] = np.ascontiguousarray(x[i])
                 x[i] = ["ndarray", str(base64.b64encode(x[i])), str(x[i].shape), str(x[i].dtype)]
             elif (s == type(np.float32(0.)) or s == type(np.float64(0.))):
+                x[i] = np.asscalar(x[i])
+            elif (s == type(np.int8(0.)) or s == type(np.int16(0.)) or type(np.int32(0.)) or type(np.int64(0.))):
                 x[i] = np.asscalar(x[i])
             elif (s == type(range(0,1))):
                 x[i] = ["range", x[i].start, x[i].stop, x[i].step]

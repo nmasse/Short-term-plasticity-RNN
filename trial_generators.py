@@ -164,11 +164,19 @@ def attention(N):
     unit_circle = [0, par['num_motion_dirs']//4, par['num_motion_dirs']//2, \
                     3*par['num_motion_dirs']//4 , par['num_motion_dirs']]
 
+    location_rules = []
+    category_rules = []
+    field_directions = []
+    target_directions = []
+
     for n in range(N):
 
         # Generate rule cues
         location_rule = np.random.choice(par['allowed_fields'])
         category_rule = np.random.choice(par['allowed_categories'])
+
+        location_rules.append(location_rule)
+        category_rules.append(category_rule)
 
         # Output rule_input[n] from loop
         rule_input[n, rule_index:rule_index+par['num_rule_tuned']] = rule_tuning[category_rule,:,location_rule]
@@ -176,12 +184,16 @@ def attention(N):
         active_fields = np.sort(np.random.permutation(par['allowed_fields'])[0:par['num_active_fields']])
         directions    = np.random.randint(0, par['num_motion_dirs'], [par['num_receptive_fields']])
 
+        field_directions.append(directions)
+
         # Output sample_input[n] from loop
         for f in active_fields:
             for i in range(f*neurons_per_field, (f+1)*neurons_per_field):
                 sample_input[n,i] = stim_tuning[i, f, directions[f]]
 
         desired_dir = directions[location_rule]
+
+        target_directions.append(desired_dir)
 
         # Output sample_output[n] from loop
         # Arbitrarily, up and left are judgement 1, and down and right are judgement 2
@@ -197,19 +209,6 @@ def attention(N):
             elif (unit_circle[3] <= desired_dir < unit_circle[4]) or (unit_circle[0] <= desired_dir < unit_circle[1]):
                 sample_output[n][2] = 1
 
-        """
-        print(location_rule)
-        print(category_rule)
-        print(desired_dir)
-        print("\n\n")
-        print(rule_input[n])
-        print(rule_output[n])
-        print("\n\n")
-        print(np.round(sample_input[n]))
-        print(sample_output[n])
-        quit()
-        """
-
     inputs = {'none'    : default_input,
               'fix'     : rule_input,
               'stim'    : sample_input
@@ -223,7 +222,11 @@ def attention(N):
     trial_setup = {'default_input'  : default_input,
                    'inputs'         : inputs,
                    'default_output' : default_output,
-                   'outputs'        : outputs
+                   'outputs'        : outputs,
+                   'location_rules' : location_rules,
+                   'category_rules' : category_rules,
+                   'field_directions'   : field_directions,
+                   'target_directions'  : target_directions
                    }
 
     return trial_setup
