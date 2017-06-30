@@ -6,6 +6,7 @@ import numpy as np
 import json
 import copy
 import base64
+import re
 
 global multi_types
 global singlet_types
@@ -74,19 +75,29 @@ def json_load(savedir="save.json", toplevel=True, a=None):
         s = type(x[i])
         if s == multi_types[0]:
             x[i] = json_load(toplevel=False, a=x[i])
-        if s == multi_types[1]:
-            if x[i][0] == "ndarray":
-                x[i] = np.reshape(np.fromstring(base64.b64decode(x[i][1][1:]), dtype=x[i][3]), x[i][2])
-            elif x[i][0] == "range":
-                x[i] = range(*x[i][1:3])
+        elif s == multi_types[1]:
+            if len(x[i]) > 0:
+                if x[i][0] == "ndarray":
+                    b = base64.b64decode(x[i][1][1:])
+                    t = x[i][3]
+                    sh = x[i][2]
+                    st = np.fromstring(b, dtype=t)
+                    sh = re.findall('\d+', sh)
+                    for i in range(len(sh)):
+                        sh[i] = int(sh[i])
+                    x[i] = np.reshape(st, sh)
+                elif x[i][0] == "range":
+                    x[i] = range(*x[i][1:3])
+                else:
+                    x[i] = json_load(toplevel=False, a=x[i])
             else:
-                x[i] = json_load(toplevel=False, a=x[i])
-        if s in singlet_types:
+                json_load(toplevel=False, a=x[i])
+        elif s in singlet_types:
             pass
         return x[i]
 
     if type(x) == multi_types[0]:
-        for i in x:
+        for i in list(x):
             x[i] = item(x, i)
     elif type(x) == multi_types[1]:
         for i in range(len(x)):
@@ -94,4 +105,6 @@ def json_load(savedir="save.json", toplevel=True, a=None):
     else:
         pass
 
+    if toplevel == True:
+        print("Loading complete.")
     return x
