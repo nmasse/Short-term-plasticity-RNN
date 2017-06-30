@@ -234,6 +234,7 @@ def update_dependencies():
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
     par['rnn_to_rnn_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
+    par['rnn_to_rnn_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
@@ -244,6 +245,7 @@ def update_dependencies():
     # If not, initializes with a diagonal matrix
     if par['EI']:
         par['w_rnn0'] = initialize(par['rnn_to_rnn_dims'], par['connection_prob'])
+        par['w_rnn_soma0'] = initialize(par['rnn_to_rnn_soma_dims'], par['connection_prob'])
         par['eye'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
         for j in range(par['den_per_unit']):
             for i in range(par['n_hidden']):
@@ -251,9 +253,11 @@ def update_dependencies():
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32) - par['eye']
     else:
         par['w_rnn0'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
+        par['w_rnn_soma0'] = np.zeros([*par['rnn_to_rnn_soma_dims']], dtype=np.float32)
         for j in range(par['den_per_unit']):
             for i in range(par['n_hidden']):
                 par['w_rnn0'][i,j,i] = 0.975
+                par['w_rnn_soma0'][i,j,i] = 0.975
         par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
 
     # Initialize starting recurrent biases
@@ -267,6 +271,7 @@ def update_dependencies():
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/spectral_radius(par['w_rnn0'])
+        par['w_rnn_soma0'] = par['w_rnn_soma0']/spectral_radius(par['w_rnn_soma0'])
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
