@@ -292,15 +292,31 @@ def main():
         with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
+        prev_iteration = 0
         for i in range(par['num_iterations']):
 
-            def change_task(i):
-                
-                return 0
+            def change_task(iteration, prev_iteration):
+                if iteration == (prev_iteration + 200):
+                    if par['allowed_categories'] == [0]:
+                        par['allowed_categories'] = [1]
+                        print("Switching to category 1.")
+                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
+                            f.write('Switching to category 1.\n')
+                        return iteration
+                    elif par['allowed_categories'] == [1]:
+                        par['allowed_categories'] = [0]
+                        print("Switching to category 0.")
+                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
+                            f.write('Switching to category 0.\n')
+                        return iteration
+                    else:
+                        print("ERROR: Bad category.")
+                        quit()
+                else:
+                    return prev_iteration
 
 
-
-            change_task(i)
+            prev_iteration = change_task(i, prev_iteration)
 
             end_training = False
             save_trial = False
