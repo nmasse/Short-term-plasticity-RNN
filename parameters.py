@@ -249,7 +249,7 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dendrites_dims'], par['connection_prob'])
         par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob'])
-        par['w_rnn_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
+        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dendrites_dims']), dtype=np.float32)
         par['w_rnn_mask_soma'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
         for i in range(par['n_hidden']):
@@ -264,8 +264,8 @@ def update_dependencies():
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,:,i] = 1
 
-        par['w_rnn_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
-        par['w_rnn_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32)
+        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
+        par['w_rnn_mask_soma'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
 
     # Initialize starting recurrent biases
     # Note that the second dimension in the bias initialization term can be either
