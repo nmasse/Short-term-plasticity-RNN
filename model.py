@@ -236,11 +236,11 @@ class Model:
 
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_rnn:0" and par['use_dendrites']:
-                grad *= par['w_rec_mask']
-                print('Applied weight mask to w_rec.\t\t(to dendrites)')
+                grad *= par['w_rnn_mask']
+                print('Applied weight mask to w_rnn.\t\t(to dendrites)')
             elif var.name == "rnn_cell/W_rnn_soma:0":
-                grad *= par['w_rec_mask_soma']
-                print('Applied weight mask to w_rec_soma.\t(to soma)')
+                grad *= par['w_rnn_mask_soma']
+                print('Applied weight mask to w_rnn_soma.\t(to soma)')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
