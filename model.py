@@ -143,24 +143,23 @@ class Model:
             syn_u += par['alpha_std']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_x = tf.minimum(C, tf.nn.relu(syn_x))
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
-            h_soma = syn_u*syn_x*h_soma
+            h_post_syn = syn_u*syn_x*h_soma
         elif par['synapse_config'] == 'std':
             # implement synaptic short term depression, but no facilitation
             # assume that syn_u remains constant at 1
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
             syn_x = tf.minimum(C, tf.nn.relu(syn_x))
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
-            h_soma = syn_x*h_soma
+            h_post_syn = syn_x*h_soma
         elif par['synapse_config'] == 'stf':
             # implement synaptic short term facilitation, but no depression
             # assume that syn_x remains constant at 1
             syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_u = tf.minimum(C, tf.nn.relu(syn_u))
-            h_soma = syn_u*h_soma
+            h_post_syn = syn_u*h_soma
         else:
             # no synaptic plasticity
-            pass
-
+            h_post_syn = h_soma
 
         """
         Update the hidden state by way of the dendrites
@@ -180,7 +179,7 @@ class Model:
         # bias terms, and Gaussian randomness.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                             + h_soma_in \
-                            + tf.matmul(W_rnn_soma_effective, h_soma) \
+                            + tf.matmul(W_rnn_soma_effective, h_post_syn) \
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
