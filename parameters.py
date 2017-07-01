@@ -134,7 +134,7 @@ def update_dependencies():
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
     # a single neuron can be a mixture of excitatory or inhibitory
-    if par['exc_inh_prop'] < 1.:
+    if par['exc_inh_prop'] < 1:
         par['EI'] = True
     else:
         par['EI']  = False
@@ -235,8 +235,8 @@ def update_dependencies():
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
     par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['n_input']]
-    par['rnn_to_rnn_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
-    par['rnn_to_rnn_soma_dims'] = [par['n_hidden'], par['n_hidden']]
+    par['hidden_to_hidden_dendrites_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
+    par['hidden_to_hidden_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
@@ -247,27 +247,26 @@ def update_dependencies():
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize(par['rnn_to_rnn_dims'], par['connection_prob'])
-        par['w_rnn_soma0'] = initialize(par['rnn_to_rnn_soma_dims'], par['connection_prob'])
+        par['w_rnn0'] = initialize(par['hidden_to_hidden_dendrites_dims'], par['connection_prob'])
+        par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob'])
+        par['w_rnn_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
+        par['w_rnn_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
         par['eye'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
         for i in range(par['n_hidden']):
             par['w_rnn_soma0'][i,i] = 0
-            par['eye'][i,:,i] = 1
+            par['w_rnn_mask'][i,:,i] = 0
             par['w_rnn0'][i,:,i] = 0
 
-        par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32) - par['eye']
-        par['w_rec_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
-        par['w_rnn0'] = np.zeros([*par['rnn_to_rnn_dims']], dtype=np.float32)
-        par['w_rnn_soma0'] = np.zeros([*par['rnn_to_rnn_soma_dims']], dtype=np.float32)
+        par['w_rnn0'] = np.zeros([*par['hidden_to_hidden_dendrites_dims']], dtype=np.float32)
+        par['w_rnn_soma0'] = np.eye([*par['hidden_to_hidden_soma_dims']], dtype=np.float32)
 
         for i in range(par['n_hidden']):
-            par['w_rnn_soma0'][i,i] = 1
             par['w_rnn0'][i,:,i] = 1
 
-        par['w_rec_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
-        par['w_rec_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
+        par['w_rnn_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32)
 
     # Initialize starting recurrent biases
     # Note that the second dimension in the bias initialization term can be either
