@@ -250,7 +250,7 @@ def update_dependencies():
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dendrites_dims'], par['connection_prob'])
         par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob'])
         par['w_rnn_mask'] = np.ones((par['rnn_to_rnn_dims']), dtype=np.float32)
-        par['w_rnn_mask_soma'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask_soma'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
         for i in range(par['n_hidden']):
             par['w_rnn_soma0'][i,i] = 0
