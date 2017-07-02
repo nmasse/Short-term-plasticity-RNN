@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import os
 
 print("--> Loading parameters...")
 
@@ -70,8 +71,16 @@ par = {
     'batch_train_size'  : 128,
     'num_batches'       : 8,
     'num_iterations'    : 1000,
-    'iterations_between_outputs'    : 250,    
-    
+    'iterations_between_outputs'    : 250,
+
+    # Task specs
+    'possible_rules'    : [0],
+    'dead_time'         : 400,
+    'fix_time'          : 500,
+    'sample_time'       : 500,
+    'delay_time'        : 1000,
+    'test_time'         : 500,
+
     # Save paths
     'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
@@ -103,7 +112,8 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Possible rules based on rule type values
-    par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+    #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+
     # Number of rules - used in input tuning
     par['num_rules'] = len(par['possible_rules'])
 
@@ -131,9 +141,9 @@ def update_dependencies():
 
 
     def initialize(dims, connection_prob):
-        n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
-        n *= (np.random.rand(*dims) < connection_prob)
-        return n
+        w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+        w *= (np.random.rand(*dims) < connection_prob)
+        return np.float32(w)
 
 
     def get_profile(profile_path):
@@ -177,13 +187,13 @@ def update_dependencies():
         return content
 
     # General event profile info
-    par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
+    #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
-    par['events'] = get_events(par['profile_path'])
+    #par['events'] = get_events(par['profile_path'])
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
-    par['trial_length'] = par['events'][-1][0]
+    par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 
@@ -195,7 +205,7 @@ def update_dependencies():
     def spectral_radius(A):
 
         return np.max(abs(np.linalg.eigvals(A)))
-       
+
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
@@ -213,15 +223,10 @@ def update_dependencies():
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
-            
-        par['w_rec_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
         par['w_rnn0'] = np.eye(par['n_hidden'])
-
-        for i in range(par['n_hidden']):
-            par['w_rnn_soma0'][i,i] = 1
-
-        par['w_rec_mask'] = np.ones((par['rnn_to_rnn_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
 
