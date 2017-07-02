@@ -4,90 +4,110 @@ import os
 
 print("--> Loading parameters...")
 
-##############################
-### Independent parameters ###
-##############################
+global par, analysis_par
 
-global par
-
+"""
+Independent parameters
+"""
 par = {
     # Setup parameters
-    'stimulus_type'     : 'att',
-    'profile_path'      : './profiles/attention.txt',
-    'save_dir'          : './savedir/',
-    'debug_model'       : False,
-    'load_previous_model' : False,
+    'stimulus_type'         : 'att',
+    'profile_path'          : './profiles/attention.txt',
+    'save_dir'              : './savedir/',
+    'debug_model'           : False,
+    'load_previous_model'   : False,
+    'analyze_model'         : False,
 
     # Network configuration
-    'synapse_config'    : 'std_stf',      # Full is 'std_stf'
-    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'         : False,
-    'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
+    'synapse_config'        : None,      # Full is 'std_stf'
+    'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
+    'var_delay'             : False,
+    'catch_trials'          : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
-    'num_motion_tuned'  : 36,
-    'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 8,
-    'n_hidden'          : 200,
-    'n_output'          : 3,
+    'num_motion_tuned'      : 36,
+    'num_fix_tuned'         : 0,
+    'num_rule_tuned'        : 8,
+    'n_hidden'              : 200,
+    'n_output'              : 3,
 
     # Timings and rates
-    'dt'                : 20,
-    'learning_rate'     : 5e-3,
-    'membrane_time_constant'    : 100,
-    'connection_prob'   : 1,         # Usually 1
+    'dt'                    : 20,
+    'learning_rate'         : 5e-3,
+    'membrane_time_constant': 100,
+    'connection_prob'       : 1,         # Usually 1
 
     # Variance values
-    'clip_max_grad_val' : 0.25,
-    'input_mean'        : 0,
-    'input_sd'          : 0.1,
-    'noise_sd'          : 0.5,
+    'clip_max_grad_val'     : 0.25,
+    'input_mean'            : 0,
+    'input_sd'              : 0.1,
+    'noise_sd'              : 0.5,
 
     # Tuning function data
-    'num_motion_dirs'   : 8,
-    'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
-    'kappa'             : 1,        # concentration scaling factor for von Mises
-    'catch_rate'        : 0.15,
-    'match_rate'        : 0.5,      # tends a little higher than chosen rate
+    'num_motion_dirs'       : 8,
+    'tuning_height'         : 2,        # magnitutde scaling factor for von Mises
+    'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Probe specs
-    'probe_trial_pct'   : 0,
-    'probe_time'        : 20,
+    'probe_trial_pct'       : 0,
+    'probe_time'            : 20,
 
     # Cost parameters
-    'spike_cost'        : 0.015,
+    'spike_cost'            : 0.015,
 
     # Synaptic plasticity specs
-    'tau_fast'          : 200,
-    'tau_slow'          : 1500,
-    'U_stf'             : 0.15,
-    'U_std'             : 0.45,
+    'tau_fast'              : 200,
+    'tau_slow'              : 1500,
+    'U_stf'                 : 0.15,
+    'U_std'                 : 0.45,
 
     # Performance thresholds
-    'stop_perf_th'      : 1,
-    'stop_error_th'     : 0,
+    'stop_perf_th'          : 1,
+    'stop_error_th'         : 0,
 
     # Training specs
-    'batch_train_size'  : 128,
-    'num_batches'       : 8,
-    'num_iterations'    : 1000,
-    'iterations_between_outputs'    : 250,
+    'batch_train_size'      : 128,
+    'num_batches'           : 8,
+    'num_iterations'        : 1000,
+    'iterations_between_outputs' : 250,
 
     # Task specs
-    'possible_rules'    : [0],
-    'dead_time'         : 400,
-    'fix_time'          : 500,
-    'sample_time'       : 500,
-    'delay_time'        : 1000,
-    'test_time'         : 500,
-    'variable_delay_max'         : 500,
-    'catch_trial_pct'   : 0.15,
+    'possible_rules'        : [0],
+    'dead_time'             : 400,
+    'fix_time'              : 500,
+    'sample_time'           : 500,
+    'delay_time'            : 1000,
+    'test_time'             : 500,
+    'variable_delay_max'    : 500,
+    'catch_trial_pct'       : 0.15,
 
     # Save paths
-    'save_fn'           : 'model_data.json',
-    'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
-    'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
+    'save_fn'               : 'model_data.json',
+    'ckpt_save_fn'          : 'model_.ckpt',
+    'ckpt_load_fn'          : 'model_.ckpt'
 }
+
+"""
+Parameters to be used before running analysis
+"""
+analysis_par = {
+    'analyze_model'         : True,
+    'load_previous_model'   : True,
+    'num_iterations'        : 1,
+    'num_batches'           : 1,
+    'batch_train_size'      : 4096,
+    'var_delay'             : False,
+    'dt'                    : 5
+}
+
+
+
+
+
+
+
+updates = {'dt':5, 'num_iterations':1, 'num_batches':1, 'batch_train_size':4096,
+        'var_delay': False, 'analyze_model':True, 'load_previous_model': True}
 
 ############################
 ### Dependent parameters ###
