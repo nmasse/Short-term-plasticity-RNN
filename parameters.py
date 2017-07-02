@@ -19,7 +19,7 @@ par = {
     'load_previous_model' : False,
 
     # Network configuration
-    'synapse_config'    : None,      # Full is 'std_stf'
+    'synapse_config'    : 'std_stf',      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
@@ -80,6 +80,8 @@ par = {
     'sample_time'       : 500,
     'delay_time'        : 1000,
     'test_time'         : 500,
+    'variable_delay_max'         : 500,
+    'catch_trial_pct'   : 0.15,
 
     # Save paths
     'save_fn'           : 'model_data.json',
