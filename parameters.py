@@ -40,7 +40,8 @@ par = {
     # Timings and rates
     'dt'                : 25,
     'learning_rate'     : 5e-3,
-    'membrane_time_constant'    : 100,
+    'membrane_time_constant'    : 20,
+    'dendrite_time_constant'    : 100,
     'connection_prob'   : 1,         # Usually 1
 
     # Variance values
@@ -82,11 +83,11 @@ par = {
     # Training specs
     'batch_train_size'  : 128,
     'num_batches'       : 8,
-    'num_iterations'    : 1200,
+    'num_iterations'    : 1500,
     'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
-    'save_fn'           : 'model_data.json',
+    'save_fn'           : 'model_data_no_dend.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 }
@@ -152,6 +153,9 @@ def update_dependencies():
     # The standard deviation of the Gaussian noise added to each RNN neuron
     # at each time step
     par['noise_sd'] = np.sqrt(2*par['alpha_neuron'])*par['noise_sd']
+
+    # Dendrite time constant for dendritic branches
+    par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
 
 
     def initialize(dims, connection_prob):
@@ -232,6 +236,7 @@ def update_dependencies():
             return r / np.shape(A)[1]
 
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['d_init'] = 0.1*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
     par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['n_input']]

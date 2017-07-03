@@ -69,12 +69,19 @@ def pr_relu(x):
 
     return tf.nn.relu(x)
 
-def pr_sigmoid(X):
+def pr_sigmoid(x):
     """
     Performs a sigmoid on each dendrite
     """
 
     return tf.nn.sigmoid(x)
+
+def pr_retain(x, dend):
+    """
+    Performs a relu on each dendrite plus its previous decayed state
+    """
+
+    return tf.nn.sigmoid(x + par['alpha_dendrite']*dend)
 
 
 #############################
@@ -128,7 +135,7 @@ def ac_threshold(x):
 # Process functions (processes each individual dendrite to simulate any internal actions)
 # Accumulator functions (accumulates the dendrite results per neuron)
 
-def dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma):
+def dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: The most basic of configurations.
@@ -138,19 +145,31 @@ def dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma):
     h_den_out = pr_pass_through(h_den_in)
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in
+    return h_soma_in, h_den_out
 
-def dendrite_function0002(W_in, W_rnn_effective, rnn_input, h_soma):
+def dendrite_function0002(W_in, W_rnn_effective, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: Biased and relu'ed.
     """
 
     h_den_in = in_tensordot(W_in, W_rnn_effective, rnn_input, h_soma)
-
     h_den_out = pr_bias(h_den_in)
     h_den_out = pr_relu(h_den_out)
-
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in
+    return h_soma_in, h_den_out
+
+def dendrite_function0003(W_in, W_rnn_effective, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/3
+    Notes: Biased and relu'ed with contribution from previous state.
+    """
+
+    h_den_in = in_tensordot(W_in, W_rnn_effective, rnn_input, h_soma)
+
+    h_den_out = pr_bias(h_den_in)
+    h_den_out = pr_retain(h_den_out, dend)
+    h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out

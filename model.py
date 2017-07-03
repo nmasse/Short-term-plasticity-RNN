@@ -40,6 +40,7 @@ class Model:
 
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
+        self.dendrites_init = tf.constant(par['d_init'])
 
         # Load the initial synaptic depression and facilitation to be used at
         # the start of each trial
@@ -59,7 +60,7 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """
-        self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
+        self.rnn_cell_loop(self.input_data, self.hidden_init, self.dendrites_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = np.float32(par['w_out0']), trainable=True)
@@ -72,7 +73,7 @@ class Model:
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
 
-    def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
+    def rnn_cell_loop(self, x_unstacked, h, d, syn_x, syn_u):
 
         """
         Initialize weights and biases
@@ -89,6 +90,7 @@ class Model:
             W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
 
         self.hidden_state_hist = []
+        self.dendrites_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
 
@@ -97,13 +99,14 @@ class Model:
         """
 
         for rnn_input in x_unstacked:
-            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
+            h, d, syn_x, syn_u = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
             self.hidden_state_hist.append(h)
+            self.dendrites_hist.append(d)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
 
 
-    def rnn_cell(self, rnn_input, h_soma, syn_x, syn_u):
+    def rnn_cell(self, rnn_input, h_soma, dend, syn_x, syn_u):
         """
         Main computation of the recurrent network
         """
@@ -170,10 +173,11 @@ class Model:
         if par['use_dendrites']:
 
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in = df.dendrite_function0002(W_in, W_rnn_effective, rnn_input, h_post_syn)
+            h_soma_in, dend_out = df.dendrite_function0003(W_in, W_rnn_effective, rnn_input, h_post_syn, dend)
 
         else:
             h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
+            dend_out = dend
 
         # Applies, in order: alpha decay, dendritic input, soma recurrence,
         # bias terms, and Gaussian randomness.
@@ -183,7 +187,7 @@ class Model:
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
-        return h_soma_out, syn_x, syn_u
+        return h_soma_out, dend_out, syn_x, syn_u
 
 
     def optimize(self):
