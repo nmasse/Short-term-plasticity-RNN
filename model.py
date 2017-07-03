@@ -1,13 +1,14 @@
 """
-2017/05/03 Nicolas Masse
+Nicolas Masse 2017
+Contributions from Gregory Grant, Catherine Lee
 """
 
 import tensorflow as tf
 import numpy as np
 import stimulus
 import time
+import analysis
 from parameters import *
-
 
 # Reset TensorFlow before running anythin
 tf.reset_default_graph()
@@ -18,14 +19,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 print('Using EI Network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
-#################################
-### Model setup and execution ###
-#################################
+"""
+Model setup and execution
+"""
 
 class Model:
 
     def __init__(self, input_data, target_data, mask):
-
 
         # Load the input activity, the target data, and the training mask for this batch of trials
         self.input_data = tf.unstack(input_data, axis=1)
@@ -35,8 +35,7 @@ class Model:
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
 
-        # Load the initial synaptic depression and facilitation to be used at
-        # the start of each trial
+        # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
         self.synapse_u_init = tf.constant(par['syn_u_init'])
 
@@ -193,8 +192,19 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def main():
+def train_and_analyze():
 
+    """
+    Train the network model given the paramaters, then re-run the model at finer
+    temporal resoultion and with more trials, and then analyze the model results.
+    Paramaters used for analysis purposes found in analysis_par.
+    """
+    main()
+    update_parameters(analysis_par)
+    main()
+
+
+def main():
 
     """
     Create the stimulus class to generate trial paramaters and input activity
@@ -227,33 +237,18 @@ def main():
             print('Model ' +  par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'trial': [], 'time': []}
+        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
 
         for i in range(par['num_iterations']):
 
-            var_delay = par['var_delay']
-            end_training = False
-            save_trial = False
-
-            """
-            Save the data if this is the last iteration, if performance threshold has been reached, and once every 500 trials.
-            Before saving data, generate trials with a fixed delay period
-            """
-            if i>0 and (i == par['num_iterations']-1 or np.mean(accuracy) > par['stop_perf_th'] or (i+1)%5==0):
-                var_delay = False
-                save_trial = True
-                model_results = create_save_dict()
-                if np.mean(accuracy) > par['stop_perf_th']:
-                    end_training = True
-
             # generate batch of N (batch_train_size X num_batches) trials
-            trial_info = stim.generate_trial(N, var_delay=var_delay)
+            trial_info = stim.generate_trial(N, var_delay = par['var_delay'])
 
             # keep track of the model performance for this batch
-            loss = []
-            perf_loss = []
-            spike_loss = []
-            accuracy = []
+            loss = np.zeros((par['num_batches']))
+            perf_loss = np.zeros((par['num_batches']))
+            spike_loss = np.zeros((par['num_batches']))
+            accuracy = np.zeros((par['num_batches']))
 
             for j in range(par['num_batches']):
 
@@ -268,143 +263,44 @@ def main():
                 """
                 Run the model
                 """
-                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
+                _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
 
-                # append the data before saving
-                if save_trial:
-                    start_save_time = time.time()
-                    model_results = append_hidden_data(model_results, y_hat, state_hist, syn_x_hist, syn_u_hist)
-
-                # keep track of performance for each batch
-                accuracy.append(get_perf(target_data, y_hat, train_mask))
-                perf_loss.append(perf_loss_temp)
-                spike_loss.append(spike_loss_temp)
+                accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
 
             iteration_time = time.time() - t_start
-            model_performance = append_model_performance(model_performance, accuracy, perf_loss, (i+1)*N, iteration_time)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
 
             """
-            Save the data and network model
+            Save the network model and output model performance to screen
             """
-            if save_trial:
-                model_results = append_fixed_data(model_results, trial_info)
-                model_results['performance'] = model_performance
+            if (i+1)%par['iters_between_outputs']:
+                print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
                 save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
-                """
-                with open(par['save_dir'] + par['save_fn'], 'wb') as f:
-                    pickle.dump(model_results, f)
-                    print(par['save_fn'] + ' pickled!, file save time = ', time.time() - start_save_time)
-                """
+
+        """
+        Analyze the network model and save the results
+        """
+        if par['analyze_model']:
+            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance)
+
+    return None
 
 
+def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
 
-
-                # output model performance to screen
-                print('Trial {:7d}'.format((i+1)*N) + ' | Time {:0.2f} s'.format(iteration_time) +
-                  ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
-
-            if end_training:
-                return None
-
-
-def get_perf(y, y_hat, mask):
-
-    """
-    Calculate task accuracy by comparing the actual network output to the desired output
-    only examine time points when test stimulus is on
-    in another words, when y[0,:,:] is not 0
-    """
-
-    y_hat = np.stack(y_hat,axis=1)
-    mask *= y[0,:,:]==0
-    y = np.argmax(y, axis = 0)
-    y_hat = np.argmax(y_hat, axis = 0)
-
-    return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
-
-
-def append_hidden_data(model_results, y_hat, state, syn_x, syn_u):
-
-    model_results['hidden_state'].append(state)
-    model_results['syn_x'].append(syn_x)
-    model_results['syn_u'].append(syn_u)
-    model_results['model_outputs'].append(y_hat)
-
-    return model_results
-
-
-def append_model_performance(model_performance, accuracy, loss, trial_num, iteration_time):
-
-    model_performance['accuracy'].append(accuracy)
-    model_performance['loss'].append(loss)
+    model_performance['accuracy'].append(np.mean(accuracy))
+    model_performance['loss'].append(np.mean(loss))
+    model_performance['perf_loss'].append(np.mean(perf_loss))
+    model_performance['spike_loss'].append(np.mean(spike_loss))
     model_performance['trial'].append(trial_num)
     model_performance['time'].append(iteration_time)
 
     return model_performance
 
-def append_fixed_data(model_results, trial_info):
+def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
 
-    model_results['sample_dir'] = trial_info['sample']
-    model_results['test_dir'] = trial_info['test']
-    model_results['match'] = trial_info['match']
-    model_results['catch'] = trial_info['catch']
-    model_results['rule'] = trial_info['rule']
-    model_results['probe'] = trial_info['probe']
-    model_results['rnn_input'] = trial_info['neural_input']
-    model_results['desired_output'] = trial_info['desired_output']
-    model_results['train_mask'] = trial_info['train_mask']
-    model_results['params'] = par
+    print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
+      ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
+      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
 
-    # add extra trial paramaters for the ABBA task
-    if 4 in par['possible_rules']:
-        print('Adding ABB specific data')
-        model_results['num_test_stim'] = trial_info['num_test_stim']
-        model_results['repeat_test_stim'] = trial_info['repeat_test_stim']
-        model_results['test_stim_code'] = trial_info['test_stim_code']
-
-    with tf.variable_scope('rnn_cell', reuse=True):
-        W_in = tf.get_variable('W_in')
-        W_rnn = tf.get_variable('W_rnn')
-        b_rnn = tf.get_variable('b_rnn')
-        W_ei = tf.get_variable('EI')
-            #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
-
-    model_results['w_in'] = W_in.eval()
-    model_results['w_rnn'] = W_rnn.eval()
-    model_results['w_out'] = W_out.eval()
-    model_results['b_rnn'] = b_rnn.eval()
-    model_results['b_out'] = b_out.eval()
-
-    return model_results
-
-def create_save_dict():
-
-    model_results = {
-        'syn_x' :          [],
-        'syn_u' :          [],
-        'syn_adapt' :      [],
-        'hidden_state':    [],
-        'desired_output':  [],
-        'model_outputs':   [],
-        'rnn_input':       [],
-        'sample_dir':      [],
-        'test_dir':        [],
-        'match':           [],
-        'rule':            [],
-        'catch':           [],
-        'probe':           [],
-        'train_mask':      [],
-        'U':               [],
-        'w_in':            [],
-        'w_rnn':           [],
-        'w_out':           [],
-        'b_rnn':           [],
-        'b_out':           [],
-        'num_test_stim':   [],
-        'repeat_test_stim':[],
-        'test_stim_code': []}
-
-    return model_results
+    return None
