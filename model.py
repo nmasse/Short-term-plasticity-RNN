@@ -170,41 +170,18 @@ class Model:
         if par['use_dendrites']:
 
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in = df.dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma)
+            h_soma_in = df.dendrite_function0002(W_in, W_rnn_effective, rnn_input, h_post_syn)
 
         else:
-            h_soma_in = par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)))
+            h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
 
         # Applies, in order: alpha decay, dendritic input, soma recurrence,
         # bias terms, and Gaussian randomness.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
-                            + h_soma_in \
-                            + tf.matmul(W_rnn_soma_effective, h_post_syn) \
+                            + par['alpha_neuron']*h_soma_in \
+                            + par['alpha_neuron']*tf.matmul(W_rnn_soma_effective, h_post_syn) \
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
-
-        if par['debug_model']:
-            print('\n')
-            print('-' * 40)
-            print('N Input:\t', par['n_input'])
-            print('N Hidden:\t', par['n_hidden'])
-            print('N Dendrites:\t', par['den_per_unit'])
-            print('N Output:\t', par['n_output'])
-            print('Batch Size:\t', par['batch_train_size'])
-            print('Alpha Neuron:\t', par['alpha_neuron'])
-            print('-' * 40)
-            print('W In:\t\t\t', W_in.shape)
-            print('W Rnn:\t\t\t', W_rnn_effective.shape)
-            print('W Rnn soma:\t\t', W_rnn_soma.shape)
-            print('Neural Input:\t\t', rnn_input.shape)
-            print('RNN Input:\t\t', h_soma.shape)
-            print('Dendrite Input:\t\t', h_den_in.shape)
-            print('Dendrite Output:\t', h_den_out.shape)
-            print('Soma Input:\t\t', h_soma_in.shape)
-            print('Soma Biases:\t\t', b_rnn.shape)
-            print('Soma Output:\t\t', h_soma.shape)
-            print('-' * 40)
-            quit()
 
         return h_soma_out, syn_x, syn_u
 
