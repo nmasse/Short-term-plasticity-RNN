@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import time
-#import analysis
+import analysis
 from parameters import *
 
 # Reset TensorFlow before running anythin
@@ -108,9 +108,6 @@ class Model:
         else:
             W_rnn_effective = W_rnn
 
-        # syn_x and syn_u will be capped at 1
-        C = tf.constant(np.float32(1))
-
         """
         Update the synaptic plasticity paramaters
         """
@@ -118,29 +115,28 @@ class Model:
             # implement both synaptic short term facilitation and depression
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
             syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post = syn_u*syn_x*h
 
         elif par['synapse_config'] == 'std':
             # implement synaptic short term derpression, but no facilitation
             # we assume that syn_u remains constant at 1
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h
-            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post = syn_x*h
 
         elif par['synapse_config'] == 'stf':
             # implement synaptic short term facilitation, but no depression
             # we assume that syn_x remains constant at 1
             syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post = syn_u*h
 
         else:
             # no synaptic plasticity
             h_post = h
-
 
         """
         Update the hidden state
@@ -182,7 +178,7 @@ class Model:
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_rnn:0":
                 grad *= par['w_rnn_mask']
-                print('Applied weight mask to w_rnn_soma.\t(to soma)')
+                print('Applied weight mask to w_rnn.')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
@@ -201,6 +197,7 @@ def train_and_analyze():
     """
     main()
     update_parameters(analysis_par)
+    tf.reset_default_graph()
     main()
 
 
@@ -270,7 +267,7 @@ def main():
                 else:
                     loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
 
-                accuracy[j] = get_perf(target_data, y_hat, train_mask)
+                accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
 
             iteration_time = time.time() - t_start
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
@@ -278,15 +275,16 @@ def main():
             """
             Save the network model and output model performance to screen
             """
-            if (i+1)%par['iters_between_outputs']==0:
+            if (i+1)%par['iters_between_outputs']==0 or i+1==par['num_iterations']:
                 print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
-                save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
+                save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
 
         """
         Analyze the network model and save the results
         """
         if par['analyze_model']:
-            analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance)
+            weights = eval_weights()
+            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights)
 
     return None
 
@@ -302,6 +300,28 @@ def append_model_performance(model_performance, accuracy, loss, perf_loss, spike
 
     return model_performance
 
+def eval_weights():
+
+    with tf.variable_scope('rnn_cell', reuse=True):
+        W_in = tf.get_variable('W_in')
+        W_rnn = tf.get_variable('W_rnn')
+        b_rnn = tf.get_variable('b_rnn')
+        W_ei = tf.get_variable('EI')
+            #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
+    with tf.variable_scope('output', reuse=True):
+        W_out = tf.get_variable('W_out')
+        b_out = tf.get_variable('b_out')
+
+    weights = {
+        'w_in'  : W_in.eval(),
+        'w_rnn' : W_rnn.eval(),
+        'w_out' : W_out.eval(),
+        'b_rnn' : b_rnn.eval(),
+        'b_out'  : b_out.eval()
+    }
+
+    return weights
+
 def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
 
     print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
@@ -309,18 +329,3 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
 
     return None
-
-def get_perf(y, y_hat, mask):
-
-    """
-    Calculate task accuracy by comparing the actual network output to the desired output
-    only examine time points when test stimulus is on
-    in another words, when y[0,:,:] is not 0
-    """
-
-    y_hat = np.stack(y_hat,axis=1)
-    mask *= y[0,:,:]==0
-    y = np.argmax(y, axis = 0)
-    y_hat = np.argmax(y_hat, axis = 0)
-
-    return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)

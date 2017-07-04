@@ -11,8 +11,6 @@ Independent parameters
 """
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',
-    'profile_path'          : './profiles/attention.txt',
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -27,8 +25,8 @@ par = {
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
-    'num_rule_tuned'        : 8,
-    'n_hidden'              : 200,
+    'num_rule_tuned'        : 0,
+    'n_hidden'              : 100,
     'n_output'              : 3,
 
     # Timings and rates
@@ -68,7 +66,7 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'dualDMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 400,
     'fix_time'              : 500,
@@ -81,9 +79,9 @@ par = {
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
 
     # Save paths
-    'save_fn'               : 'model_data.json',
-    'ckpt_save_fn'          : 'model_.ckpt',
-    'ckpt_load_fn'          : 'model_.ckpt'
+    'save_fn'               : 'model_results.pkl',
+    'ckpt_save_fn'          : 'model.ckpt',
+    'ckpt_load_fn'          : 'model.ckpt'
 }
 
 """
@@ -94,25 +92,23 @@ analysis_par = {
     'load_previous_model'   : True,
     'num_iterations'        : 1,
     'num_batches'           : 1,
-    'batch_train_size'      : 4096,
+    'batch_train_size'      : 2048,
     'var_delay'             : False,
     'dt'                    : 5,
     'learning_rate'         : 0
 }
 
 
-
-
-############################
-### Dependent parameters ###
-############################
+"""
+Dependent parameters
+"""
 
 def update_parameters(updates):
     """
     Takes a list of strings and values for updating parameters in the parameter dictionary
     Example: updates = [(key, val), (key, val)]
     """
-    for (key, val) in updates:
+    for key, val in updates.items():
         par[key] = val
 
     update_dependencies()
@@ -136,6 +132,7 @@ def update_trial_params():
         par['num_receptive_fields'] = 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 20
+        par['num_rule_tuned'] = 8
         analysis_par['probe_trial_pct'] = 0.5
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
