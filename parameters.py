@@ -19,7 +19,7 @@ par = {
     'analyze_model'         : False,
 
     # Network configuration
-    'synapse_config'        : None,      # Full is 'std_stf'
+    'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
     'catch_trials'          : False,     # Note that turning on var_delay implies catch_trials
@@ -68,7 +68,7 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'dualDMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 400,
     'fix_time'              : 500,
@@ -134,6 +134,9 @@ def update_trial_params():
     elif par['trial_type'] == 'dualDMS':
         par['catch_trial_pct'] = 0
         par['num_receptive_fields'] = 2
+        par['probe_trial_pct'] = 0
+        par['probe_time'] = 20
+        analysis_par['probe_trial_pct'] = 0.5
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
@@ -144,8 +147,8 @@ def update_trial_params():
         par['repeat_pct'] = 0
         if par['trial_type'] == 'ABBA':
             par['repeat_pct'] = 0.5
-        analysis_par['probe_trial_pct'] = 0.5
-        analysis_par['probe_time'] = 20
+
+
 
     elif par['trial_type'] == 'DMS+DMRS':
         par['rotation_match'] = [0, 90]
