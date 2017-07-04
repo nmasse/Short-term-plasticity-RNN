@@ -39,7 +39,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     'accuracy_neural_shuffled': accuracy_neural_shuffled,
     'accuracy_syn_shuffled': accuracy_syn_shuffled,
     'model_performance': model_performance,
-    'parameters': par
+    'parameters': par,
+    'weights': weights
     }
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, "wb" ) )
@@ -54,12 +55,9 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, num_reps = 20):
     """
 
     lin_clf = svm.SVC(C=1, kernel='linear', decision_function_shape='ovr', shrinking=False, tol=1e-4)
-    num_neurons, trial_length, num_trials = h.shape
-    possible_rules = np.unique(rule)
-    num_rules = len(possible_rules)
 
-    neuronal_decoding = np.zeros((trial_length,num_rules,num_reps))
-    synaptic_decoding = np.zeros((trial_length,num_rules,num_reps))
+    neuronal_decoding = np.zeros((par['num_time_steps'], par['num_rules'], num_reps))
+    synaptic_decoding = np.zeros((par['num_time_steps'], par['num_rules'], num_reps))
 
     """
     The synaptic efficacy is the product of syn_x and syn_u, will decode sample
@@ -74,6 +72,7 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, num_reps = 20):
         """
         num_motion_dirs = len(unique(sample))
         sample = np.floor(sample/(num_motion_dirs/2)*np.ones_like(sample))
+
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         """
         For ABBA/ABCA trials, will only analyze trials for which the first n-1
@@ -88,8 +87,8 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, num_reps = 20):
     # number of unique samples
     N = len(np.unique(sample))
 
-    for r in range(num_rules):
-        ind = np.where((rule==possible_rules[r]))[0]
+    for r in range(par['num_rules']):
+        ind = np.where((rule==r))[0]
         for t in range(trial_length):
             neuronal_decoding[t,r,:] = calc_svm_equal_trials(lin_clf, h[:,t,ind].T, sample[ind], num_reps, N)
             synaptic_decoding[t,r,:] = calc_svm_equal_trials(lin_clf, syn_efficacy[:,t,ind].T, sample[ind], num_reps, N)
@@ -140,7 +139,7 @@ def calc_svm_equal_trials(lin_clf, y, conds, num_reps, num_conds):
 
     return score
 
-def simulate_network(trial_info, h, syn_x, syn_u, weights):
+def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
 
     """
     Simulation will start from the start of the test period until the end of trial
@@ -150,47 +149,48 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights):
     else:
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
 
-    accuracy = np.zeros((par['num_rules']))
-    accuracy_neural_shuffled = np.zeros((par['num_rules']))
-    accuracy_syn_shuffled = np.zeros((par['num_rules']))
+    accuracy = np.zeros((par['num_rules'], num_reps))
+    accuracy_neural_shuffled = np.zeros((par['num_rules'], num_reps))
+    accuracy_syn_shuffled = np.zeros((par['num_rules'], num_reps))
+
+    _, trial_length, batch_train_size = h.shape
+    test_length = trial_length - test_onset
+
 
     for r in range(par['num_rules']):
-
         ind = np.where(trial_info['rule']==r)[0]
         train_mask = trial_info['train_mask'][test_onset:,ind]
-
-        num_neurons, trial_length, batch_train_size = h.shape
         hidden_init = h[:,test_onset-1,ind]
         syn_x_init = syn_x[:,test_onset-1,ind]
         syn_u_init = syn_u[:,test_onset-1,ind]
-
-        test_length = trial_length - test_onset
         x = np.split(trial_info['neural_input'][:,test_onset:,ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:,ind]
 
-        """
-        Calculating behavioral accuracy without shuffling
-        """
-        y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
-        accuracy[r] = get_perf(y, y_hat, train_mask)
+        for n in range(num_reps):
 
-        """
-        Keep the synaptic values fixed, permute the neural activity
-        """
-        ind_shuffle = np.random.permutation(batch_train_size)
+            """
+            Calculating behavioral accuracy without shuffling
+            """
+            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            accuracy[r,n] = get_perf(y, y_hat, train_mask)
 
-        hidden_init = hidden_init[:,ind_shuffle]
-        y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
-        accuracy_neural_shuffled[r] = get_perf(y, y_hat, train_mask)
+            """
+            Keep the synaptic values fixed, permute the neural activity
+            """
+            ind_shuffle = np.random.permutation(batch_train_size)
 
-        """
-        Keep the hidden values fixed, permute synaptic values
-        """
-        hidden_init = h[:,test_onset-1,ind]
-        syn_x_init = syn_x_init[:,ind_shuffle]
-        syn_u_init = syn_u_init[:,ind_shuffle]
-        y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
-        accuracy_syn_shuffled[r] = get_perf(y, y_hat, train_mask)
+            hidden_init = hidden_init[:,ind_shuffle]
+            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            accuracy_neural_shuffled[r,n] = get_perf(y, y_hat, train_mask)
+
+            """
+            Keep the hidden values fixed, permute synaptic values
+            """
+            hidden_init = h[:,test_onset-1,ind]
+            syn_x_init = syn_x_init[:,ind_shuffle]
+            syn_u_init = syn_u_init[:,ind_shuffle]
+            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            accuracy_syn_shuffled[r,n] = get_perf(y, y_hat, train_mask)
 
     return accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled
 
@@ -208,7 +208,6 @@ def run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights):
     Only use excitatory projections from the RNN to the output layer
     """
     y_hat = [np.dot(weights['w_out'],h) + weights['b_out'] for h in hidden_state_hist]
-    y_hat = np.stack(y_hat,axis=0)
 
     return y_hat
 
@@ -277,96 +276,9 @@ def get_perf(y, y_hat, mask):
     only examine time points when test stimulus is on
     in another words, when y[0,:,:] is not 0
     """
-
+    y_hat = np.stack(y_hat, axis=1)
     mask *= y[0,:,:]==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
 
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
-
-
-def append_hidden_data(model_results, y_hat, state, syn_x, syn_u):
-
-    model_results['hidden_state'].append(state)
-    model_results['syn_x'].append(syn_x)
-    model_results['syn_u'].append(syn_u)
-    model_results['model_outputs'].append(y_hat)
-
-    return model_results
-
-
-def append_model_performance(model_performance, accuracy, loss, trial_num, iteration_time):
-
-    model_performance['accuracy'].append(accuracy)
-    model_performance['loss'].append(loss)
-    model_performance['trial'].append(trial_num)
-    model_performance['time'].append(iteration_time)
-
-    return model_performance
-
-def append_fixed_data(model_results, trial_info):
-
-    model_results['sample_dir'] = trial_info['sample']
-    model_results['test_dir'] = trial_info['test']
-    model_results['match'] = trial_info['match']
-    model_results['catch'] = trial_info['catch']
-    model_results['rule'] = trial_info['rule']
-    model_results['probe'] = trial_info['probe']
-    model_results['rnn_input'] = trial_info['neural_input']
-    model_results['desired_output'] = trial_info['desired_output']
-    model_results['train_mask'] = trial_info['train_mask']
-    model_results['params'] = par
-
-    # add extra trial paramaters for the ABBA task
-    if 4 in par['possible_rules']:
-        print('Adding ABB specific data')
-        model_results['num_test_stim'] = trial_info['num_test_stim']
-        model_results['repeat_test_stim'] = trial_info['repeat_test_stim']
-        model_results['test_stim_code'] = trial_info['test_stim_code']
-
-    with tf.variable_scope('rnn_cell', reuse=True):
-        W_in = tf.get_variable('W_in')
-        W_rnn = tf.get_variable('W_rnn')
-        b_rnn = tf.get_variable('b_rnn')
-        W_ei = tf.get_variable('EI')
-            #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
-
-    model_results['w_in'] = W_in.eval()
-    model_results['w_rnn'] = W_rnn.eval()
-    model_results['w_out'] = W_out.eval()
-    model_results['b_rnn'] = b_rnn.eval()
-    model_results['b_out'] = b_out.eval()
-
-    return model_results
-
-def create_save_dict():
-
-    model_results = {
-        'syn_x' :          [],
-        'syn_u' :          [],
-        'syn_adapt' :      [],
-        'hidden_state':    [],
-        'desired_output':  [],
-        'model_outputs':   [],
-        'rnn_input':       [],
-        'sample_dir':      [],
-        'test_dir':        [],
-        'match':           [],
-        'rule':            [],
-        'catch':           [],
-        'probe':           [],
-        'train_mask':      [],
-        'U':               [],
-        'w_in':            [],
-        'w_rnn':           [],
-        'w_out':           [],
-        'b_rnn':           [],
-        'b_out':           [],
-        'num_test_stim':   [],
-        'repeat_test_stim':[],
-        'test_stim_code': []}
-
-    return model_results

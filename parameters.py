@@ -26,7 +26,7 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 50,
     'n_output'              : 3,
 
     # Timings and rates
@@ -63,7 +63,7 @@ par = {
     'batch_train_size'      : 128,
     'num_batches'           : 8,
     'num_iterations'        : 1000,
-    'iters_between_outputs' : 50,
+    'iters_between_outputs' : 10,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -92,9 +92,9 @@ analysis_par = {
     'load_previous_model'   : True,
     'num_iterations'        : 1,
     'num_batches'           : 1,
-    'batch_train_size'      : 2048,
+    'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 5,
+    'dt'                    : 10,
     'learning_rate'         : 0
 }
 
@@ -224,7 +224,7 @@ def update_dependencies():
 
         return np.max(abs(np.linalg.eigvals(A)))
 
-    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['h_init'] = 0.2*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
@@ -263,13 +263,14 @@ def update_dependencies():
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
 
-    ######################################
-    ### Setting up synaptic parameters ###
-    ######################################
+    """
+    Setting up synaptic parameters
+    0 = static
+    1 = facilitating
+    2 = depressing
+    """
 
-    # 0 = static
-    # 1 = facilitating
-    # 2 = depressing
+
 
     par['synapse_type'] = np.zeros(par['n_hidden'], dtype=np.int8)
 
@@ -312,4 +313,5 @@ def update_dependencies():
 
 update_trial_params()
 update_dependencies()
+
 print("--> Parameters successfully loaded.\n")

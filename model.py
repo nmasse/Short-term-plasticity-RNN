@@ -209,16 +209,14 @@ def main():
     stim = stimulus.Stimulus()
 
     n_input, n_hidden, n_output = par['shape']
-    trial_length = par['num_time_steps']
-    batch_size = par['batch_train_size']
     N = par['batch_train_size'] * par['num_batches'] # trials per iteration, calculate gradients after batch_train_size
 
     """
     Define all placeholder
     """
-    mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
-    x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
+    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
+    x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
+    y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
     with tf.Session() as sess:
 
