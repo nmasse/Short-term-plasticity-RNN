@@ -260,7 +260,7 @@ def main():
                 If learning rate > 0, then also run the optimizer,
                  if learning rate = 0, then skip optimizer
                 """
-                if par['learning_rate']:
+                if par['learning_rate']>0:
                     _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
                 else:
                     loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
@@ -283,9 +283,6 @@ def main():
         if par['analyze_model']:
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights)
-
-    return None
-
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
 
@@ -325,5 +322,3 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
     print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
       ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
-
-    return None
