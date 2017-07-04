@@ -48,10 +48,6 @@ par = {
     'tuning_height'         : 2,        # magnitutde scaling factor for von Mises
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
-    # Probe specs
-    'probe_trial_pct'       : 0,
-    'probe_time'            : 20,
-
     # Cost parameters
     'spike_cost'            : 0.015,
 
@@ -72,7 +68,8 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'possible_rules'        : [0],
+    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 400,
     'fix_time'              : 500,
     'sample_time'           : 500,
@@ -80,6 +77,8 @@ par = {
     'test_time'             : 500,
     'variable_delay_max'    : 500,
     'catch_trial_pct'       : 0.15,
+    'num_receptive_fields'  : 2,
+    'num_rules':            : 1, # this will be two for the DMS+DMRS task
 
     # Save paths
     'save_fn'               : 'model_data.json',
@@ -104,12 +103,6 @@ analysis_par = {
 
 
 
-
-
-
-updates = {'dt':5, 'num_iterations':1, 'num_batches':1, 'batch_train_size':4096,
-        'var_delay': False, 'analyze_model':True, 'load_previous_model': True}
-
 ############################
 ### Dependent parameters ###
 ############################
@@ -124,6 +117,48 @@ def update_parameters(updates):
 
     update_dependencies()
 
+def update_trial_params():
+
+    """
+    Update all the trial parameters given trial_type
+    """
+    if par['trial_type'] = 'DMRS45':
+        par['rotation_match'] = 45
+
+    elif par['trial_type'] = 'DMRS90':
+        par['rotation_match'] = 90
+
+    elif  par['trial_type'] = 'DMRS180':
+        par['rotation_match'] = 180
+
+    elif par['trial_type'] = 'dualDMS':
+        par['catch_trial_pct'] = 0
+        par['num_receptive_fields'] = 2
+
+    elif par['trial_type'] = 'ABBA' or par['trial_type'] = 'ABCA':
+        par['catch_trial_pct'] = 0
+        par['match_test_prob'] = 0.5
+        par['max_num_tests'] = 3
+        par['delay_time'] = 3000
+        par['ABBA_delay'] = int(par['delay_time']/par['max_num_tests']/2)
+        par['repeat_pct'] = 0
+        if par['trial_type'] = 'ABBA':
+            par['repeat_pct'] = 0.5
+        analysis_par['probe_trial_pct'] = 0.5
+        analysis_par['probe_time'] = 20
+
+    elif par['trial_type'] = 'DMS+DMRS':
+        par['rotation_match'] = [0, 90]
+        par['num_rules'] = 2
+
+    elif par['trial_type'] = 'DMS' or par['trial_type'] = 'DMC':
+        pass
+
+    else:
+        print(par['trial_type'], ' not a recognized trial type')
+        quit()
+
+
 def update_dependencies():
     """
     Updates all parameter dependencies
@@ -136,9 +171,6 @@ def update_dependencies():
 
     # Possible rules based on rule type values
     #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
-
-    # Number of rules - used in input tuning
-    par['num_rules'] = len(par['possible_rules'])
 
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
@@ -169,46 +201,6 @@ def update_dependencies():
         return np.float32(w)
 
 
-    def get_profile(profile_path):
-        """
-        Gets profile information from the profile file
-        """
-
-        with open(profile_path) as neurons:
-            raw_content = neurons.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            text[line] = text[line].split("\t")
-
-        name_of_stimulus = text[0][1]
-        date_stimulus_created = text[1][1]
-        author_of_stimulus_profile = text[2][1]
-
-        return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
-
-
-    def get_events(profile_path):
-        """
-        Gets event information from the profile file
-        """
-
-        with open(profile_path) as event_list:
-            raw_content = event_list.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            if text[line][0] == "0":
-                content = text[line:]
-
-        for line in range(len(content)):
-            content[line] = content[line].split("\t")
-            content[line][0] = int(content[line][0])
-
-        return content
-
     # General event profile info
     #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
@@ -216,7 +208,10 @@ def update_dependencies():
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
-    par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
+    if par['trial_type'] == 'dualDMS':
+        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
+    else:
+        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 
