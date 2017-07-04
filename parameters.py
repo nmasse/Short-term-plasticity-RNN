@@ -77,8 +77,8 @@ par = {
     'test_time'             : 500,
     'variable_delay_max'    : 500,
     'catch_trial_pct'       : 0.15,
-    'num_receptive_fields'  : 2,
-    'num_rules':            : 1, # this will be two for the DMS+DMRS task
+    'num_receptive_fields'  : 1,
+    'num_rules'             : 1, # this will be two for the DMS+DMRS task
 
     # Save paths
     'save_fn'               : 'model_data.json',
@@ -122,36 +122,36 @@ def update_trial_params():
     """
     Update all the trial parameters given trial_type
     """
-    if par['trial_type'] = 'DMRS45':
+    if par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45
 
-    elif par['trial_type'] = 'DMRS90':
+    elif par['trial_type'] == 'DMRS90':
         par['rotation_match'] = 90
 
-    elif  par['trial_type'] = 'DMRS180':
+    elif  par['trial_type'] == 'DMRS180':
         par['rotation_match'] = 180
 
-    elif par['trial_type'] = 'dualDMS':
+    elif par['trial_type'] == 'dualDMS':
         par['catch_trial_pct'] = 0
         par['num_receptive_fields'] = 2
 
-    elif par['trial_type'] = 'ABBA' or par['trial_type'] = 'ABCA':
+    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
         par['match_test_prob'] = 0.5
         par['max_num_tests'] = 3
         par['delay_time'] = 3000
         par['ABBA_delay'] = int(par['delay_time']/par['max_num_tests']/2)
         par['repeat_pct'] = 0
-        if par['trial_type'] = 'ABBA':
+        if par['trial_type'] == 'ABBA':
             par['repeat_pct'] = 0.5
         analysis_par['probe_trial_pct'] = 0.5
         analysis_par['probe_time'] = 20
 
-    elif par['trial_type'] = 'DMS+DMRS':
+    elif par['trial_type'] == 'DMS+DMRS':
         par['rotation_match'] = [0, 90]
         par['num_rules'] = 2
 
-    elif par['trial_type'] = 'DMS' or par['trial_type'] = 'DMC':
+    elif par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         pass
 
     else:
@@ -310,5 +310,6 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
+update_trial_params()
 update_dependencies()
 print("--> Parameters successfully loaded.\n")

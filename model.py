@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import time
-import analysis
+#import analysis
 from parameters import *
 
 # Reset TensorFlow before running anythin
@@ -209,7 +209,7 @@ def main():
     """
     Create the stimulus class to generate trial paramaters and input activity
     """
-    stim = stimulus.Stimulus(par)
+    stim = stimulus.Stimulus()
 
     n_input, n_hidden, n_output = par['shape']
     trial_length = par['num_time_steps']
@@ -242,7 +242,7 @@ def main():
         for i in range(par['num_iterations']):
 
             # generate batch of N (batch_train_size X num_batches) trials
-            trial_info = stim.generate_trial(N, var_delay = par['var_delay'])
+            trial_info = stim.generate_trial()
 
             # keep track of the model performance for this batch
             loss = np.zeros((par['num_batches']))
@@ -270,7 +270,7 @@ def main():
                 else:
                     loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
 
-                accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
+                accuracy[j] = get_perf(target_data, y_hat, train_mask)
 
             iteration_time = time.time() - t_start
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
@@ -278,7 +278,7 @@ def main():
             """
             Save the network model and output model performance to screen
             """
-            if (i+1)%par['iters_between_outputs']:
+            if (i+1)%par['iters_between_outputs']==0:
                 print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
                 save_path = saver.save(sess,par['save_dir'] + par['ckpt_save_fn'])
 
@@ -286,7 +286,7 @@ def main():
         Analyze the network model and save the results
         """
         if par['analyze_model']:
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance)
+            analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance)
 
     return None
 
@@ -309,3 +309,18 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
 
     return None
+
+def get_perf(y, y_hat, mask):
+
+    """
+    Calculate task accuracy by comparing the actual network output to the desired output
+    only examine time points when test stimulus is on
+    in another words, when y[0,:,:] is not 0
+    """
+
+    y_hat = np.stack(y_hat,axis=1)
+    mask *= y[0,:,:]==0
+    y = np.argmax(y, axis = 0)
+    y_hat = np.argmax(y_hat, axis = 0)
+
+    return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
