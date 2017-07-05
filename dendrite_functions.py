@@ -7,37 +7,87 @@ from parameters import *
 test = np.ones([5,2,5])
 test = test * [1,2,3,4,5]
 
-#######################
-### Dendrite Inputs ###
-#######################
+##############################
+### Dendrite Direct Inputs ###
+##############################
 
 ### Collects the weights and inputs for the input of each dendrite
 
 # W_in      = [n_hidden_neurons x dendrites_per_neuron x n_input_neurons]
-# W_rnn     = [n_hidden_neurons x dendrites_per_neuron x n_hidden_neurons]
 # rnn_input = [n_input_neurons x batch_train_size]
-# h_soma    = [n_hidden_neurons x batch_train_size]
 # y         = [n_hidden_neurons x dendrites_per_neuron x batch_train_size]
 
-def in_tensordot(W_in, W_rnn, rnn_input, h_soma):
+def in_tensordot(W_in, rnn_input):
     """
     Creation Date: 2017/6/30
     """
 
     # Matrix multiplies (generally) the inputs and weights, and sums them
-    y = tf.tensordot(W_in, rnn_input, ([2],[0])) + tf.tensordot(W_rnn, h_soma, ([2],[0]))
+    y = tf.tensordot(W_in, rnn_input, ([2],[0]))
 
     return y
 
 
-def in_dot_atten(W_in, W_rnn, rnn_input, h_soma):
+def in_dot_atten(W_in, rnn_input):
     """
     Creation Date: 2017/7/3
     Notes: Attentuates the inputs by a constant.
     """
-    y = tf.divide(in_tensordot(W_in, W_rnn, rnn_input, h_soma), 2)
+    y = tf.divide(in_tensordot(W_in, rnn_input), 2)
 
     return y
+
+
+#################################
+### Dendrite Recurrent Inputs ###
+#################################
+
+### Collects the weights and inputs for the recurrent input of each dendrites_init
+
+# W_rnn     = [n_hidden_neurons x dendrites_per_neuron x n_hidden_neurons]
+# h_soma    = [n_hidden_neurons x batch_train_size]
+# y         = [n_hidden_neurons x dendrites_per_neuron x batch_train_size]
+
+def EI_weights(W_rnn):
+    """
+    Produces a pair of weight matrices corresponding to excitatory and
+    inhibitory weight selections
+    """
+
+    EI_exc = tf.constant(par['EI_matrix_d_exc'], name='W_ei_d_exc')
+    EI_inh = tf.constant(par['EI_matrix_d_inh'], name='W_ei_d_inh')
+
+    W_rnn_exc = tf.tensordot(tf.nn.relu(W_rnn), EI_exc, ([2],[0]))
+    W_rnn_inh = tf.tensordot(tf.nn.relu(W_rnn), EI_inh, ([2],[0]))
+
+    return W_rnn_exc, W_rnn_inh
+
+
+def EI_activity(W_rnn, h_soma):
+    """
+    Takes excitatory and inhibitory weight matrices and applies them to the
+    recurrent, somatic input to find excitatory and inhibitory activity
+    """
+
+    W_rnn_exc, W_rnn_inh = EI_weights(W_rnn)
+
+    exc_activity = tf.tensordot(W_rnn_exc, h_soma, ([2],[0]))
+    inh_activity = tf.tensordot(W_rnn_inh, h_soma, ([2],[0]))
+
+    return exc_activity, inh_activity
+
+
+def rin_basicEI(W_rnn, h_soma):
+    """
+    Creation Date: 2017/7/5
+    Notes: Makes excitatory inputs positive and inhibitory inputs negative.
+    """
+
+    exc_activity, inh_activity = EI_activity(W_rnn, h_soma)
+    y = (exc_activity - inh_activity)
+
+    return y, exc_activity, inh_activity
+
 
 ##########################
 ### Dendrite Processes ###
@@ -126,6 +176,7 @@ def ac_threshold(x):
     y = tf.where(tf.greater_equal(x1, x2), x1, x0)
     return y
 
+
 ##############################
 ### Dendrite configuration ###
 ##############################
@@ -135,41 +186,49 @@ def ac_threshold(x):
 # Process functions (processes each individual dendrite to simulate any internal actions)
 # Accumulator functions (accumulates the dendrite results per neuron)
 
-def dendrite_function0001(W_in, W_rnn_effective, rnn_input, h_soma, dend):
+def dendrite_function0001(W_in, W_rnn, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: The most basic of configurations.
     """
 
-    h_den_in = in_tensordot(W_in, W_rnn_effective, rnn_input, h_soma)
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
+
+    h_den_in = den_in + rnn_in
     h_den_out = pr_pass_through(h_den_in)
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in, h_den_out
+    return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0002(W_in, W_rnn_effective, rnn_input, h_soma, dend):
+def dendrite_function0002(W_in, W_rnn, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: Biased and relu'ed.
     """
 
-    h_den_in = in_tensordot(W_in, W_rnn_effective, rnn_input, h_soma)
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
+
+    h_den_in = den_in + rnn_in
     h_den_out = pr_bias(h_den_in)
     h_den_out = pr_relu(h_den_out)
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in, h_den_out
+    return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0003(W_in, W_rnn_effective, rnn_input, h_soma, dend):
+def dendrite_function0003(W_in, W_rnn, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/7/3
     Notes: Biased and relu'ed with contribution from previous state.
     """
 
-    h_den_in = in_tensordot(W_in, W_rnn_effective, rnn_input, h_soma)
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
 
+    h_den_in = den_in + rnn_in
     h_den_out = pr_bias(h_den_in)
     h_den_out = pr_retain(h_den_out, dend)
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in, h_den_out
+    return h_soma_in, h_den_out, exc_activity, inh_activity

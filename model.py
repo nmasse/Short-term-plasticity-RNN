@@ -10,6 +10,7 @@ import numpy as np
 import stimulus
 import time
 import os
+import psutil
 from model_saver import *
 from parameters import *
 import dendrite_functions as df
@@ -20,9 +21,12 @@ tf.reset_default_graph()
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
+p = psutil.Process(os.getpid())
+p.cpu_affinity(par['processor_affinity'])
 
+print('Running with PID', os.getpid(), "on processors", str(p.cpu_affinity()) + ".", "\n")
 print('Using dendrites:\t', par['use_dendrites'])
-print('Using EI Network:\t', par['EI'])
+print('Using EI network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
 #################################
@@ -87,10 +91,11 @@ class Model:
 
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
-            W_ei = tf.get_variable('EI_matrix', initializer = np.float32(par['EI_matrix']), trainable=False)
 
         self.hidden_state_hist = []
         self.dendrites_hist = []
+        self.dendrites_inputs_exc_hist = []
+        self.dendrites_inputs_inh_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
 
@@ -99,9 +104,11 @@ class Model:
         """
 
         for rnn_input in x_unstacked:
-            h, d, syn_x, syn_u = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
+            h, d, syn_x, syn_u, e, i = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
             self.hidden_state_hist.append(h)
             self.dendrites_hist.append(d)
+            self.dendrites_inputs_exc_hist = [e]
+            self.dendrites_inputs_inh_hist = [i]
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
 
@@ -120,18 +127,14 @@ class Model:
 
             W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
-            W_ei = tf.get_variable('EI_matrix')
+            W_ei = tf.constant(par['EI_matrix'], name='W_ei')
 
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            if par['use_dendrites']:
-                W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), W_ei, ([2],[0]))
             W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
 
         else:
-            if par['use_dendrites']:
-                W_rnn_effective = W_rnn
             W_rnn_soma_effective = W_rnn_soma
 
         # syn_x and syn_u will be capped at 1
@@ -173,7 +176,7 @@ class Model:
         if par['use_dendrites']:
 
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out = df.dendrite_function0003(W_in, W_rnn_effective, rnn_input, h_post_syn, dend)
+            h_soma_in, dend_out, exc_activity, inh_activity = df.dendrite_function0001(W_in, W_rnn, rnn_input, h_post_syn, dend)
 
         else:
             h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
@@ -187,7 +190,7 @@ class Model:
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
-        return h_soma_out, dend_out, syn_x, syn_u
+        return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
 
 
     def optimize(self):
@@ -335,8 +338,11 @@ def main():
                 """
                 Run the model
                 """
-                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist], \
-                                                                                    {x: input_data, y: target_data, mask: train_mask})
+                _, loss_temp, perf_loss_temp, spike_loss_temp, y_hat, state_hist, dendrites_hist, dendrites_exc_hist, dendrites_inh_hist \
+                    = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
+                                model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
+                                model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
+                                {x: input_data, y: target_data, mask: train_mask})
 
                 # append the data before saving
                 if save_trial:
@@ -453,8 +459,6 @@ def append_fixed_data(model_results, trial_info):
             W_in_soma = tf.get_variable('W_in_soma')
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
-        W_ei = tf.get_variable('EI_matrix')
-            #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
     with tf.variable_scope('output', reuse=True):
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')

@@ -5,7 +5,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import stimulus
-import imp
+from PyQt5 import QtGui
+import pyqtgraph as pg
 from parameters import *
 
 stim = stimulus.Stimulus()
@@ -60,5 +61,28 @@ def plot_neural_input(trial_info):
     plt.show()
 
 
+#plot_neural_input(trial_info)
 
-plot_neural_input(trial_info)
+def plot_accuracy(pathname):
+    with open(pathname) as loaded:
+        lines = loaded.read().split("\n")
+
+    content = []
+    ticks = []
+    for i in range(len(lines)):
+        lines[i] = lines[i].split("\t")
+        if i == 0:
+            pass
+        elif len(lines[i]) < 2:
+            pass
+        else:
+            content.append(lines[i])
+
+    data = np.transpose(np.array(content, np.float32))
+    trial, time, perf_loss, spike_loss, activity, accuracy = data[0], data[1], data[2], data[3], data[4], data[5]
+
+    print(trial)
+
+    return 0
+
+plot_accuracy("./savedir/savefile144454-20170703.txt")

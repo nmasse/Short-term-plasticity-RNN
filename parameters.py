@@ -21,10 +21,12 @@ par = {
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
+    'processor_affinity'  : [0, 1],   # Default is [], for no preference
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
+    'dend_exc_inh_prop' : 0.8,       #
     'use_dendrites'     : True,
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
@@ -81,9 +83,9 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 128,
-    'num_batches'       : 8,
-    'num_iterations'    : 1500,
+    'batch_train_size'  : 100,
+    'num_batches'       : 10,
+    'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
@@ -147,6 +149,22 @@ def update_dependencies():
     par['EI_list'][-par['num_inh_units']:] = -1.
 
     par['EI_matrix'] = np.diag(par['EI_list'])
+
+    par['EI_list_d_exc'] = np.ones(par['n_hidden'], dtype=np.float32)
+    par['EI_list_d_inh'] = np.ones(par['n_hidden'], dtype=np.float32)
+
+    par['EI_list_d_exc'][-par['num_inh_units']:] = 0.
+    par['EI_list_d_inh'][:par['num_exc_units']] = 0.
+
+    par['EI_matrix_d_exc'] = np.diag(par['EI_list_d_exc'])
+    par['EI_matrix_d_inh'] = np.diag(par['EI_list_d_inh'])
+
+    # The previous exc_inh_prop addresses soma-to-soma interactions, but this
+    # EI matrix addresses soma-to-dendrite interactions.  It follows the same
+    # setup process, however.
+
+    # [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
+    par['num_exc_dends'] = int(np.round(par['den_per_unit']))
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = par['dt']/par['membrane_time_constant']
