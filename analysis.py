@@ -89,7 +89,7 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, num_reps = 20):
 
     for r in range(par['num_rules']):
         ind = np.where((rule==r))[0]
-        for t in range(trial_length):
+        for t in range(par['num_time_steps']):
             neuronal_decoding[t,r,:] = calc_svm_equal_trials(lin_clf, h[:,t,ind].T, sample[ind], num_reps, N)
             synaptic_decoding[t,r,:] = calc_svm_equal_trials(lin_clf, syn_efficacy[:,t,ind].T, sample[ind], num_reps, N)
 
