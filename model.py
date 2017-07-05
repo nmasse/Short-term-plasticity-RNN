@@ -3,7 +3,7 @@
 Edited: 2017/06/13 Gregory Grant
 """
 
-print("\n\nRunning model...\n")
+print("\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
@@ -22,10 +22,13 @@ tf.reset_default_graph()
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
-#p = psutil.Process(os.getpid())
-#p.cpu_affinity(par['processor_affinity'])
 
-#print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+# Allow for varied processor use (if on Windows)
+if os.name == 'nt':
+    p = psutil.Process(os.getpid())
+    p.cpu_affinity(par['processor_affinity'])
+    print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+
 print('Using dendrites:\t', par['use_dendrites'])
 print('Using EI network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
@@ -176,8 +179,10 @@ class Model:
 
         if par['use_dendrites']:
 
+            dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
+
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out, exc_activity, inh_activity = df.dendrite_function0002(W_in, W_rnn, rnn_input, h_post_syn, dend)
+            h_soma_in, dend_out, exc_activity, inh_activity = dendrite_function(W_in, W_rnn, rnn_input, h_post_syn, dend)
 
         else:
             h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
@@ -239,7 +244,7 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def main():
+def main(switch):
 
 
     """
@@ -283,28 +288,7 @@ def main():
         prev_iteration = 0
         for i in range(par['num_iterations']):
 
-            def change_task(iteration, prev_iteration):
-                if iteration == (prev_iteration + 200):
-                    if par['allowed_categories'] == [0]:
-                        par['allowed_categories'] = [1]
-                        print("Switching to category 1.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 1.\n')
-                        return iteration
-                    elif par['allowed_categories'] == [1]:
-                        par['allowed_categories'] = [0]
-                        print("Switching to category 0.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 0.\n')
-                        return iteration
-                    else:
-                        print("ERROR: Bad category.")
-                        quit()
-                else:
-                    return prev_iteration
-
-
-            prev_iteration = change_task(i, prev_iteration)
+            prev_iteration = switch(i, prev_iteration, '.\savedir\savefile%s.txt' % timestr)
 
             end_training = False
             save_trial = False
@@ -391,7 +375,8 @@ def main():
                 # output model performance to screen
                 print('Trial: {:12d}   |'.format((i+1)*N))
                 print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
-                print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
+                print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
+
                 print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
                 for i in range(len(roc['neurons'][1])):
                     print(roc['neurons'][1][i].round(2), '\t\t\t', roc['dendrites'][1][i].round(2))
@@ -530,6 +515,3 @@ def create_save_dict():
         }
 
     return model_results
-
-# Run the model from main
-main()

@@ -45,6 +45,7 @@ par = {
     'membrane_time_constant'    : 20,
     'dendrite_time_constant'    : 100,
     'connection_prob'   : 1,         # Usually 1
+    'time_stamps'       : [1100, 1200],
 
     # Variance values
     'clip_max_grad_val' : 0.25,
