@@ -26,7 +26,7 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 50,
+    'n_hidden'              : 200,
     'n_output'              : 3,
 
     # Timings and rates
@@ -63,7 +63,7 @@ par = {
     'batch_train_size'      : 128,
     'num_batches'           : 8,
     'num_iterations'        : 1000,
-    'iters_between_outputs' : 10,
+    'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
