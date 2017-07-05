@@ -21,10 +21,13 @@ tf.reset_default_graph()
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
-p = psutil.Process(os.getpid())
-p.cpu_affinity(par['processor_affinity'])
 
-print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+# Allow for varied processor use (if on Windows)
+if os.name == 'nt':
+    p = psutil.Process(os.getpid())
+    p.cpu_affinity(par['processor_affinity'])
+    print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+
 print('Using dendrites:\t', par['use_dendrites'])
 print('Using EI network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
