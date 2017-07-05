@@ -24,7 +24,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 p = psutil.Process(os.getpid())
 p.cpu_affinity(par['processor_affinity'])
 
-print('Running with PID', os.getpid(), "on processors", str(p.cpu_affinity()) + ".", "\n")
+print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
 print('Using dendrites:\t', par['use_dendrites'])
 print('Using EI network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
@@ -176,7 +176,7 @@ class Model:
         if par['use_dendrites']:
 
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out, exc_activity, inh_activity = df.dendrite_function0001(W_in, W_rnn, rnn_input, h_post_syn, dend)
+            h_soma_in, dend_out, exc_activity, inh_activity = df.dendrite_function0002(W_in, W_rnn, rnn_input, h_post_syn, dend)
 
         else:
             h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
@@ -347,7 +347,7 @@ def main():
                 # append the data before saving
                 if save_trial:
                     start_save_time = time.time()
-                    model_results = append_hidden_data(model_results, y_hat, state_hist)
+                    model_results = append_hidden_data(model_results, y_hat, state_hist, dendrites_hist, dendrites_exc_hist, dendrites_inh_hist)
 
                 # keep track of performance for each batch
                 accuracy.append(get_perf(target_data, y_hat, train_mask))
@@ -406,10 +406,13 @@ def get_perf(y, y_hat, mask):
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
-def append_hidden_data(model_results, y_hat, state):
+def append_hidden_data(model_results, y_hat, state, d, exc, inh):
 
     model_results['hidden_state'].append(state)
     model_results['model_outputs'].append(y_hat)
+    model_results['dendrite_state'].append(d)
+    model_results['dendrite_exc_input'].append(exc)
+    model_results['dendrite_inh_input'].append(inh)
 
     return model_results
 
@@ -484,6 +487,9 @@ def create_save_dict():
 
     model_results = {
         'hidden_state':    [],
+        'dendrite_state':  [],
+        'dendrite_exc_input' : [],
+        'dendrite_inh_input' : [],
         'desired_output':  [],
         'model_outputs':   [],
         'rnn_input':       [],
@@ -503,7 +509,8 @@ def create_save_dict():
         'b_out':           [],
         'num_test_stim':   [],
         'repeat_test_stim':[],
-        'test_stim_code': []}
+        'test_stim_code': []
+        }
 
     return model_results
 

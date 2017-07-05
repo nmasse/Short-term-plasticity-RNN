@@ -89,7 +89,7 @@ par = {
     'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
-    'save_fn'           : 'model_data_no_dend.json',
+    'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 }
