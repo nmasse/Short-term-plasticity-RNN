@@ -241,6 +241,27 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
+def change_task(iteration, prev_iteration, savename):
+    if iteration == (prev_iteration + 10):
+        if par['allowed_categories'] == [0]:
+            par['allowed_categories'] = [1]
+            print("Switching to category 1.\n")
+            with open('.\savedir\savefile%s.txt' % savename, 'a') as f:
+                f.write('Switching to category 1.\n')
+            return iteration
+        elif par['allowed_categories'] == [1]:
+            par['allowed_categories'] = [0]
+            print("Switching to category 0.\n")
+            with open('.\savedir\savefile%s.txt' % savename, 'a') as f:
+                f.write('Switching to category 0.\n')
+            return iteration
+        else:
+            print("ERROR: Bad category.")
+            quit()
+    else:
+        return prev_iteration
+
+
 def main():
 
 
@@ -285,28 +306,7 @@ def main():
         prev_iteration = 0
         for i in range(par['num_iterations']):
 
-            def change_task(iteration, prev_iteration):
-                if iteration == (prev_iteration + 200):
-                    if par['allowed_categories'] == [0]:
-                        par['allowed_categories'] = [1]
-                        print("Switching to category 1.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 1.\n')
-                        return iteration
-                    elif par['allowed_categories'] == [1]:
-                        par['allowed_categories'] = [0]
-                        print("Switching to category 0.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 0.\n')
-                        return iteration
-                    else:
-                        print("ERROR: Bad category.")
-                        quit()
-                else:
-                    return prev_iteration
-
-
-            prev_iteration = change_task(i, prev_iteration)
+            prev_iteration = change_task(i, prev_iteration, timestr)
 
             end_training = False
             save_trial = False
