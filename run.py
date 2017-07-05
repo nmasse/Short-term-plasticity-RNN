@@ -23,6 +23,7 @@ def switch(iteration, prev_switch_iteration, savename):
     else:
         return prev_switch_iteration
 
+
 def script():
     par['df_num'] = '0004'
     model.main(switch)
