@@ -7,6 +7,7 @@ models_per_task = 25
 
 for task in task_list:
     for j in range(models_per_task):
+        print('Training network on ', task,' task, network model number ', j)
         save_fn = task + '_' + str(j) + '.pkl'
         updates = {'trial_type': task, 'save_fn': save_fn}
         update_parameters(updates)
