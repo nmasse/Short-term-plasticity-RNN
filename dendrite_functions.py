@@ -206,6 +206,8 @@ def dendrite_function0002(W_in, W_rnn, rnn_input, h_soma, dend):
     Notes: Biased and relu'ed.
     """
 
+    print("More success!")
+
     den_in = in_tensordot(W_in, rnn_input)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
