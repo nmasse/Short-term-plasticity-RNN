@@ -3,7 +3,6 @@ import numpy as np
 from model_saver import *
 from parameters import *
 
-
 test = np.ones([5,2,5])
 test = test * [1,2,3,4,5]
 
@@ -193,7 +192,7 @@ def dendrite_function0001(W_in, W_rnn, rnn_input, h_soma, dend):
     """
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
     h_den_out = pr_pass_through(h_den_in)
@@ -208,7 +207,7 @@ def dendrite_function0002(W_in, W_rnn, rnn_input, h_soma, dend):
     """
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
     h_den_out = pr_bias(h_den_in)
@@ -224,11 +223,30 @@ def dendrite_function0003(W_in, W_rnn, rnn_input, h_soma, dend):
     """
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI (W_rnn, h_soma)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
     h_den_out = pr_bias(h_den_in)
     h_den_out = pr_retain(h_den_out, dend)
+    h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity
+
+def dendrite_function0004(W_in, W_rnn, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/5
+    Notes: Inhibition will gate excitatory inputs. Using ReLu's
+    """
+    beta = tf.constant(np.float32(1))
+    alpha = tf.constant(np.float32(0.5))
+
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+
+    exc_activity += den_in
+
+    h_den_out = (1-par['alpha_dendrite'])*dend +par['alpha_dendrite']*tf.nn.relu(exc_activity - beta)/(alpha+inh_activity)
+
     h_soma_in = ac_simple_sum(h_den_out)
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
