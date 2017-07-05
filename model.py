@@ -10,9 +10,6 @@ import time
 import analysis
 from parameters import *
 
-# Reset TensorFlow before running anythin
-tf.reset_default_graph()
-
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
@@ -202,6 +199,11 @@ def train_and_analyze():
 
 
 def main():
+
+    """
+    Reset TensorFlow before running anything
+    """
+    tf.reset_default_graph()
 
     """
     Create the stimulus class to generate trial paramaters and input activity
