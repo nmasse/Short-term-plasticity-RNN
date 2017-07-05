@@ -370,7 +370,7 @@ def main():
                 model_results = append_fixed_data(model_results, trial_info)
                 model_results['performance'] = model_performance
 
-                json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
+                #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
                 save_time = time.time() - start_save_time
 
                 roc = dend_analysis.roc_analysis(time_stamps=par['time_stamps'], cat_rule=model_results['category_rule'], \
