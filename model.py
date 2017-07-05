@@ -190,7 +190,10 @@ class Model:
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
-        return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
+        if par['use_dendrites']:
+            return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
+        else:
+            return h_soma_out, dend_out, syn_x, syn_u, tf.constant(0), tf.constant(0)
 
 
     def optimize(self):
