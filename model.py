@@ -71,7 +71,7 @@ class Model:
             W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
             W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-            W_ei = tf.get_variable('EI', initializer = par['EI_matrix'], trainable=False)
+        self.W_ei = tf.constant(par['EI_matrix'])
 
         self.hidden_state_hist = []
         self.syn_x_hist = []
@@ -96,12 +96,11 @@ class Model:
             W_in = tf.get_variable('W_in')
             W_rnn = tf.get_variable('W_rnn')
             b_rnn = tf.get_variable('b_rnn')
-            W_ei = tf.get_variable('EI')
 
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
+            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
         else:
             W_rnn_effective = W_rnn
 
@@ -220,11 +219,14 @@ def main():
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
-    with tf.Session() as sess:
+    print('before session called')
+    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
+        print('session called')
 
-        model = Model(x, y, mask)
-        init = tf.global_variables_initializer()
-        sess.run(init)
+        with tf.device("/cpu:0"):
+            model = Model(x, y, mask)
+            init = tf.global_variables_initializer()
+            sess.run(init)
         t_start = time.time()
 
         saver = tf.train.Saver()
@@ -303,8 +305,7 @@ def eval_weights():
         W_in = tf.get_variable('W_in')
         W_rnn = tf.get_variable('W_rnn')
         b_rnn = tf.get_variable('b_rnn')
-        W_ei = tf.get_variable('EI')
-            #W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), W_ei)
+
     with tf.variable_scope('output', reuse=True):
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
