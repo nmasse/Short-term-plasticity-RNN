@@ -3,7 +3,7 @@
 Edited: 2017/06/13 Gregory Grant
 """
 
-print("\n\nRunning model...\n")
+print("\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
@@ -110,8 +110,8 @@ class Model:
             h, d, syn_x, syn_u, e, i = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
             self.hidden_state_hist.append(h)
             self.dendrites_hist.append(d)
-            self.dendrites_inputs_exc_hist = [e]
-            self.dendrites_inputs_inh_hist = [i]
+            self.dendrites_inputs_exc_hist.append(e)
+            self.dendrites_inputs_inh_hist.append(i)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
 
@@ -178,8 +178,10 @@ class Model:
 
         if par['use_dendrites']:
 
+            dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
+
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out, exc_activity, inh_activity = df.dendrite_function0002(W_in, W_rnn, rnn_input, h_post_syn, dend)
+            h_soma_in, dend_out, exc_activity, inh_activity = dendrite_function(W_in, W_rnn, rnn_input, h_post_syn, dend)
 
         else:
             h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
@@ -241,7 +243,7 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def main():
+def main(switch):
 
 
     """
@@ -285,28 +287,7 @@ def main():
         prev_iteration = 0
         for i in range(par['num_iterations']):
 
-            def change_task(iteration, prev_iteration):
-                if iteration == (prev_iteration + 200):
-                    if par['allowed_categories'] == [0]:
-                        par['allowed_categories'] = [1]
-                        print("Switching to category 1.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 1.\n')
-                        return iteration
-                    elif par['allowed_categories'] == [1]:
-                        par['allowed_categories'] = [0]
-                        print("Switching to category 0.\n")
-                        with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
-                            f.write('Switching to category 0.\n')
-                        return iteration
-                    else:
-                        print("ERROR: Bad category.")
-                        quit()
-                else:
-                    return prev_iteration
-
-
-            prev_iteration = change_task(i, prev_iteration)
+            prev_iteration = switch(i, prev_iteration, '.\savedir\savefile%s.txt' % timestr)
 
             end_training = False
             save_trial = False
@@ -519,6 +500,3 @@ def create_save_dict():
         }
 
     return model_results
-
-# Run the model from main
-main()
