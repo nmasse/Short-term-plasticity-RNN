@@ -21,10 +21,13 @@ tf.reset_default_graph()
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
-p = psutil.Process(os.getpid())
-p.cpu_affinity(par['processor_affinity'])
 
-print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+# Allow for varied processor use (if on Windows)
+if os.name == 'nt':
+    p = psutil.Process(os.getpid())
+    p.cpu_affinity(par['processor_affinity'])
+    print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+
 print('Using dendrites:\t', par['use_dendrites'])
 print('Using EI network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
@@ -190,7 +193,10 @@ class Model:
                             + b_rnn \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
-        return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
+        if par['use_dendrites']:
+            return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
+        else:
+            return h_soma_out, dend_out, syn_x, syn_u, tf.constant(0), tf.constant(0)
 
 
     def optimize(self):
