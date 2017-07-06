@@ -67,7 +67,6 @@ def json_load(savedir="save.json", toplevel=True, a=None):
     if toplevel == True:
         with open(savedir, 'r') as f:
             x = json.load(f)
-            print("Loading JSON file...")
     else:
         x = copy.deepcopy(a)
 
@@ -105,6 +104,4 @@ def json_load(savedir="save.json", toplevel=True, a=None):
     else:
         pass
 
-    if toplevel == True:
-        print("Loading complete.")
     return x
