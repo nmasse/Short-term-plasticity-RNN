@@ -5,6 +5,7 @@ Overhauling the parameters setup
 
 import numpy as np
 import tensorflow as tf
+import model_saver as ms
 
 print("\n--> Loading parameters...")
 
@@ -176,6 +177,10 @@ def update_dependencies():
 
     # Dendrite time constant for dendritic branches
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
+
+    # Get permutation list
+    par['permutations'] = np.squeeze(ms.json_load('./resources/permutations/permutations.json'))
+
 
     def initialize(dims, connection_prob):
         n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))

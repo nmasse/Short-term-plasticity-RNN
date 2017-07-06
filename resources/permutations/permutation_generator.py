@@ -9,8 +9,8 @@ available_permutations = 100
 
 # Trial generator permutation choices
 permutation_template = np.arange(784)
-p = [permutation_template]
+p = [[permutation_template]]
 for n in range(1,available_permutations):
-    p.append(np.random.permutation(permutation_template))
+    p.append([np.random.permutation(permutation_template)])
 
 ms.json_save(p, savedir='./permutations.json')
