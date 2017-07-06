@@ -363,4 +363,4 @@ def update_dependencies():
             par['syn_u_init'][i,:] = par['U'][i,0]
 
 update_dependencies()
-print("--> Parameters successfully loaded.\n")
+print("--> Parameters successfully loaded.")

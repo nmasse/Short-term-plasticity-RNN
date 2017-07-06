@@ -244,7 +244,7 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def main(switch):
+def main(switch, update):
 
 
     """
@@ -344,6 +344,12 @@ def main(switch):
 
             iteration_time = time.time() - t_start
             model_performance = append_model_performance(model_performance, accuracy, perf_loss, (i+1)*N, iteration_time)
+
+            """
+            Update the realtime outputs
+            """
+            update({'trial': (i+1)*N, 'accuracy': np.mean(accuracy)})
+
 
             """
             Save the data and network model
