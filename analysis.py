@@ -207,7 +207,7 @@ def run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights):
     Network output
     Only use excitatory projections from the RNN to the output layer
     """
-    y_hat = [np.dot(weights['w_out'],h) + weights['b_out'] for h in hidden_state_hist]
+    y_hat = [np.dot(np.maximum(0,weights['w_out']), h) + weights['b_out'] for h in hidden_state_hist]
 
     return y_hat
 
@@ -226,6 +226,13 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights):
     return hidden_state_hist
 
 def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
+
+    if par['EI']:
+        # ensure excitatory neurons only have postive outgoing weights,
+        # and inhibitory neurons have negative outgoing weights
+        W_rnn_effective = np.dot(np.maximum(0,weights['w_rnn']), par['EI_matrix'])
+    else:
+        W_rnn_effective = weights['w_rnn']
 
 
     """
@@ -262,8 +269,8 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
     All needed rectification has already occured
     """
     h = np.maximum(0, h*(1-par['alpha_neuron'])
-                   + par['alpha_neuron']*(np.dot(weights['w_in'], rnn_input)
-                   + np.dot(weights['w_rnn'], h_post) + weights['b_rnn'])
+                   + par['alpha_neuron']*(np.dot(np.maximum(0,weights['w_in']), np.maximum(0, rnn_input))
+                   + np.dot(W_rnn_effective, h_post) + weights['b_rnn'])
                    + np.random.normal(0, par['noise_sd'],size=(par['n_hidden'], par['batch_train_size'])))
 
     return h, syn_x, syn_u
@@ -276,7 +283,9 @@ def get_perf(y, y_hat, mask):
     only examine time points when test stimulus is on
     in another words, when y[0,:,:] is not 0
     """
+
     y_hat = np.stack(y_hat, axis=1)
+    print('shape y_hat', y_hat.shape, 'shape y ', y.shape)
     mask *= y[0,:,:]==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
