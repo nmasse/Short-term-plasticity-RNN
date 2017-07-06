@@ -74,6 +74,7 @@ par = {
     'delay_time'            : 1000,
     'test_time'             : 500,
     'variable_delay_max'    : 500,
+    'mask_duration'         : 80,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.15,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
