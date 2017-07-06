@@ -285,7 +285,6 @@ def get_perf(y, y_hat, mask):
     """
 
     y_hat = np.stack(y_hat, axis=1)
-    print('shape y_hat', y_hat.shape, 'shape y ', y.shape)
     mask *= y[0,:,:]==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
