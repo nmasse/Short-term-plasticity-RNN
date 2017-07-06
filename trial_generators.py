@@ -86,6 +86,29 @@ def tuning():
     return motion_tuning, fix_tuning, rule_tuning
 
 
+def get_mnist():
+    from mnist import MNIST
+    mndata = MNIST('./resources/mnist/data/original')
+    images, labels = mndata.load_training()
+
+    return images, labels
+
+def mnist_permutation(m):
+    # Randomly permutes the inputs based on a set of seeds in parameters
+    output = np.zeros(np.shape(m))
+
+    for n in range(np.shape(m)[0]):
+        p_index = par['permutations'][par['permutation_id']][n]
+        output[n] = m[p_index]
+
+    print(np.array(m))
+    print(np.array(output, dtype=int))
+    print(np.sum(m), np.sum(output))
+    quit()
+
+
+
+
 #################################
 ### Trial generator functions ###
 #################################
@@ -231,6 +254,50 @@ def attention(N):
 
     return trial_setup
 
+def mnist(N):
+    """
+    Generates a set of random trials for timed MNIST tests based on the batch
+    size, and returns the stimuli, tests, intended outputs, and the default
+    intended output for the set
+
+    The output arrays are [batch_train_size x neurons] large, where [neurons]
+    corresponds to the number of input or output neurons, depending on the array.
+    """
+
+    ### Tuning inputs
+    images, labels = get_mnist()
+
+    ### Pre-allocate inputs and outputs
+    default_input   = np.zeros((N, par['n_input']), dtype=np.float32)
+    fix_input       = copy.deepcopy(default_input)
+    sample_input    = copy.deepcopy(default_input)
+
+    default_output  = np.zeros((N, par['n_output']), dtype=np.float32)
+    fix_output      = copy.deepcopy(default_output)
+    fix_output[:,0] = 1
+    sample_output   = copy.deepcopy(default_output)
+
+    presented_number = []
+
+    for n in range(N):
+
+        # Generate a number as stimulus
+        num = np.random.randint(0, len(labels))
+        label = labels[num]
+        image = images[num]
+
+        mnist_permutation(image)
+        print("Permuted.")
+        quit()
+
+        ### PERMUTATION
+
+        # Output sample_input[n] from loop
+        sample_input[n] = image
+
+
+
+mnist(128)
 
 def direction_dms(N):
     """

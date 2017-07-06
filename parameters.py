@@ -16,8 +16,8 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'att',
-    'profile_path'      : './profiles/attention.txt',
+    'stimulus_type'     : 'mnist',
+    'profile_path'      : './profiles/mnist.txt',
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
@@ -32,12 +32,12 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
-    'num_motion_tuned'  : 96,
+    'num_motion_tuned'  : 784,
     'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 8,
+    'num_rule_tuned'    : 0,
     'n_hidden'          : 50,
     'den_per_unit'      : 5,
-    'n_output'          : 3,
+    'n_output'          : 11,
 
     # Timings and rates
     'dt'                : 25,
@@ -64,6 +64,7 @@ par = {
     'num_categorizations'   : 2,    # contributes to 'possible_rules'
     'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
     'allowed_categories'    : [0],  # Can be 0,1
+    'permutation_id'        : 2,
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -175,7 +176,6 @@ def update_dependencies():
 
     # Dendrite time constant for dendritic branches
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
-
 
     def initialize(dims, connection_prob):
         n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
