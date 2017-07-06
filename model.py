@@ -334,8 +334,8 @@ def main(switch):
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
                 save_time = time.time() - t_start
-                #roc = dend_analysis.roc_analysis(model_results)
-                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc=[])
+                #analysis = dend_analysis.analysis(model_results)
+                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, analysis=[])
 
 
     print('\nModel execution complete.\n')
@@ -356,7 +356,8 @@ def get_perf(y, y_hat, mask):
 
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
-def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc):
+
+def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, analysis):
 
     with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
@@ -374,12 +375,12 @@ def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist,
     print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
     """
     print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
-    for i in range(len(roc['neurons'][1])):
-        print(roc['neurons'][1][i].round(2), '\t\t\t', roc['dendrites'][1][i].round(2))
+    for i in range(len(analysis['roc']['neurons'][1])):
+        print(analysis['roc']['neurons'][1][i].round(2), '\t\t\t', analysis['roc']['dendrites'][1][i].round(2))
 
     print('ROC Value (Dend_excitatory): \t ROC Value (Dend_inhibitory):')
-    for i in range(len(roc['neurons'][1])):
-        print(roc['dendrite_exc'][1][i].round(2), '\t\t\t', roc['dendrite_inh'][1][i].round(2))
+    for i in range(len(analysis['roc']['neurons'][1])):
+        print(analysis['roc']['dendrite_exc'][1][i].round(2), '\t\t\t', analysis['roc']['dendrite_inh'][1][i].round(2))
     """
     print("\n")
 

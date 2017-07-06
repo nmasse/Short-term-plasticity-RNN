@@ -96,6 +96,14 @@ par = {
     'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
+
+    # Analysis
+    'roc'               : True,
+    'anova'             : False,
+    'neuron'            : True,
+    'dendrites'         : True,
+    'exc'               : True,
+    'inh'               : True
 }
 
 ############################
