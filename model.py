@@ -219,11 +219,10 @@ def main():
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
-    print('before session called')
-    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
-        print('session called')
+    # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
+    with tf.Session() as sess:
 
-        with tf.device("/cpu:0"):
+        with tf.device("/gpu:0"):
             model = Model(x, y, mask)
             init = tf.global_variables_initializer()
             sess.run(init)
