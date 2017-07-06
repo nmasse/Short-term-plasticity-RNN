@@ -1,7 +1,7 @@
 from parameters import *
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
+import realtime_tracker as rt
 import model
+import threading
 import psutil
 import sys
 import os
@@ -28,6 +28,15 @@ def switch(iteration, prev_switch_iteration, savename):
 
 def script():
     par['df_num'] = '0004'
-    model.main(switch)
+
+
+
+    if par['use_GUI']:
+        t_GUI = threading.Thread(target=rt.main)
+    else:
+        t_GUI = threading.Thread(target=None)
+    t_main = threading.Thread(target=model.main(switch))
+    t_GUI.start()
+    t_main.start()
 
 script()
