@@ -35,13 +35,15 @@ def script():
 
 
     if par['use_GUI']:
-        print("Using")
         t_GUI = threading.Thread(target=rt.main)
+        t_main = threading.Thread(target=model.main, args=(switch,))
+
+        t_GUI.start()
+        t_main.start()
     else:
-        print("Not using")
-        t_GUI = threading.Thread(target=None)
-    t_main = threading.Thread(target=model.main, args=(switch,))
-    t_GUI.start()
-    t_main.start()
+        model.main(switch)
+
+
+
 
 script()

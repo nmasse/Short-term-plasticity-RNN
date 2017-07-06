@@ -23,12 +23,12 @@ par = {
     'debug_model'       : False,
     'load_previous_model' : False,
     'processor_affinity'  : [0, 1],   # Default is [], for no preference
-    'use_GUI'             : True,
+    'use_GUI'             : False,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'df_num'            : '0001',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials

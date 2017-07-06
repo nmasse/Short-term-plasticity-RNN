@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import time
+import sys
 import os
 import psutil
 from model_saver import *
@@ -245,7 +246,6 @@ class Model:
 
 
 def main(switch):
-
 
     """
     Create the stimulus class to generate trial paramaters and input activity
