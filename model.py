@@ -14,6 +14,7 @@ import psutil
 from model_saver import *
 from parameters import *
 import dendrite_functions as df
+import dend_analysis
 
 
 # Reset TensorFlow before running anythin
@@ -356,6 +357,11 @@ def main(switch):
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
                 save_time = time.time() - start_save_time
 
+                roc = dend_analysis.roc_analysis(time_stamps=par['time_stamps'], cat_rule=model_results['category_rule'], \
+                                                 target_dir=model_results['attended_sample_dir'], hidden=model_results['hidden_state'], \
+                                                 dendrites=model_results['dendrite_state'], exc=model_results['dendrite_exc_input'], \
+                                                 inh=model_results['dendrite_inh_input'])
+
                 with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
                     # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
                     f.write('{:7d}'.format((i+1)*N) \
@@ -370,6 +376,15 @@ def main(switch):
                 print('Trial: {:12d}   |'.format((i+1)*N))
                 print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
                 print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
+
+                print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
+                for i in range(len(roc['neurons'][1])):
+                    print(roc['neurons'][1][i].round(2), '\t\t\t', roc['dendrites'][1][i].round(2))
+
+                print('ROC Value (Dend_excitatory): \t ROC Value (Dend_inhibitory):')
+                for i in range(len(roc['neurons'][1])):
+                    print(roc['dendrite_exc'][1][i].round(2), '\t\t\t', roc['dendrite_inh'][1][i].round(2))
+                print("\n")
 
             if end_training:
                 return None
