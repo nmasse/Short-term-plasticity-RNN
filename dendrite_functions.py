@@ -83,6 +83,7 @@ def rin_basicEI(W_rnn, h_soma):
     """
 
     exc_activity, inh_activity = EI_activity(W_rnn, h_soma)
+    # REMOVE y, takes TIME!
     y = (exc_activity - inh_activity)
 
     return y, exc_activity, inh_activity
@@ -254,15 +255,28 @@ def dendrite_function0004(W_in, W_rnn, rnn_input, h_soma, dend):
 def dendrite_function0005(W_in, W_rnn, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/7/5
-    Notes: Inhibition will gate excitatory inputs. Using ReLu's
+    Notes:Summing inputs, plus ReLu
     """
-    beta = tf.constant(np.float32(1))
-    alpha = tf.constant(np.float32(0.5))
 
     den_in = in_tensordot(W_in, rnn_input)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
-    h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*tf.nn.relu(exc_activity + rnn_in - inh_activity)
+    h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*tf.nn.relu(exc_activity + den_in - inh_activity)
+
+    h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity
+
+def dendrite_function0006(W_in, W_rnn, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/5
+    Notes:Summing inputs
+    """
+
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+
+    h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*(exc_activity + den_in - inh_activity)
 
     h_soma_in = ac_simple_sum(h_den_out)
 
