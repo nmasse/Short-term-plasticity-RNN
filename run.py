@@ -7,6 +7,7 @@ import sys
 import os
 
 def switch(iteration, prev_switch_iteration, savename):
+    """
     if iteration == (prev_switch_iteration + 10):
         if par['allowed_categories'] == [0]:
             par['allowed_categories'] = [1]
@@ -25,6 +26,8 @@ def switch(iteration, prev_switch_iteration, savename):
             quit()
     else:
         return prev_switch_iteration
+    """
+    return prev_switch_iteration
 
 def script():
     par['df_num'] = '0004'
@@ -32,10 +35,12 @@ def script():
 
 
     if par['use_GUI']:
+        print("Using")
         t_GUI = threading.Thread(target=rt.main)
     else:
+        print("Not using")
         t_GUI = threading.Thread(target=None)
-    t_main = threading.Thread(target=model.main(switch))
+    t_main = threading.Thread(target=model.main, args=(switch,))
     t_GUI.start()
     t_main.start()
 

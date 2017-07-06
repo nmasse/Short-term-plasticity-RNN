@@ -335,7 +335,7 @@ def main(switch):
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
                 save_time = time.time() - t_start
                 #roc = dend_analysis.roc_analysis(model_results)
-                print_data(timestr, i, par['batch_train_size'], iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc=[])
+                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc=[])
 
 
     print('\nModel execution complete.\n')
@@ -356,11 +356,11 @@ def get_perf(y, y_hat, mask):
 
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
-def print_data(timestr, iter, batch_size, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc):
+def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc):
 
     with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
-        f.write('{:7d}'.format((iter+1)*batch_size) \
+        f.write('{:7d}'.format((i+1)*N) \
             + '\t{:0.2f}'.format(iteration_time) \
             + '\t{:0.4f}'.format(np.mean(perf_loss)) \
             + '\t{:0.4f}'.format(np.mean(spike_loss)) \
@@ -369,7 +369,7 @@ def print_data(timestr, iter, batch_size, iteration_time, perf_loss, spike_loss,
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:12d}   |'.format((iter+1)*batch_size))
+    print('Trial: {:12d}   |'.format((i+1)*N))
     print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
     print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
     """
