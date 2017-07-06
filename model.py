@@ -14,7 +14,7 @@ import psutil
 from model_saver import *
 from parameters import *
 import dendrite_functions as df
-import dend_analysis
+#import dend_analysis
 
 
 # Reset TensorFlow before running anythin
@@ -280,6 +280,7 @@ def main(switch):
 
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
+        model_results = {}
 
         # Write intermittent results to text file
         with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
@@ -318,10 +319,7 @@ def main(switch):
                                 model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                                 {x: input_data, y: target_data, mask: train_mask})
 
-                # keep track of performance for each batch
-                accuracy.append(get_perf(target_data, y_hat, train_mask))
-                perf_loss.append(perf_loss_temp)
-                spike_loss.append(spike_loss_temp)
+                accuracy[j] = get_perf(target_data, y_hat, train_mask)
 
             iteration_time = time.time() - t_start
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
@@ -331,13 +329,13 @@ def main(switch):
             """
             if (i+1)%par['iterations_between_outputs']==0:
 
-                model_results = append_fixed_data(model_results, trial_info)
+                model_results['weights'] = extract_weights(model_results, trial_info)
                 model_results['performance'] = model_performance
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                save_time = time.time() - start_save_time
-                roc = dend_analysis.roc_analysis(model_results)
-                print_data(timestr, iteration_time, perf_loss, spike_loss, state_hist, accuracy, roc)
+                save_time = time.time() - t_start
+                #roc = dend_analysis.roc_analysis(model_results)
+                print_data(timestr, i, par['batch_train_size'], iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc=[])
 
 
     print('\nModel execution complete.\n')
@@ -358,11 +356,11 @@ def get_perf(y, y_hat, mask):
 
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
-def print_data(timestr, iteration_time, perf_loss, spike_loss, state_hist, accuracy, roc):
+def print_data(timestr, iter, batch_size, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, roc):
 
     with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
-        f.write('{:7d}'.format((i+1)*N) \
+        f.write('{:7d}'.format((iter+1)*batch_size) \
             + '\t{:0.2f}'.format(iteration_time) \
             + '\t{:0.4f}'.format(np.mean(perf_loss)) \
             + '\t{:0.4f}'.format(np.mean(spike_loss)) \
@@ -371,10 +369,10 @@ def print_data(timestr, iteration_time, perf_loss, spike_loss, state_hist, accur
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:12d}   |'.format((i+1)*N))
+    print('Trial: {:12d}   |'.format((iter+1)*batch_size))
     print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
     print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
-
+    """
     print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
     for i in range(len(roc['neurons'][1])):
         print(roc['neurons'][1][i].round(2), '\t\t\t', roc['dendrites'][1][i].round(2))
@@ -382,23 +380,14 @@ def print_data(timestr, iteration_time, perf_loss, spike_loss, state_hist, accur
     print('ROC Value (Dend_excitatory): \t ROC Value (Dend_inhibitory):')
     for i in range(len(roc['neurons'][1])):
         print(roc['dendrite_exc'][1][i].round(2), '\t\t\t', roc['dendrite_inh'][1][i].round(2))
+    """
     print("\n")
 
-
-def append_hidden_data(model_results, y_hat, state, d, exc, inh):
-
-    model_results['hidden_state'].append(state)
-    model_results['model_outputs'].append(y_hat)
-    model_results['dendrite_state'].append(d)
-    model_results['dendrite_exc_input'].append(exc)
-    model_results['dendrite_inh_input'].append(inh)
-
-    return model_results
 
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
 
-    model_performance['accuracy'].append(accuracy)
+    model_performance['accuracy'].append(np.mean(accuracy))
     model_performance['loss'].append(np.mean(loss))
     model_performance['spike_loss'].append(np.mean(spike_loss))
     model_performance['perf_loss'].append(np.mean(perf_loss))
@@ -408,29 +397,7 @@ def append_model_performance(model_performance, accuracy, loss, perf_loss, spike
     return model_performance
 
 
-def append_fixed_data(model_results, trial_info):
-
-    #model_results['sample_dir'] = trial_info['sample']
-    #model_results['test_dir'] = trial_info['test']
-    #model_results['match'] = trial_info['match']
-    #model_results['catch'] = trial_info['catch']
-    #model_results['rule'] = trial_info['rule']
-    #model_results['probe'] = trial_info['probe']
-    model_results['rnn_input'].append(trial_info['neural_input'])
-    model_results['desired_output'] = trial_info['desired_output']
-    model_results['train_mask'] = trial_info['train_mask']
-    model_results['params'] = par
-    model_results['location_rule'] = trial_info['location_rules']
-    model_results['category_rule'] = trial_info['category_rules']
-    model_results['sample_dirs'] = trial_info['field_directions']
-    model_results['attended_sample_dir'] = trial_info['target_directions']
-
-    # add extra trial paramaters for the ABBA task
-    #if 4 in par['possible_rules']:
-    #    print('Adding ABB specific data')
-    #    model_results['num_test_stim'] = trial_info['num_test_stim']
-    #    model_results['repeat_test_stim'] = trial_info['repeat_test_stim']
-    #    model_results['test_stim_code'] = trial_info['test_stim_code']
+def extract_weights(model_results, trial_info):
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
@@ -447,50 +414,19 @@ def append_fixed_data(model_results, trial_info):
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
+    weights = {'w_rnn_soma': W_rnn_soma.eval(),
+        'w_out': W_out.eval(),
+        'b_rnn': b_rnn.eval(),
+        'b_out': b_out.eval()}
 
     if par['use_dendrites']:
-        model_results['w_in'] = W_in.eval()
-        model_results['w_in_soma'] = None
-        model_results['w_rnn'] = W_rnn.eval()
+        weights['w_in'] = W_in.eval()
+        weights['w_in_soma'] = None
+        weights['w_rnn'] = W_rnn.eval()
     else:
-        model_results['w_in'] = None
-        model_results['w_in_soma'] = W_in_soma.eval()
-        model_results['w_rnn'] = None
-    model_results['w_rnn_soma'] = W_rnn_soma.eval()
-    model_results['w_out'] = W_out.eval()
-    model_results['b_rnn'] = b_rnn.eval()
-    model_results['b_out'] = b_out.eval()
-
-    return model_results
+        weights['w_in'] = None
+        weights['w_in_soma'] = W_in_soma.eval()
+        weights['w_rnn'] = None
 
 
-def create_save_dict():
-
-    model_results = {
-        'hidden_state':    [],
-        'dendrite_state':  [],
-        'dendrite_exc_input' : [],
-        'dendrite_inh_input' : [],
-        'desired_output':  [],
-        'model_outputs':   [],
-        'rnn_input':       [],
-        'sample_dir':      [],
-        'test_dir':        [],
-        'match':           [],
-        'rule':            [],
-        'catch':           [],
-        'probe':           [],
-        'train_mask':      [],
-        'U':               [],
-        'w_in':            [],
-        'w_rnn':           [],
-        'w_rnn_soma':      [],
-        'w_out':           [],
-        'b_rnn':           [],
-        'b_out':           [],
-        'num_test_stim':   [],
-        'repeat_test_stim':[],
-        'test_stim_code': []
-        }
-
-    return model_results
+    return weights
