@@ -66,6 +66,9 @@ class Stimulus:
         # probe_time2 will be after first test stimulus, but before the second cue signal
         probe_time2 = (par['dead_time']+par['fix_time']+par['sample_time']+14*par['delay_time']//10+par['test_time'])//par['dt']
 
+        # duration of mask after test onset
+        mask_duration = par['mask_duration']//par['dt']
+
         # end of neuron indices
         est = par['num_motion_tuned']
         ert = par['num_motion_tuned']+par['num_rule_tuned']
@@ -176,8 +179,8 @@ class Stimulus:
 
             # set to mask equal to zero during the dead time, and during the first times of test stimuli
             trial_info['train_mask'][:eodead, t] = 0
-            trial_info['train_mask'][eod1, t] = 0
-            trial_info['train_mask'][eod2, t] = 0
+            trial_info['train_mask'][eod1:eod1+mask_duration, t] = 0
+            trial_info['train_mask'][eod2:eod2+mask_duration, t] = 0
 
         return trial_info
 
@@ -208,6 +211,9 @@ class Stimulus:
         emt = par['num_motion_tuned']
         eft = par['num_fix_tuned']+par['num_motion_tuned']
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
+
+        # duration of mask after test onset
+        mask_duration = par['mask_duration']//par['dt']
 
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
@@ -261,7 +267,7 @@ class Stimulus:
                 eod_current = eod
 
             # set mask to zero during transition from delay to test
-            trial_info['train_mask'][eod_current, t] = 0
+            trial_info['train_mask'][eod_current:eod_current+mask_duration, t] = 0
 
             """
             Generate the sample and test stimuli based on the rule
@@ -297,7 +303,6 @@ class Stimulus:
             # TEST stimulus
             if not catch:
                 trial_info['neural_input'][:emt, eod_current:, t] += np.reshape(self.motion_tuning[:,test_dir],(-1,1))
-
 
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
@@ -363,6 +368,9 @@ class Stimulus:
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
         self.num_input_neurons = ert
 
+        # duration of mask after test onset
+        mask_duration = par['mask_duration']//par['dt']
+
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
                       'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
@@ -425,7 +433,7 @@ class Stimulus:
                 trial_info['test'][t,i] = stim_dir
                 test_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
                 trial_info['neural_input'][:emt, test_rng, t] += np.reshape(self.motion_tuning[:,stim_dir],(-1,1))
-                trial_info['train_mask'][eos+(2*i+1)*ABBA_delay, t] = 0
+                trial_info['train_mask'][eos+(2*i+1)*ABBA_delay:eos+(2*i+1)*ABBA_delay+mask_duration, t] = 0
                 trial_info['desired_output'][0, test_rng, t] = 0
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
