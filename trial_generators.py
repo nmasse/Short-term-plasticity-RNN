@@ -86,6 +86,25 @@ def tuning():
     return motion_tuning, fix_tuning, rule_tuning
 
 
+def get_mnist():
+    from mnist import MNIST
+    mndata = MNIST('./resources/mnist/data/original')
+    images, labels = mndata.load_training()
+
+    return images, labels
+
+
+def mnist_permutation(m):
+    # Randomly permutes the inputs based on a set of seeds in parameters
+    output = np.zeros(np.shape(m))
+
+    for n in range(np.shape(m)[0]):
+        p_index = par['permutations'][par['permutation_id']][n]
+        output[n] = m[p_index]
+
+    return output
+
+
 #################################
 ### Trial generator functions ###
 #################################
@@ -228,6 +247,66 @@ def attention(N):
                    'field_directions'   : field_directions,
                    'target_directions'  : target_directions
                    }
+
+    return trial_setup
+
+def mnist(N):
+    """
+    Generates a set of random trials for timed MNIST tests based on the batch
+    size, and returns the stimuli, tests, intended outputs, and the default
+    intended output for the set
+
+    The output arrays are [batch_train_size x neurons] large, where [neurons]
+    corresponds to the number of input or output neurons, depending on the array.
+    """
+
+    ### Tuning inputs
+    images, labels = get_mnist()
+
+    ### Pre-allocate inputs and outputs
+    default_input   = np.zeros((N, par['n_input']), dtype=np.float32)
+    fix_input       = copy.deepcopy(default_input)
+    sample_input    = copy.deepcopy(default_input)
+
+    default_output  = np.zeros((N, par['n_output']), dtype=np.float32)
+    fix_output      = copy.deepcopy(default_output)
+    fix_output[:,0] = 1
+    sample_output   = copy.deepcopy(default_output)
+
+    presented_numbers = []
+
+    for n in range(N):
+
+        # Generate a number as stimulus
+        num = np.random.randint(0, len(labels))
+        label = labels[num]
+        image = images[num]
+
+        image = mnist_permutation(image)
+
+        # Output sample_input[n] from loop
+        sample_input[n] = image
+
+        # Output sample_output[n] from loop
+        presented_numbers.append(label)
+        sample_output[n][label] = 1
+
+    inputs = {'none'    :   default_input,
+              'fix'     :   fix_input,
+              'stim'    :   sample_input
+             }
+
+    outputs = {'none'   :   default_output,
+               'fix'    :   fix_output,
+               'stim'   :   sample_output
+              }
+
+    trial_setup = {'default_input'  :   default_input,
+                   'inputs'         :   inputs,
+                   'default_output' :   default_output,
+                   'outputs'        :   outputs,
+                   'presented_numbers' : presented_numbers
+                  }
 
     return trial_setup
 

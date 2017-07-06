@@ -1,6 +1,9 @@
 from parameters import *
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore, QtGui
 import model
 import psutil
+import sys
 import os
 
 def switch(iteration, prev_switch_iteration, savename):
@@ -23,10 +26,8 @@ def switch(iteration, prev_switch_iteration, savename):
     else:
         return prev_switch_iteration
 
-
 def script():
     par['df_num'] = '0004'
     model.main(switch)
-    
 
 script()
