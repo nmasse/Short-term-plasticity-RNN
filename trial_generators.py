@@ -93,6 +93,7 @@ def get_mnist():
 
     return images, labels
 
+
 def mnist_permutation(m):
     # Randomly permutes the inputs based on a set of seeds in parameters
     output = np.zeros(np.shape(m))
@@ -101,12 +102,7 @@ def mnist_permutation(m):
         p_index = par['permutations'][par['permutation_id']][n]
         output[n] = m[p_index]
 
-    print(np.array(m))
-    print(np.array(output, dtype=int))
-    print(np.sum(m), np.sum(output))
-    quit()
-
-
+    return output
 
 
 #################################
@@ -277,7 +273,7 @@ def mnist(N):
     fix_output[:,0] = 1
     sample_output   = copy.deepcopy(default_output)
 
-    presented_number = []
+    presented_numbers = []
 
     for n in range(N):
 
@@ -286,18 +282,34 @@ def mnist(N):
         label = labels[num]
         image = images[num]
 
-        mnist_permutation(image)
-        print("Permuted.")
-        quit()
-
-        ### PERMUTATION
+        image = mnist_permutation(image)
 
         # Output sample_input[n] from loop
         sample_input[n] = image
 
+        # Output sample_output[n] from loop
+        presented_numbers.append(label)
+        sample_output[n][label] = 1
 
+    inputs = {'none'    :   default_input,
+              'fix'     :   fix_input,
+              'stim'    :   sample_input
+             }
 
-mnist(128)
+    outputs = {'none'   :   default_output,
+               'fix'    :   fix_output,
+               'stim'   :   sample_output
+              }
+
+    trial_setup = {'default_input'  :   default_input,
+                   'inputs'         :   inputs,
+                   'default_output' :   default_output,
+                   'outputs'        :   outputs,
+                   'presented_numbers' : presented_numbers
+                  }
+
+    return trial_setup
+
 
 def direction_dms(N):
     """

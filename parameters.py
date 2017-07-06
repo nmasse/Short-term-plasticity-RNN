@@ -65,7 +65,7 @@ par = {
     'num_categorizations'   : 2,    # contributes to 'possible_rules'
     'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
     'allowed_categories'    : [0],  # Can be 0,1
-    'permutation_id'        : 1,
+    'permutation_id'        : 0,
 
     # Probe specs
     'probe_trial_pct'   : 0,

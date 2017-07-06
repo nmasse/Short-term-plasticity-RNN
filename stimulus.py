@@ -27,12 +27,15 @@ class Stimulus:
             trial_setup = gen.direction_dms(num)
         elif par['stimulus_type'] == 'att':
             trial_setup = gen.attention(num)
+        elif par['stimulus_type'] == 'mnist':
+            trial_setup = gen.mnist(num)
         else:
             print("Invalid stimulus type.")
             quit()
 
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 
+        """
         trial_info = {'desired_output' : schedules[1],
                         'train_mask' : np.asarray(schedules[2]),
                         'neural_input' : schedules[0],
@@ -41,6 +44,12 @@ class Stimulus:
                         'field_directions' : trial_setup['field_directions'],
                         'target_directions' : trial_setup['target_directions']
                         }
+        """
+        trial_info = {'desired_output' : schedules[1],
+                        'train_mask' : np.asarray(schedules[2]),
+                        'neural_input' : schedules[0],
+                        'presented_numbers' : trial_setup['presented_numbers']
+                      }
 
         return trial_info
 
