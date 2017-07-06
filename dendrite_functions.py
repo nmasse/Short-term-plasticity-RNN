@@ -250,3 +250,20 @@ def dendrite_function0004(W_in, W_rnn, rnn_input, h_soma, dend):
     h_soma_in = ac_simple_sum(h_den_out)
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
+
+def dendrite_function0005(W_in, W_rnn, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/5
+    Notes: Inhibition will gate excitatory inputs. Using ReLu's
+    """
+    beta = tf.constant(np.float32(1))
+    alpha = tf.constant(np.float32(0.5))
+
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+
+    h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*tf.nn.relu(exc_activity + rnn_in - inh_activity)
+
+    h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity
