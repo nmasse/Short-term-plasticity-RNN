@@ -1,0 +1,17 @@
+Name:	MNIST Permutations
+Date:	7/6/2017
+Author:	Nicolas Masse
+
+
+List of Events
+Time	Event	Data	Var
+
+0	start
+400	input	fix
+400	mask	on
+
+900	input	stim
+900	mask	off
+1000	mask	on
+
+1400	finish
