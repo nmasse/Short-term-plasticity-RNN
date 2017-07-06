@@ -246,7 +246,6 @@ class Model:
 
 def main(switch, update):
 
-
     """
     Create the stimulus class to generate trial paramaters and input activity
     """
@@ -348,8 +347,8 @@ def main(switch, update):
             """
             Update the realtime outputs
             """
-            update({'trial': (i+1)*N, 'accuracy': np.mean(accuracy)})
-
+            update((i+1)*N, np.mean(perf_loss), np.mean(spike_loss), \
+                    np.mean(state_hist), np.mean(accuracy))
 
             """
             Save the data and network model
