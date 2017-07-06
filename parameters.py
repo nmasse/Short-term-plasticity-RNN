@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 1500,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -94,7 +94,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 10,
+    'dt'                    : 5,
     'learning_rate'         : 0
 }
 
