@@ -89,11 +89,10 @@ class Model:
         """
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
-                W_in = tf.get_variable('W_in', initializer = np.float32(par['w_in0']), trainable=True)
-                W_rnn = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn0']), trainable=True)
-            else:
-                W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
+                W_rnn_dend = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
+                W_in_dend = tf.get_variable('W_in_dend', initializer = np.float32(par['w_in_dend0']), trainable=True)
 
+            W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
@@ -125,11 +124,10 @@ class Model:
 
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
-                W_in = tf.get_variable('W_in')
-                W_rnn = tf.get_variable('W_rnn')
-            else:
-                W_in_soma = tf.get_variable('W_in_soma')
+                W_in_dend = tf.get_variable('W_rnn')
+                W_rnn_dend = tf.get_variable('W_rnn_dend')
 
+            W_in_soma = tf.get_variable('W_in_soma')
             W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.constant(par['EI_matrix'], name='W_ei')
@@ -142,9 +140,6 @@ class Model:
         else:
             W_rnn_soma_effective = W_rnn_soma
 
-        # syn_x and syn_u will be capped at 1
-        C = tf.constant(np.float32(1))
-
         """
         Update the synaptic plasticity parameters
         """
@@ -152,21 +147,21 @@ class Model:
             # implement both synaptic short term facilitation and depression
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
             syn_u += par['alpha_std']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
-            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_u*syn_x*h_soma
         elif par['synapse_config'] == 'std':
             # implement synaptic short term depression, but no facilitation
             # assume that syn_u remains constant at 1
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
-            syn_x = tf.minimum(C, tf.nn.relu(syn_x))
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_x*h_soma
         elif par['synapse_config'] == 'stf':
             # implement synaptic short term facilitation, but no depression
             # assume that syn_x remains constant at 1
             syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
-            syn_u = tf.minimum(C, tf.nn.relu(syn_u))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_u*h_soma
         else:
             # no synaptic plasticity
@@ -183,18 +178,17 @@ class Model:
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
 
             # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out, exc_activity, inh_activity = dendrite_function(W_in, W_rnn, rnn_input, h_post_syn, dend)
+            h_soma_in, dend_out, exc_activity, inh_activity = dendrite_function(W_in_dend, W_rnn_dend, rnn_input, h_post_syn, dend)
 
         else:
-            h_soma_in = tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input))
             dend_out = dend
+            h_soma_in = 0
 
         # Applies, in order: alpha decay, dendritic input, soma recurrence,
         # bias terms, and Gaussian randomness.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
-                            + par['alpha_neuron']*h_soma_in \
-                            + par['alpha_neuron']*tf.matmul(W_rnn_soma_effective, h_post_syn) \
-                            + b_rnn \
+                            + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
+                            + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)) + b_rnn) \
                             + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
         if par['use_dendrites']:
@@ -230,10 +224,10 @@ class Model:
 
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_rnn:0" and par['use_dendrites']:
-                grad *= par['w_rnn_mask']
+                grad *= par['w_rnn_dend_mask']
                 print('Applied weight mask to w_rnn.\t\t(to dendrites)')
             elif var.name == "rnn_cell/W_rnn_soma:0":
-                grad *= par['w_rnn_mask_soma']
+                grad *= par['w_rnn_soma_mask']
                 print('Applied weight mask to w_rnn_soma.\t(to soma)')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
@@ -265,10 +259,9 @@ def main(switch):
     y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
 
     with tf.Session() as sess:
-        with tf.device("/cpu:0"):
-            model = Model(x, y, mask)
-            init = tf.global_variables_initializer()
-            sess.run(init)
+        model = Model(x, y, mask)
+        init = tf.global_variables_initializer()
+        sess.run(init)
         t_start = time.time()
         timestr = time.strftime('%H%M%S-%Y%m%d')
 
@@ -334,14 +327,8 @@ def main(switch):
                 model_results['weights'] = extract_weights(model_results, trial_info)
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-<<<<<<< HEAD
                 #analysis = dend_analysis.analysis(model_results)
                 print_data(timestr, model_results, analysis=[])
-=======
-                save_time = time.time()
-                #analysis = dend_analysis.analysis(model_results)
-                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, time.time()-save_time, analysis=[])
->>>>>>> d97300aa92648fe73c42d1a32ab240f237af7094
 
 
     print('\nModel execution complete.\n')
