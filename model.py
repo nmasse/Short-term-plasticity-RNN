@@ -327,8 +327,15 @@ def main(switch):
                 model_results['weights'] = extract_weights(model_results, trial_info)
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
+<<<<<<< HEAD
                 #analysis = dend_analysis.analysis(model_results)
                 print_data(timestr, model_results, analysis=[])
+=======
+            
+                #analysis = dend_analysis.analysis(model_results)
+                print_data(timestr, model_results, analysis=[])
+
+>>>>>>> 513c6f7342d61bed3d2a5d05783f79cf946015a3
 
 
     print('\nModel execution complete.\n')
