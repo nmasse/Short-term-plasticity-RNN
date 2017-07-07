@@ -39,7 +39,7 @@ def main(switch_func):
     w   = pg.GraphicsWindow()
     w.setWindowIcon(QtGui.QIcon('./resources/other/hud_icon.png'))
     w.setWindowTitle('Network HUD')
-    w.setFixedSize(400,350)
+    w.setFixedSize(600,450)
     #w.setWindowFlags(QtCore.Qt.FramelessWindowHint)
     #w.move(0, 0)
 
