@@ -16,7 +16,7 @@ from model_saver import *
 from parameters import *
 import dendrite_functions as df
 import hud
-#import dend_analysis
+import analysis
 
 
 # Reset TensorFlow before running anythin
@@ -277,13 +277,13 @@ def main(switch):
         model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Write intermittent results to text file
-        with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
+        with open('./savedir/savefile%s.txt' % timestr, 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
         prev_iteration = 0
         for i in range(par['num_iterations']):
 
-            prev_iteration = switch(i, prev_iteration, '.\savedir\savefile%s.txt' % timestr)
+            prev_iteration = switch(i, prev_iteration, './savedir/savefile%s.txt' % timestr)
 
             # generate batch of N (batch_train_size X num_batches) trials
             trial_info = stim.generate_trial(N)
@@ -332,7 +332,8 @@ def main(switch):
                 model_results['weights'] = extract_weights(model_results, trial_info)
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                #analysis = dend_analysis.analysis(model_results)
+                analysis_val = analysis.get_analysis(data=model_results, neuron=activity_hist['state_hist'], dendrites=activity_hist['dend_hist'], \
+                                                     exc=activity_hist['dend_exc_hist'], inh=activity_hist['dend_inh_hist'], info=trial_info)
                 print_data(timestr, model_results, analysis=[])
 
 
