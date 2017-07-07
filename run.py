@@ -1,5 +1,5 @@
 from parameters import *
-import realtime_tracker as rt
+import hud
 import model
 import threading
 import psutil
@@ -33,10 +33,9 @@ def script():
     par['df_num'] = '0004'
 
 
-
-    if par['use_GUI']:
-        t_GUI = threading.Thread(target=rt.main, args=(switch,))
-        t_GUI.start()
+    if par['use_HUD']:
+        t_HUD = threading.Thread(target=hud.run_HUD, args=(switch,))
+        t_HUD.start()
     else:
         model.main(switch)
 

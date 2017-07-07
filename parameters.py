@@ -23,7 +23,7 @@ par = {
     'debug_model'       : False,
     'load_previous_model' : False,
     'processor_affinity'  : [1],   # Default is [], for no preference
-    'use_GUI'             : False,
+    'use_HUD'             : True,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'

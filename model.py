@@ -15,6 +15,7 @@ import psutil
 from model_saver import *
 from parameters import *
 import dendrite_functions as df
+import hud
 #import dend_analysis
 
 
@@ -334,7 +335,7 @@ def main(switch):
                 model_results['weights'] = extract_weights(model_results, trial_info)
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-            
+
                 #analysis = dend_analysis.analysis(model_results)
                 print_data(timestr, model_results, analysis=[])
 
@@ -360,6 +361,8 @@ def get_perf(y, y_hat, mask):
 
 
 def print_data(timestr, model_results, analysis):
+
+    hud.update_data(model_results['trial'][-1], model_results['accuracy'][-1])
 
     with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
