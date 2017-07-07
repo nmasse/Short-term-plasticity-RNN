@@ -177,6 +177,16 @@ def ac_threshold(x):
     return y
 
 
+def ac_two_groups(x):
+    """
+    Creation Date: 2017/7/7
+    Notes: Meant to artificially incite dendrite grouping
+    """
+    group1, group2 = tf.split(x, 2, 1)
+    
+    return tf.reduce_sum(group1, 1) - tf.reduce_sum(group2, 1)
+
+
 ##############################
 ### Dendrite configuration ###
 ##############################
@@ -279,5 +289,21 @@ def dendrite_function0006(W_in, W_rnn, rnn_input, h_soma, dend):
     h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*(exc_activity + den_in - inh_activity)
 
     h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity
+
+def dendrite_function0007(W_in, W_rnn, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/7
+    Notes: Dendrites split into groups that are evaluated against each other,
+           with history.  No bias.
+    """
+
+    den_in = in_tensordot(W_in, rnn_input)
+    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+
+    h_den_in = den_in + rnn_in
+    h_den_out = pr_retain(h_den_in, dend)
+    h_soma_in = ac_two_groups(h_den_out)
 
     return h_soma_in, h_den_out, exc_activity, inh_activity

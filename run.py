@@ -6,6 +6,14 @@ import psutil
 import sys
 import os
 
+def run_model():
+    if par['use_HUD']:
+        t_HUD = threading.Thread(target=hud.main, args=(switch,))
+        t_HUD.start()
+    else:
+        model.main(switch)
+
+
 def switch(iteration, prev_switch_iteration, savename):
     """
     if iteration == (prev_switch_iteration + 10):
@@ -29,16 +37,11 @@ def switch(iteration, prev_switch_iteration, savename):
     """
     return prev_switch_iteration
 
+
 def script():
-    par['df_num'] = '0004'
+    par['df_num'] = '0007'
 
-    if par['use_HUD']:
-        t_HUD = threading.Thread(target=hud.main, args=(switch,))
-        t_HUD.start()
-    else:
-        model.main(switch)
-
-
+    run_model()
 
 
 script()

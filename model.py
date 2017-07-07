@@ -90,7 +90,7 @@ class Model:
         """
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
-                W_rnn_dend = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
+                W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
                 W_in_dend = tf.get_variable('W_in_dend', initializer = np.float32(par['w_in_dend0']), trainable=True)
 
             W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
@@ -125,8 +125,8 @@ class Model:
 
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
-                W_in_dend = tf.get_variable('W_rnn')
                 W_rnn_dend = tf.get_variable('W_rnn_dend')
+                W_in_dend = tf.get_variable('W_in_dend')
 
             W_in_soma = tf.get_variable('W_in_soma')
             W_rnn_soma = tf.get_variable('W_rnn_soma')
@@ -224,7 +224,7 @@ class Model:
         capped_gvs = []
 
         for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0" and par['use_dendrites']:
+            if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
                 print('Applied weight mask to w_rnn.\t\t(to dendrites)')
             elif var.name == "rnn_cell/W_rnn_soma:0":
@@ -401,8 +401,8 @@ def extract_weights(model_results, trial_info):
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
-            W_in = tf.get_variable('W_in')
-            W_rnn = tf.get_variable('W_rnn')
+            W_in = tf.get_variable('W_in_dend')
+            W_rnn = tf.get_variable('W_rnn_dend')
             W_in_soma = None
         else:
             W_in = None

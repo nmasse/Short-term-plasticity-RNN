@@ -28,7 +28,7 @@ par = {
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'df_num'            : '0001',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
@@ -38,7 +38,7 @@ par = {
     'num_fix_tuned'     : 0,
     'num_rule_tuned'    : 0,
     'n_hidden'          : 50,
-    'den_per_unit'      : 5,
+    'den_per_unit'      : 10,
     'n_output'          : 11,
 
     # Timings and rates
