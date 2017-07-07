@@ -193,25 +193,15 @@ def attention(N):
                'stim'    : sample_output
                }
 
-    trial_setup = {'default_input'  : default_input,
-                   'inputs'         : inputs,
-                   'default_output' : default_output,
-                   'outputs'        : outputs,
-                   'location_rules' : location_rules,
-                   'category_rules' : category_rules,
-                   'field_directions'   : field_directions,
-                   'target_directions'  : target_directions
-                   }
-
     trial_setup = {'default_input'  :   default_input,
                    'inputs'         :   inputs,
                    'default_output' :   default_output,
                    'outputs'        :   outputs,
                    'rule_index'     :   np.array([location_rules, category_rules]),
-                   'sample_index'   :   field_directions,
+                   'sample_index'   :   np.array(field_directions),
                    'test_index'     :   []
                   }
-                  
+
     return trial_setup
 
 
@@ -273,8 +263,8 @@ def mnist(N):
                    'inputs'         :   inputs,
                    'default_output' :   default_output,
                    'outputs'        :   outputs,
-                   'rule_index'     :   permutations,
-                   'sample_index'   :   presented_numbers,
+                   'rule_index'     :   np.array(permutations),
+                   'sample_index'   :   np.array(presented_numbers),
                    'test_index'     :   []
                   }
 
