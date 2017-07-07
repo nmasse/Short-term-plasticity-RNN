@@ -23,7 +23,7 @@ par = {
     'debug_model'       : False,
     'load_previous_model' : False,
     'processor_affinity'  : [0, 1],   # Default is [], for no preference
-    'use_HUD'             : True,
+    'use_HUD'             : False,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -47,7 +47,6 @@ par = {
     'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
     'connection_prob'   : 0.2,         # Usually 1
-    'time_stamps'       : [1100, 1200],
 
     # Variance values
     'clip_max_grad_val' : 0.25,
@@ -98,12 +97,14 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'roc'               : True,
-    'anova'             : False,
-    'neuron'            : True,
-    'dendrites'         : True,
-    'exc'               : True,
-    'inh'               : True
+    'time_stamps'       : [1100, 1200],
+    'num_category_rule' : 1,
+    'roc'               : False,
+    'anova'             : True,
+    'neuron_analysis'   : True,
+    'dendrites_analysis': True,
+    'exc_analysis'      : True,
+    'inh_analysis'      : True
 }
 
 ############################
