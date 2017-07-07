@@ -44,9 +44,9 @@ par = {
     # Timings and rates
     'dt'                : 25,
     'learning_rate'     : 5e-3,
-    'membrane_time_constant'    : 20,
+    'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
-    'connection_prob'   : 0.25,         # Usually 1
+    'connection_prob'   : 0.2,         # Usually 1
     'time_stamps'       : [1100, 1200],
 
     # Variance values
@@ -274,13 +274,13 @@ def update_dependencies():
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
     par['d_init'] = 0.1*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
 
-    par['input_to_hidden_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
+    par['input_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
     par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['n_input']]
-    par['hidden_to_hidden_dendrites_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
+    par['hidden_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
     par['hidden_to_hidden_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
     # Initialize input weights
-    par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
+    par['w_in_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
     par['w_in_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
 
     # Initialize starting recurrent weights
@@ -288,25 +288,25 @@ def update_dependencies():
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize(par['hidden_to_hidden_dendrites_dims'], par['connection_prob'])
+        par['w_rnn_dend0'] = initialize(par['hidden_to_hidden_dend_dims'], par['connection_prob'])
         par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob'])
-        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dendrites_dims']), dtype=np.float32)
-        par['w_rnn_mask_soma'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
+        par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
         for i in range(par['n_hidden']):
             par['w_rnn_soma0'][i,i] = 0
-            par['w_rnn_mask'][i,:,i] = 0
-            par['w_rnn0'][i,:,i] = 0
+            par['w_rnn_dend_mask'][i,:,i] = 0
+            par['w_rnn_dend0'][i,:,i] = 0
 
     else:
-        par['w_rnn0'] = np.zeros([*par['hidden_to_hidden_dendrites_dims']], dtype=np.float32)
+        par['w_rnn_dend0'] = np.zeros([*par['hidden_to_hidden_dend_dims']], dtype=np.float32)
         par['w_rnn_soma0'] = np.eye([*par['hidden_to_hidden_soma_dims']], dtype=np.float32)
 
         for i in range(par['n_hidden']):
-            par['w_rnn0'][i,:,i] = 1
+            par['w_rnn_dend0'][i,:,i] = 1
 
-        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
-        par['w_rnn_mask_soma'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
+        par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
+        par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
 
     # Initialize starting recurrent biases
     # Note that the second dimension in the bias initialization term can be either
@@ -318,8 +318,8 @@ def update_dependencies():
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
-        par['w_rnn0'] = par['w_rnn0']/(2*spectral_radius(par['w_rnn0']))
-        par['w_rnn_soma0'] = par['w_rnn_soma0']/(2*spectral_radius(par['w_rnn_soma0']))
+        par['w_rnn_dend0'] /= (2*spectral_radius(par['w_rnn_dend0']))
+        par['w_rnn_soma0'] /= (2*spectral_radius(par['w_rnn_soma0']))
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
