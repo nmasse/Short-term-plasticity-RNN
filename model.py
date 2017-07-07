@@ -439,12 +439,6 @@ def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc
 
     # stack if all batches have been added
     if len(activity_hist['state_hist']) == par['num_batches']:
-        """
-        activity_hist['state_hist'] = np.transpose(np.stack(np.stack(activity_hist['state_hist'],axis=1),axis=1),(1,2,3,0))
-        activity_hist['dend_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_hist'],axis=1),axis=1),(1,2,3,4,0))
-        activity_hist['dend_exc_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_exc_hist'],axis=1),axis=1),(1,2,3,4,0))
-        activity_hist['dend_inh_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_inh_hist'],axis=1),axis=1),(1,2,3,4,0))
-        """
         activity_hist['state_hist'] = np.stack(np.stack(activity_hist['state_hist'],axis=3),axis=0)
         if par['use_dendrites']:
             activity_hist['dend_hist'] = np.stack(np.stack(activity_hist['dend_hist'],axis=4),axis=0)
