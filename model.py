@@ -89,7 +89,7 @@ class Model:
         """
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
-                W_rnn_dend = tf.get_variable('W_rnn', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
+                W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
                 W_in_dend = tf.get_variable('W_in_dend', initializer = np.float32(par['w_in_dend0']), trainable=True)
 
             W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
@@ -124,7 +124,7 @@ class Model:
 
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
-                W_in_dend = tf.get_variable('W_rnn')
+                W_in_dend = tf.get_variable('W_in_dend')
                 W_rnn_dend = tf.get_variable('W_rnn_dend')
 
             W_in_soma = tf.get_variable('W_in_soma')
@@ -223,7 +223,7 @@ class Model:
         capped_gvs = []
 
         for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0" and par['use_dendrites']:
+            if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
                 print('Applied weight mask to w_rnn.\t\t(to dendrites)')
             elif var.name == "rnn_cell/W_rnn_soma:0":
@@ -313,14 +313,11 @@ def main(switch):
                                 model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                                 model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                                 {x: input_data, y: target_data, mask: train_mask})
-                print(state_hist.shape)
-                print(dend_hist.shape)
-                print(dend_exc_hist.shape)
-                1/0
+
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
                 accuracy[j] = get_perf(target_data, y_hat, train_mask)
-                mean_hidden[j] = np.mean(state_hist)
+                mean_hidden[j] = np.mean(state_hist_batch)
 
             iteration_time = time.time() - t_start
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
@@ -402,54 +399,63 @@ def extract_weights(model_results, trial_info):
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
-            W_in = tf.get_variable('W_in')
-            W_rnn = tf.get_variable('W_rnn')
-            W_in_soma = None
-        else:
-            W_in = None
-            W_rnn = None
-            W_in_soma = tf.get_variable('W_in_soma')
+            W_in_dend = tf.get_variable('W_in_dend')
+            W_rnn_dend = tf.get_variable('W_rnn_dend')
+        W_in_soma = tf.get_variable('W_in_soma')
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
+
     with tf.variable_scope('output', reuse=True):
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
-    weights = {'w_rnn_soma': W_rnn_soma.eval(),
+    weights = {'w_in_soma': W_in_soma.eval(),
+        'w_rnn_soma': W_rnn_soma.eval(),
         'w_out': W_out.eval(),
         'b_rnn': b_rnn.eval(),
         'b_out': b_out.eval()}
 
     if par['use_dendrites']:
-        weights['w_in'] = W_in.eval()
-        weights['w_in_soma'] = None
-        weights['w_rnn'] = W_rnn.eval()
-    else:
-        weights['w_in'] = None
-        weights['w_in_soma'] = W_in_soma.eval()
-        weights['w_rnn'] = None
-
+        weights['w_in_dend'] = W_in_dend.eval()
+        weights['w_rnn_dend'] = W_rnn_dend.eval()
 
     return weights
 
 def select_trial_data(trial_info, j):
 
     ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
-    return trial_info['desired_output'][:,:,ind], trial_info['neural_input'][:,:,ind], trial_info['train_mask'][:,ind], ind
+    return trial_info['desired_output'][:,:,ind], trial_info['neural_input'][:,:,ind], trial_info['train_mask'][:,ind]
 
 def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch):
 
     activity_hist['state_hist'].append(state_hist_batch)
-    activity_hist['dend_hist'].append(dend_hist_batch)
-    activity_hist['dend_exc_hist'].append(dend_exc_hist_batch)
-    activity_hist['dend_inh_hist'].append(dend_inh_hist_batch)
+    if par['use_dendrites']:
+        activity_hist['dend_hist'].append(dend_hist_batch)
+        activity_hist['dend_exc_hist'].append(dend_exc_hist_batch)
+        activity_hist['dend_inh_hist'].append(dend_inh_hist_batch)
 
     # stack if all batches have been added
     if len(activity_hist['state_hist']) == par['num_batches']:
-        activity_hist['state_hist'] = np.stack(np.stack(activity_hist['state_hist'],2),0)
-        activity_hist['dend_hist'] = np.stack(np.stack(activity_hist['dend_hist'],2),0)
-        activity_hist['dend_exc_hist'] = np.stack(np.stack(activity_hist['dend_exc_hist'],2),0)
-        activity_hist['dend_inh_hist'] = np.stack(np.stack(activity_hist['dend_inh_hist'],2),0)
+        """
+        activity_hist['state_hist'] = np.transpose(np.stack(np.stack(activity_hist['state_hist'],axis=1),axis=1),(1,2,3,0))
+        activity_hist['dend_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_hist'],axis=1),axis=1),(1,2,3,4,0))
+        activity_hist['dend_exc_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_exc_hist'],axis=1),axis=1),(1,2,3,4,0))
+        activity_hist['dend_inh_hist'] = np.transpose(np.stack(np.stack(activity_hist['dend_inh_hist'],axis=1),axis=1),(1,2,3,4,0))
+        """
+        activity_hist['state_hist'] = np.stack(np.stack(activity_hist['state_hist'],axis=3),axis=0)
+        if par['use_dendrites']:
+            activity_hist['dend_hist'] = np.stack(np.stack(activity_hist['dend_hist'],axis=4),axis=0)
+            activity_hist['dend_exc_hist'] = np.stack(np.stack(activity_hist['dend_exc_hist'],axis=4),axis=0)
+            activity_hist['dend_inh_hist'] = np.stack(np.stack(activity_hist['dend_inh_hist'],axis=4),axis=0)
+
+        h_dims = [par['num_time_steps'], par['n_hidden'], par['num_batches']*par['batch_train_size']]
+        dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_batches']*par['batch_train_size']]
+        activity_hist['state_hist'] = np.reshape(activity_hist['state_hist'],h_dims)
+        if par['use_dendrites']:
+            activity_hist['dend_hist'] = np.reshape(activity_hist['dend_hist'],dend_dims)
+            activity_hist['dend_exc_hist'] = np.reshape(activity_hist['dend_exc_hist'],dend_dims)
+            activity_hist['dend_inh_hist'] = np.reshape(activity_hist['dend_inh_hist'],dend_dims)
+
 
     return activity_hist
 
