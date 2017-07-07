@@ -32,9 +32,8 @@ def switch(iteration, prev_switch_iteration, savename):
 def script():
     par['df_num'] = '0004'
 
-
     if par['use_HUD']:
-        t_HUD = threading.Thread(target=hud.run_HUD, args=(switch,))
+        t_HUD = threading.Thread(target=hud.main, args=(switch,))
         t_HUD.start()
     else:
         model.main(switch)

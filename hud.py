@@ -24,7 +24,13 @@ def update_data(trial, acc):
     #data['activity'].append(act)
     data['accuracy'].append(acc)
 
-def run_HUD(switch_func):
+
+def stop():
+    print("Quitting model.")
+    sys.exit()
+
+
+def main(switch_func):
 
     t_start = threading.Thread(target=model.main, args=(switch_func,))
     t_start.start()
@@ -63,8 +69,3 @@ def run_HUD(switch_func):
     timer.start(50)
 
     sys.exit(app.exec_())
-
-
-def stop():
-    print("Quitting model.")
-    sys.exit()
