@@ -37,7 +37,7 @@ par = {
     'num_motion_tuned'  : 784,
     'num_fix_tuned'     : 0,
     'num_rule_tuned'    : 0,
-    'n_hidden'          : 200,
+    'n_hidden'          : 50,
     'den_per_unit'      : 5,
     'n_output'          : 11,
 
@@ -52,8 +52,8 @@ par = {
     # Variance values
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
-    'input_sd'          : 0.1/100,
-    'noise_sd'          : 0.5/100,
+    'input_sd'          : 0.1,
+    'noise_sd'          : 0.5,
     'input_clip_max'    : 10000,     # keep this high unless limiting inputs
 
     # Tuning function data
