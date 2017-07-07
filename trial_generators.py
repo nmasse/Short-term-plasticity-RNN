@@ -109,51 +109,6 @@ def mnist_permutation(m):
 ### Trial generator functions ###
 #################################
 
-def experimental(N):
-    """
-    Generates a set of random trials for the experimental tests
-    based on the batch size, and returns the stimuli, tests,
-    intended outputs, and the default intended output for the set.
-
-    The output arrays are [batch_train_size] long.
-    """
-    default_input = [[0,0,0,0,0,0,0,0,0]] * N
-    fixation = [[0,0,0,0,1,0,0,0,0]] * N
-    stimuli =  [[0,1,0,0,0,1,0,0,0], [0,1,0,1,0,0,0,0,0], \
-                [0,0,0,1,0,0,0,1,0], [0,0,0,0,0,1,0,1,0]]
-    tests =     [[0,0,1,0,0,0,0,0,0], [1,0,0,0,0,0,0,0,0], \
-                [0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,1]]
-    none =      [[0,0,0,0,0,0,0,0,0]] * N
-
-    setup = np.random.randint(0,4,size=(2,N))
-
-    stimulus = []
-    test = []
-    desired_output = np.transpose([np.float32(setup[0] == setup[1])])
-    default_desired_output = np.transpose([[0.] * N])
-
-    for i in range(N):
-        stimulus.append(stimuli[setup[0,i]])
-        test.append(tests[setup[1,i]])
-
-    inputs = {'sample' : stimulus,
-              'test' : test,
-              'fix'  : fixation,
-              'none' : none
-              }
-    outputs = {'sample' : default_desired_output,
-               'test' : desired_output,
-               'fix'  : default_desired_output,
-               'none': default_desired_output}
-
-    trial_setup = {'default_input' : default_input,
-                   'inputs' : inputs,
-                   'default_output' : default_desired_output,
-                   'outputs' : outputs
-                   }
-
-    return trial_setup
-
 def attention(N):
     """
     Generates a set of random trials for attention tests based on the batch
@@ -248,7 +203,17 @@ def attention(N):
                    'target_directions'  : target_directions
                    }
 
+    trial_setup = {'default_input'  :   default_input,
+                   'inputs'         :   inputs,
+                   'default_output' :   default_output,
+                   'outputs'        :   outputs,
+                   'rule_index'     :   np.array([location_rules, category_rules]),
+                   'sample_index'   :   field_directions,
+                   'test_index'     :   []
+                  }
+                  
     return trial_setup
+
 
 def mnist(N):
     """
@@ -314,6 +279,7 @@ def mnist(N):
                   }
 
     return trial_setup
+
 
 def direction_dms(N):
     """
@@ -395,10 +361,13 @@ def direction_dms(N):
                'test'       : output
                }
 
-    trial_setup = {'default_input'  : default_input,
-                   'inputs'         : inputs,
-                   'default_output' : default_output,
-                   'outputs'        : outputs
-                   }
+    trial_setup = {'default_input'  :   default_input,
+                   'inputs'         :   inputs,
+                   'default_output' :   default_output,
+                   'outputs'        :   outputs,
+                   'rule_index'     :   [],
+                   'sample_index'   :   [],
+                   'test_index'     :   []
+                  }
 
     return trial_setup
