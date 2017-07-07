@@ -35,11 +35,8 @@ def script():
 
 
     if par['use_GUI']:
-        t_GUI = threading.Thread(target=rt.main)
-        t_main = threading.Thread(target=model.main, args=(switch,))
-
+        t_GUI = threading.Thread(target=rt.main, args=(switch,))
         t_GUI.start()
-        t_main.start()
     else:
         model.main(switch)
 

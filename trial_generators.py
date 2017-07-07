@@ -274,6 +274,7 @@ def mnist(N):
     sample_output   = copy.deepcopy(default_output)
 
     presented_numbers = []
+    permutations      = []
 
     for n in range(N):
 
@@ -282,6 +283,8 @@ def mnist(N):
         label = labels[num]
         image = images[num]
 
+        # Set permutation
+        permutations.append(par['permutation_id'])
         image = mnist_permutation(image)/255
 
         # Output sample_input[n] from loop
@@ -305,7 +308,9 @@ def mnist(N):
                    'inputs'         :   inputs,
                    'default_output' :   default_output,
                    'outputs'        :   outputs,
-                   'presented_numbers' : presented_numbers
+                   'rule_index'     :   permutations,
+                   'sample_index'   :   presented_numbers,
+                   'test_index'     :   []
                   }
 
     return trial_setup

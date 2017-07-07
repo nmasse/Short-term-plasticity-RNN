@@ -45,11 +45,14 @@ class Stimulus:
                         'target_directions' : trial_setup['target_directions']
                         }
         """
-        trial_info = {'desired_output' : schedules[1],
-                        'train_mask' : np.asarray(schedules[2]),
-                        'neural_input' : schedules[0],
-                        'presented_numbers' : trial_setup['presented_numbers']
-                      }
+
+        trial_info = {'desired_output'  : schedules[1],
+                      'train_mask'      : np.asarray(schedules[2]),
+                      'neural_input'    : schedules[0],
+                      'rule_index'      : trial_setup['rule_index'],
+                      'sample_index'    : trial_setup['sample_index'],
+                      'test_index'      : trial_setup['test_index']
+                     }
 
         return trial_info
 

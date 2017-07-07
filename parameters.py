@@ -22,7 +22,7 @@ par = {
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
-    'processor_affinity'  : [0, 1],   # Default is [], for no preference
+    'processor_affinity'  : [1],   # Default is [], for no preference
     'use_GUI'             : False,
 
     # Network configuration
@@ -124,6 +124,9 @@ def update_dependencies():
     """
     Updates all parameter dependencies
     """
+
+    # Projected number of trials to take place
+    par['projected_num_trials'] = par['batch_train_size']*par['num_batches']*par['num_iterations']
 
     # Number of input neurons
     par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
