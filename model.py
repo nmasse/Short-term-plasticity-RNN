@@ -403,13 +403,9 @@ def extract_weights(model_results, trial_info):
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
-            W_in = tf.get_variable('W_in_dend')
-            W_rnn = tf.get_variable('W_rnn_dend')
-            W_in_soma = None
-        else:
-            W_in = None
-            W_rnn = None
-            W_in_soma = tf.get_variable('W_in_soma')
+            W_in_dend = tf.get_variable('W_in_dend')
+            W_rnn_dend = tf.get_variable('W_rnn_dend')
+        W_in_soma = tf.get_variable('W_in_soma')
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
 
