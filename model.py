@@ -336,7 +336,6 @@ def main(switch):
                                                      exc=activity_hist['dend_exc_hist'], inh=activity_hist['dend_inh_hist'], info=trial_info)
                 print_data(timestr, model_results, analysis=[])
 
-
     print('\nModel execution complete.\n')
 
 
@@ -426,10 +425,12 @@ def extract_weights(model_results, trial_info):
 
     return weights
 
+
 def select_trial_data(trial_info, j):
 
     ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
     return trial_info['desired_output'][:,:,ind], trial_info['neural_input'][:,:,ind], trial_info['train_mask'][:,ind]
+
 
 def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch):
 
@@ -457,6 +458,7 @@ def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc
 
 
     return activity_hist
+
 
 def initialize_batch_data():
 

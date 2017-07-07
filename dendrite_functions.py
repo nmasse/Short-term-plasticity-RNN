@@ -183,7 +183,7 @@ def ac_two_groups(x):
     Notes: Meant to artificially incite dendrite grouping
     """
     group1, group2 = tf.split(x, 2, 1)
-    
+
     return tf.reduce_sum(group1, 1) - tf.reduce_sum(group2, 1)
 
 
@@ -295,8 +295,8 @@ def dendrite_function0006(W_in, W_rnn, rnn_input, h_soma, dend):
 def dendrite_function0007(W_in, W_rnn, rnn_input, h_soma, dend):
     """
     Creation Date: 2017/7/7
-    Notes: Dendrites split into groups that are evaluated against each other,
-           with history.  No bias.
+    Notes: Dendrites are split into groups that are evaluated against
+            each other, taking history into account  No bias.
     """
 
     den_in = in_tensordot(W_in, rnn_input)
