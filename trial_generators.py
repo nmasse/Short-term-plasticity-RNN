@@ -282,7 +282,7 @@ def mnist(N):
         label = labels[num]
         image = images[num]
 
-        image = mnist_permutation(image)
+        image = mnist_permutation(image)/255
 
         # Output sample_input[n] from loop
         sample_input[n] = image
@@ -309,7 +309,6 @@ def mnist(N):
                   }
 
     return trial_setup
-
 
 def direction_dms(N):
     """
