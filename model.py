@@ -195,6 +195,7 @@ def train_and_analyze():
     update_parameters(analysis_par)
     tf.reset_default_graph()
     main()
+    update_parameters(revert_analysis_par)
 
 
 def main():

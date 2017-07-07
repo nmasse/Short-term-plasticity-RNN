@@ -99,6 +99,20 @@ analysis_par = {
     'learning_rate'         : 0
 }
 
+"""
+Parameters to be used after running analysis
+"""
+revert_analysis_par = {
+    'analyze_model'         : False,
+    'load_previous_model'   : False,
+    'num_iterations'        : 1500,
+    'num_batches'           : 8,
+    'batch_train_size'      : 128,
+    'var_delay'             : False,
+    'dt'                    : 20,
+    'learning_rate'         : 5e-3
+}
+
 
 """
 Dependent parameters
