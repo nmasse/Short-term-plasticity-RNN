@@ -333,9 +333,9 @@ def main(switch):
                 model_results['performance'] = model_performance
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                save_time = time.time() - t_start
+                save_time = time.time()
                 #analysis = dend_analysis.analysis(model_results)
-                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, analysis=[])
+                print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, time.time()-save_time, analysis=[])
 
 
     print('\nModel execution complete.\n')
