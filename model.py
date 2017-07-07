@@ -265,10 +265,10 @@ def main(switch):
     y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
 
     with tf.Session() as sess:
-
-        model = Model(x, y, mask)
-        init = tf.global_variables_initializer()
-        sess.run(init)
+        with tf.device("/cpu:0"):
+            model = Model(x, y, mask)
+            init = tf.global_variables_initializer()
+            sess.run(init)
         t_start = time.time()
         timestr = time.strftime('%H%M%S-%Y%m%d')
 
@@ -279,8 +279,7 @@ def main(switch):
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
-        model_results = {}
+        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Write intermittent results to text file
         with open('.\savedir\savefile%s.txt' % timestr, 'w') as f:
@@ -298,6 +297,7 @@ def main(switch):
             loss = np.zeros((par['num_batches']))
             perf_loss = np.zeros((par['num_batches']))
             spike_loss = np.zeros((par['num_batches']))
+            mean_hidden = np.zeros((par['num_batches']))
             accuracy = np.zeros((par['num_batches']))
 
             for j in range(par['num_batches']):
@@ -319,10 +319,12 @@ def main(switch):
                                 model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                                 {x: input_data, y: target_data, mask: train_mask})
 
+                # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 accuracy[j] = get_perf(target_data, y_hat, train_mask)
+                mean_hidden[j] = np.mean(state_hist)
 
             iteration_time = time.time() - t_start
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
+            model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
 
             """
             Save the data and network model
@@ -330,12 +332,16 @@ def main(switch):
             if (i+1)%par['iterations_between_outputs']==0:
 
                 model_results['weights'] = extract_weights(model_results, trial_info)
-                model_results['performance'] = model_performance
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
+<<<<<<< HEAD
+                #analysis = dend_analysis.analysis(model_results)
+                print_data(timestr, model_results, analysis=[])
+=======
                 save_time = time.time()
                 #analysis = dend_analysis.analysis(model_results)
                 print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, time.time()-save_time, analysis=[])
+>>>>>>> d97300aa92648fe73c42d1a32ab240f237af7094
 
 
     print('\nModel execution complete.\n')
@@ -357,22 +363,23 @@ def get_perf(y, y_hat, mask):
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
-def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy, save_time, analysis):
+def print_data(timestr, model_results, analysis):
 
     with open('.\savedir\savefile%s.txt' % timestr, 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
-        f.write('{:7d}'.format((i+1)*N) \
-            + '\t{:0.2f}'.format(iteration_time) \
-            + '\t{:0.4f}'.format(np.mean(perf_loss)) \
-            + '\t{:0.4f}'.format(np.mean(spike_loss)) \
-            + '\t{:0.4f}'.format(np.mean(state_hist)) \
-            + '\t{:0.4f}'.format(np.mean(accuracy)) \
+        f.write('{:7d}'.format(model_results['trial'][-1]) \
+            + '\t{:0.2f}'.format(model_results['time'][-1]) \
+            + '\t{:0.4f}'.format(model_results['perf_loss'][-1]) \
+            + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
+            + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
+            + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:12d}   |'.format((i+1)*N))
-    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(iteration_time, np.mean(perf_loss), np.mean(accuracy)))
-    print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, np.mean(spike_loss), np.mean(state_hist)))
+    print('Trial: {:12d}   |'.format(model_results['trial'][-1]))
+    #print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(model_results['time'][-1],model_results['perf_loss'][-1], model_results['accuracy'][-1]))
+    #print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, model_results['spike_loss'][-1], model_results['mean_hidden'][-1]))
+    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format(model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
     """
     print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
     for i in range(len(analysis['roc']['neurons'][1])):
@@ -385,17 +392,17 @@ def print_data(timestr, i, N, iteration_time, perf_loss, spike_loss, state_hist,
     print("\n")
 
 
+def append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, trial_num, iteration_time):
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
+    model_results['accuracy'].append(np.mean(accuracy))
+    model_results['loss'].append(np.mean(loss))
+    model_results['spike_loss'].append(np.mean(spike_loss))
+    model_results['perf_loss'].append(np.mean(perf_loss))
+    model_results['mean_hidden'].append(np.mean(mean_hidden))
+    model_results['trial'].append(trial_num)
+    model_results['time'].append(iteration_time)
 
-    model_performance['accuracy'].append(np.mean(accuracy))
-    model_performance['loss'].append(np.mean(loss))
-    model_performance['spike_loss'].append(np.mean(spike_loss))
-    model_performance['perf_loss'].append(np.mean(perf_loss))
-    model_performance['trial'].append(trial_num)
-    model_performance['time'].append(iteration_time)
-
-    return model_performance
+    return model_results
 
 
 def extract_weights(model_results, trial_info):
