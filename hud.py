@@ -17,9 +17,9 @@ data = {
 
 white_label = "QLabel { color : white; }"
 
-def update_data(trial, acc):
+def update_data(trial, perf, acc):
     data['trials'].append(trial)
-    #data['perf_loss'].append(perf)
+    data['perf_loss'].append(perf)
     #data['spike_loss'].append(spike)
     #data['activity'].append(act)
     data['accuracy'].append(acc)
@@ -64,6 +64,7 @@ def main(switch_func):
     p1.setYRange(0, 1, padding=0.1)
 
     curve1 = p1.plot(x=data['trials'], y=data['accuracy'], name='Accuracy', pen=(255,0,0))
+    curve2 = p1.plot(x=data['trials'], y=data['perf_loss'], name='Perf. Loss', pen=(255,50,220))
 
     def updateHUD():
         new_text1 = 'Current trial: {:d}'.format(data['trials'][-1]) + \
@@ -71,6 +72,7 @@ def main(switch_func):
 
         par1.setText(new_text1)
         curve1.setData(x=data['trials'], y=data['accuracy'])
+        curve2.setData(x=data['trials'], y=data['perf_loss'])
 
         app.processEvents()
 
