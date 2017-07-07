@@ -21,9 +21,7 @@ class Stimulus:
     def generate_trial(self, num):
 
         # Note that num will typically be par['batch_train_size'] * par['num_batches']
-        if par['stimulus_type'] == 'exp':
-            trial_setup = gen.experimental(num)
-        elif par['stimulus_type'] == 'dms':
+        if par['stimulus_type'] == 'dms':
             trial_setup = gen.direction_dms(num)
         elif par['stimulus_type'] == 'att':
             trial_setup = gen.attention(num)
@@ -34,17 +32,6 @@ class Stimulus:
             quit()
 
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
-
-        """
-        trial_info = {'desired_output' : schedules[1],
-                        'train_mask' : np.asarray(schedules[2]),
-                        'neural_input' : schedules[0],
-                        'location_rules' : trial_setup['location_rules'],
-                        'category_rules' : trial_setup['category_rules'],
-                        'field_directions' : trial_setup['field_directions'],
-                        'target_directions' : trial_setup['target_directions']
-                        }
-        """
 
         trial_info = {'desired_output'  : schedules[1],
                       'train_mask'      : np.asarray(schedules[2]),
