@@ -33,15 +33,15 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
 
     results = {
-    'neuronal_decoding': neuronal_decoding,
-    'synaptic_decoding': synaptic_decoding,
-    'accuracy': accuracy,
-    'accuracy_neural_shuffled': accuracy_neural_shuffled,
-    'accuracy_syn_shuffled': accuracy_syn_shuffled,
-    'model_performance': model_performance,
-    'parameters': par,
-    'weights': weights
-    }
+        'neuronal_decoding': neuronal_decoding,
+        'synaptic_decoding': synaptic_decoding,
+        'accuracy': accuracy,
+        'accuracy_neural_shuffled': accuracy_neural_shuffled,
+        'accuracy_syn_shuffled': accuracy_syn_shuffled,
+        'model_performance': model_performance,
+        'parameters': par,
+        'weights': weights}
+
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, "wb" ) )
     print('Analysis results saved in ', save_fn)
@@ -160,9 +160,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
     for r in range(par['num_rules']):
         ind = np.where(trial_info['rule']==r)[0]
         train_mask = trial_info['train_mask'][test_onset:,ind]
-        hidden_init = h[:,test_onset-1,ind]
-        syn_x_init = syn_x[:,test_onset-1,ind]
-        syn_u_init = syn_u[:,test_onset-1,ind]
         x = np.split(trial_info['neural_input'][:,test_onset:,ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:,ind]
 
@@ -171,6 +168,9 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             """
             Calculating behavioral accuracy without shuffling
             """
+            hidden_init = h[:,test_onset-1,ind]
+            syn_x_init = syn_x[:,test_onset-1,ind]
+            syn_u_init = syn_u[:,test_onset-1,ind]
             y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
             accuracy[r,n] = get_perf(y, y_hat, train_mask)
 
