@@ -39,7 +39,7 @@ def main(switch_func):
     w   = pg.GraphicsWindow()
     w.setWindowIcon(QtGui.QIcon('./resources/other/hud_icon.png'))
     w.setWindowTitle('Network HUD')
-    w.setFixedSize(400,150)
+    w.setFixedSize(400,350)
     #w.setWindowFlags(QtCore.Qt.FramelessWindowHint)
     #w.move(0, 0)
 
@@ -47,20 +47,30 @@ def main(switch_func):
     par1        = QtGui.QLabel('')
     par1.setStyleSheet(white_label)
 
+    p1 = pg.PlotWidget()
+
     layout = QtGui.QGridLayout()
     w.setLayout(layout)
 
     layout.addWidget(stop_btn, 0, 1)
     layout.addWidget(par1, 0, 0)
+    layout.addWidget(p1, 1, 0, 1, 2)
 
     w.show()
 
     stop_btn.clicked.connect(stop)
 
+    p1.addLegend()
+    p1.setYRange(0, 1, padding=0.1)
+
+    curve1 = p1.plot(x=data['trials'], y=data['accuracy'], name='Accuracy', pen=(255,0,0))
+
     def updateHUD():
         new_text1 = 'Current trial: {:d}'.format(data['trials'][-1]) + \
                     '\n\nCurrent accuracy: {:.4f}'.format(data['accuracy'][-1])
+
         par1.setText(new_text1)
+        curve1.setData(x=data['trials'], y=data['accuracy'])
 
         app.processEvents()
 
