@@ -139,7 +139,9 @@ def anova_analysis(trial_info, activity_hist):
                 trial_index.append(np.where((trial_info['rule_index'][:,r]==r)*(trial_info['sample_index'][:,s]==val))[0])
 
             for var in par['anova_vars']:
-                print(activity_hist[var].shape)
+                if activity_hist[var] == []:
+                    # skip this variable if no data is available
+                    continue
                 if var.count('dend') > 0:
                     dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), num_rules, num_samples]
                     dendrite = True
@@ -165,9 +167,9 @@ def anova_analysis(trial_info, activity_hist):
                             anova[var + '_pval'][n,t,r,s] = p
                             anova[var + '_fval'][n,t,r,s] = f
 
-    # reshape dendritic variables
+    # reshape dendritic variables, assumuming the neccessary dendritic values were present (activity_hist[var] not empty)
     for var in par['anova_vars']:
-        if var.count('dend') > 0:
+        if var.count('dend') > 0 and not activity_hist[var] == []:
             anova[var + '_pval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \
                 len(par['time_pts']), num_rules, num_samples))
             anova[var + '_fval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \

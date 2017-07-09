@@ -227,10 +227,10 @@ class Model:
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
-                print('Applied weight mask to w_rnn.\t\t(to dendrites)')
+                print('Applied weight mask to w_rnn_dend.')
             elif var.name == "rnn_cell/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
-                print('Applied weight mask to w_rnn_soma.\t(to soma)')
+                print('Applied weight mask to w_rnn_soma.')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
@@ -369,12 +369,13 @@ def print_data(timestr, model_results, analysis):
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:12d}   |'.format(model_results['trial'][-1]))
     print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
         model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
-    print('Anova P<0.01, hidden: {:8.4f} | dend: {:8.4f} | dend exc: {:8.4f} | dend inh: {:8.4f}'.format( \
-        np.mean(analysis['anova']['state_hist_pval']<0.01), np.mean(analysis['anova']['dend_hist_pval']<0.01), \
-        np.mean(analysis['anova']['dend_exc_hist_pval']<0.01), np.mean(analysis['anova']['dend_inh_hist_pval']<0.01)))
+
+    anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.01)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+    anova_print = ' | '.join(anova_print)
+    print('Anova P<0.01, ' + anova_print)
+
 
     """
     print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
