@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib
 import scipy.stats as stats
-import math
-import cmath
 import time
 import json
 import pickle
@@ -29,7 +27,7 @@ def calculate_roc(xlist, ylist):
 # Provide either JSON filename or category rule, target direction, and hidden_state data
 # Calculates and returns ROC curve vale
 def roc_analysis(time_stamps=[], cat_rule=[], dir_cat=[], target_dir=[], neuron=[], dendrites=[], exc=[], inh=[]):
-    
+
     # Pre-allocating ROC
 
     roc_neuron, percentile_neuron, roc_dend, percentile_dend, roc_exc, percentile_exc, roc_inh, percentile_inh = [],[],[],[],[],[],[],[]
@@ -101,180 +99,109 @@ def roc_analysis(time_stamps=[], cat_rule=[], dir_cat=[], target_dir=[], neuron=
         percentile_inh = np.percentile(roc_dend_inh[:,:,:], 90, axis=0)
 
     roc = {'neurons': (roc_neuron, percentile_neuron),
-            'dendrites': (roc_dend, percentile_dend), 
-            'dendrite_exc': (roc_exc, percentile_exc), 
-            'dendrite_inh': (roc_inh, percentile_inh)
-            }
+            'dendrites': (roc_dend, percentile_dend),
+            'dendrite_exc': (roc_exc, percentile_exc),
+            'dendrite_inh': (roc_inh, percentile_inh)}
 
     return roc
 
 
 # Calculate and return ANOVA values based on sample inputs (directions, images, etc.)
-def anova_analysis(time_stamps=[], info=[], neuron=[], dendrites=[], exc=[], inh=[]):
+def anova_analysis(trial_info, activity_hist):
 
-    # Pre-allocating ANOVA
-    anova_neuron, anova_dend, anova_exc, anova_inh, p_neuron, p_dend, p_exc, p_inh = [], [], [], [], [], [], [], []
-    if par['neuron_analysis']:
-        num_hidden, num_time, batch_size = neuron.shape
-        anova_neuron = np.ones([num_hidden, len(time_stamps)], np.dtype((np.int32, (2,))))
-    if par['dendrites_analysis']:
-        num_hidden, num_dend, num_time, batch_size = dendrites.shape
-        anova_dend = np.ones([num_hidden, num_dend, len(time_stamps)], np.dtype((np.int32, (2,))))
-    if par['exc_analysis']:
-        num_hidden, num_dend, num_time, batch_size = exc.shape
-        anova_exc = np.ones([num_hidden, num_dend, len(time_stamps)], np.dtype((np.int32, (2,))))
-    if par['inh_analysis']:
-        num_hidden, num_dend, num_time, batch_size = inh.shape
-        anova_inh = np.ones([num_hidden, num_dend, len(time_stamps)], np.dtype((np.int32, (2,))))
+    print(trial_info['sample_index'].shape)
+    print(trial_info['rule_index'].shape)
+    print(1//10,7//10,10//10,11//10)
+
+    """
+    TODO: make vars (sample_index, rule_index) coming out of trial_generators.py to have fixed dims:
+    e.g. [trials X num_rules], [trials X num_receptive_fields]
+    """
+    # REMOVE hard-coding of 1 at end
+    trial_info['sample_index'] = np.reshape(trial_info['sample_index'],(par['num_batches']*par['batch_train_size'], 1))
+    trial_info['rule_index'] = np.reshape(trial_info['rule_index'],(par['num_batches']*par['batch_train_size'], 1))
 
 
-    # ind contains indexes for each directions
-    ind = []
-    for val in np.unique(info):
-        ind.append(np.where(info==val)[0])
-    ind = np.array(ind)
-    print("index")
-    print(ind)
+    num_rules = trial_info['rule_index'].shape[1]
+    num_samples = trial_info['sample_index'].shape[1]
+    time_pts = np.array(par['time_pts'])//par['dt']
+    anova = {}
 
-    # avona = (num_hidden x (num_dend) x num_time_stamps)
-    for n in range(num_hidden):
-        for t in range(len(time_stamps)):
-            if par['neuron_analysis']:
-                if np.var(neuron[n, t, :]) > 1e-12:
-                    temp = []
-                    for i in ind:
-                        temp.append(neuron[n,t,i])
-                    anova_neuron[n, t] = stats.f_oneway(*temp)
-            if any([par['dendrites_analysis'], par['exc_analysis'], par['inh_analysis']]):
-                for d in range(num_dend):
-                    if par['dendrites_analysis']:
-                        if np.var(dendrites[n,d,t,:]) > 1e-12:
-                            print(np.var(dendrites[n,d,t,:]))
-                            temp = []
-                            for i in ind:
-                                temp.append(dendrites[n,d,t,i])
-                                print("dendrites", n, d, t)
-                                print(dendrites[n,d,t,i])
-                            print("temp")
-                            print(temp)
-                            print("anova")
-                            print(stats.f_oneway(*temp))
-                            anova_dend[n, d, t] = stats.f_oneway(*temp)
-                    if par['exc_analysis']:
-                        if np.var(exc[n,d,t,:]) > 1e-12:
-                            print(np.var(exc[n,d,t,:]))
-                            temp = []
-                            for i in ind:
-                                temp.append(exc[n,d,t,i])
-                                print("exc", n, d, t)
-                                print(exc[n,d,t,i])
-                            print("temp")
-                            print(temp)
-                            print("anova")
-                            print(stats.f_oneway(*temp))
-                            anova_exc[n, d, t] = stats.f_oneway(*temp)
-                    if par['inh_analysis']:
-                        if np.var(inh[n,d,t,:]) > 1e-12:
-                            print(np.var(inh[n,d,t,:]))
-                            temp = []
-                            for i in ind:
-                                temp.append(inh[n,d,t,i])
-                                print("inh", n, d, t)
-                                print(inh[n,d,t,i])
-                            print("temp")
-                            print(temp)
-                            print("anova")
-                            print(stats.f_oneway(*temp))
-                            anova_inh[n, d, t] = stats.f_oneway(*temp)
+    """
+    Loop through rules, samples, neurons, etc. and calculate the ANOVAs
+    """
+    for r in range(num_rules):
+        for s in range(num_samples):
 
+            # find the trial indices for current stimulus and rule cue
+            trial_index = []
+            for val in np.unique(trial_info['sample_index'][:,s]):
+                trial_index.append(np.where((trial_info['rule_index'][:,r]==r)*(trial_info['sample_index'][:,s]==val))[0])
 
-    # Get mean of p-values that are < 0.01
-    p_neuron = np.mean(anova_neuron < 0.01)
-    p_dend = np.mean(anova_dend < 0.01)
-    p_exc = np.mean(anova_exc < 0.01)
-    p_inh = np.mean(anova_inh < 0.01)
+            for var in par['anova_vars']:
+                print(activity_hist[var].shape)
+                if var.count('dend') > 0:
+                    dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), num_rules, num_samples]
+                    dendrite = True
+                else:
+                    dims = [par['n_hidden'], len(par['time_pts']), num_rules, num_samples]
+                    dendrite = False
+                # create variables if they're not currently in the anova dictionary
+                if (var + '_pval') not in anova.keys():
+                    anova[var + '_pval'] = np.ones((dims), dtype = np.float32)
+                    anova[var + '_fval'] = np.zeros((dims), dtype = np.float32)
+                for n in range(dims[0]):
+                    for t in range(dims[1]):
+                        x = []
+                        for trial_list in trial_index:
+                            # need to index into activity_hist differently depending on whether it
+                            # refers to a dendritic or neuronal value
+                            if dendrite:
+                                x.append(activity_hist[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
+                            else:
+                                x.append(activity_hist[var][time_pts[t],n,trial_list])
+                        f, p = stats.f_oneway(*x)
+                        if not np.isnan(p):
+                            anova[var + '_pval'][n,t,r,s] = p
+                            anova[var + '_fval'][n,t,r,s] = f
 
-
-    anova = {'neurons': (anova_neuron, p_neuron),
-            'dendrites': (anova_dend, p_dend),
-            'dendrite_exc': (anova_exc, p_exc),
-            'dendrite_inh': (anova_inh, p_inh)
-            }
+    # reshape dendritic variables
+    for var in par['anova_vars']:
+        if var.count('dend') > 0:
+            anova[var + '_pval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \
+                len(par['time_pts']), num_rules, num_samples))
+            anova[var + '_fval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \
+                len(par['time_pts']), num_rules, num_samples))
 
     return anova
 
 
 # Depending on parameters, returns analysis results for ROC, ANOVA, etc.
-def get_analysis(filename=None, neuron=[], dendrites=[], exc=[], inh=[], data=[], info=[]):
+def get_analysis(trial_info=[], activity_hist=[], filename=None):
 
+    print('analysis called')
     # Get hidden_state value from parameters if filename is not provided
-    if filename is None:
-        print("ROC: Gathering data from model_results")
-        data = data
-        trial_info = info
-        time_stamps = np.array(par['time_stamps'])
-    else:
+    if filename is not None:
         print("ROC: Gathering data from JSON file")
-        data = model_saver.json_load(savedir=filename)        
+        print("ROC: NEEDS FIXING")
+        data = model_saver.json_load(savedir=filename)
         time_stamps = np.array(data['params']['time_stamps'])
 
-    category_rule = np.array(trial_info['rule_index'])
-    attended_dir = np.array(trial_info['sample_index'])
-    neuron = np.array(neuron)
-    dendrites = np.array(dendrites)
-    exc = np.array(exc)
-    inh = np.array(inh)
-    time_stamps = time_stamps//par['dt']
-
-    # Just a note:
-    # Attended_dir = (1000 x 4) or (1000)
-    # Category_rule = (2 x 1000) or (1000)
-    #   0 = location rule
-    #   1 = category rule
-    print(attended_dir.shape)
-    print(category_rule.shape)
-
-    print("exc:", exc.shape)
-    print("inh:", inh.shape)
-
-
-    # Reshaping the dendrite or hidden_state matrix + pre-allocate roc matrix
-    # dendrite = (time x n_hidden x den_per_unit x batch_train_size)
-    #          => (n_hidden x dend_per_unit x time x trials)
-    # neuron = (time x n_hidden x batch_train_size)
-    #        => (n_hidden x time x trials)
-    print(neuron.shape)
-    if par['neuron_analysis']:
-        num_time, num_hidden, batch_size = neuron.shape
-        neuron = np.stack(neuron, axis=1)
-    if par['dendrites_analysis']:
-        dendrites = np.stack(dendrites, axis=2)
-        num_hidden, num_dend, num_time, num_batches = dendrites.shape
-    if par['exc_analysis']:
-        exc = np.stack(exc, axis=2)
-        num_hidden, num_dend, num_time, num_batches = dendrites.shape
-    if par['inh_analysis']:
-        inh = np.stack(inh, axis=2)
-        num_hidden, num_dend, num_time, num_batches = dendrites.shape
-
-
     # Get analysis results
-    result = {'roc': [], 'ANOVA': []}
-    if par['roc']:
-        result['roc'] = roc_analysis(time_stamps=time_stamps, cat_rule=category_rule, dir_cat=attended_dir, target_dir=attended_dir, \
-                                   neuron=neuron, dendrites=dendrites, exc=exc, inh=inh)
-    if par['anova']:
-        result['ANOVA'] = anova_analysis(time_stamps=time_stamps, info=attended_dir, neuron=neuron, dendrites=dendrites, exc=exc, inh=inh)
+    result = {'roc': [], 'anova': []}
 
-   
+    if par['roc_vars'] is not None:
+        result['roc'] = roc_analysis(trial_info)
+    if par['anova_vars'] is not None:
+        result['anova'] = anova_analysis(trial_info, activity_hist)
+
+
     # Save analysis result
     # with open('.\savedir\dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
+    """
     with open('./savedir/dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
         pickle.dump(result, f)
     print("ROC: Done pickling\n")
+    """
 
     return result
-
-
-# GET ROC CALCULATION DONE FOR: hidden_state_hist, dendrites_hist, dendrites_inputs_exc_hist, dendrites_inputs_inh_hist
-# roc_analysis(filename="savedir/model_data.json", time_stamps=[1100, 1200])

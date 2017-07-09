@@ -332,8 +332,7 @@ def main(switch):
                 model_results['weights'] = extract_weights(model_results, trial_info)
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                analysis_val = analysis.get_analysis(data=model_results, neuron=activity_hist['state_hist'], dendrites=activity_hist['dend_hist'], \
-                                                     exc=activity_hist['dend_exc_hist'], inh=activity_hist['dend_inh_hist'], info=trial_info)
+                analysis_val = analysis.get_analysis(trial_info, activity_hist)
                 print_data(timestr, model_results, analysis=analysis_val)
 
     print('\nModel execution complete.\n')
@@ -369,14 +368,13 @@ def print_data(timestr, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + '\n')
 
-    print(analysis['ANOVA']['neurons'][1])
-
     # output model performance to screen
     print('Trial: {:12d}   |'.format(model_results['trial'][-1]))
-    #print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Accuracy: {:13.4f}'.format(model_results['time'][-1],model_results['perf_loss'][-1], model_results['accuracy'][-1]))
-    #print('Save Time: {:8.2f} s | Spike Loss: {:8.4f} | Mean Activity: {:8.4f}\n'.format(save_time, model_results['spike_loss'][-1], model_results['mean_hidden'][-1]))
-    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format(model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
-    print('Anova neuron: {:8.4f} | Anova dend: {:8.4f} | Anova exc: {:8.4f} | Anova inh: {:8.4f}'.format(analysis['ANOVA']['neurons'][1], analysis['ANOVA']['dendrites'][1], analysis['ANOVA']['dendrite_exc'][1], analysis['ANOVA']['dendrite_inh'][1]))
+    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
+        model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
+    print('Anova P<0.01, hidden: {:8.4f} | dend: {:8.4f} | dend exc: {:8.4f} | dend inh: {:8.4f}'.format( \
+        np.mean(analysis['anova']['state_hist_pval']<0.01), np.mean(analysis['anova']['dend_hist_pval']<0.01), \
+        np.mean(analysis['anova']['dend_exc_hist_pval']<0.01), np.mean(analysis['anova']['dend_inh_hist_pval']<0.01)))
 
     """
     print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')

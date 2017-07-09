@@ -97,14 +97,10 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_stamps'       : [1100, 1200],
+    'time_pts'          : [1100, 1200],
     'num_category_rule' : 1,
-    'roc'               : False,
-    'anova'             : True,
-    'neuron_analysis'   : True,
-    'dendrites_analysis': True,
-    'exc_analysis'      : True,
-    'inh_analysis'      : True
+    'roc_vars'          : None,
+    'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
 
 ############################
