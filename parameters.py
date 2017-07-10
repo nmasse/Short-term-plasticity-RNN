@@ -76,7 +76,8 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_batches'       : 10,
+    'num_test_batches'  : 100,
+    'num_test_batches'  : 10,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
 
