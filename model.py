@@ -374,12 +374,14 @@ def print_data(timestr, model_results, analysis):
     print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
         model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
-    anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
-    anova_print = ' | '.join(anova_print)
-    print('Anova P<0.001, ' + anova_print)
-    roc_print = [k[:-5] + ':{:8.3f} '.format(np.nanmean(np.abs(v[:,:,:,0]))) for k,v in analysis['roc'].items()]
-    roc_print = ' | '.join(roc_print)
-    print('Mean rectified t-stat, ' + roc_print)
+    if not analysis['anova'] == []:
+        anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+        anova_print = ' | '.join(anova_print)
+        print('Anova P<0.001, ' + anova_print)
+    if not analysis['roc'] == []:
+        roc_print = [k[:-5] + ':{:8.3f} '.format(np.percentile(np.abs(v[:,:,:,0]), 98)) for k,v in analysis['roc'].items()]
+        roc_print = ' | '.join(roc_print)
+        print('98th prctile t-stat, ' + roc_print)
 
 
     """
@@ -487,11 +489,12 @@ def initialize_batch_data():
 def append_analysis_vals(model_results, analysis_val):
 
     for k in analysis_val.keys():
-        for k1,v in analysis_val[k].items():
-            current_key = k + '_' + k1
-            if not current_key in model_results.keys():
-                model_results[current_key] = [v]
-            else:
-                model_results[current_key].append([v])
+        if not analysis_val[k] == []:
+            for k1,v in analysis_val[k].items():
+                current_key = k + '_' + k1
+                if not current_key in model_results.keys():
+                    model_results[current_key] = [v]
+                else:
+                    model_results[current_key].append([v])
 
     return model_results
