@@ -135,9 +135,9 @@ def roc_analysis(trial_info, activity_hist):
     """
     t1=time.time()
     for rf in range(par['num_RFs']):
-        ind_rule0 = np.where(trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//2)[0]
-        ind_rule1 = np.where((trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//4)* \
-            (trial_info['sample_index'][:,rf]<3*par['num_motion_dirs']//4))[0]
+        ind_rule0 = np.where(trial_info['sample_index'][:,rf]>=par['num_samples']//2)[0]
+        ind_rule1 = np.where((trial_info['sample_index'][:,rf]>=par['num_samples']//4)* \
+            (trial_info['sample_index'][:,rf]<3*par['num_samples']//4))[0]
         sample_cat[ind_rule0, rf, 0] = 1
         sample_cat[ind_rule1, rf, 1] = 1
 
