@@ -17,8 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'mnist',
-    'profile_path'      : './profiles/mnist.txt',
+    'stimulus_type'     : 'mnist',    # dms, att, mnist
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
@@ -33,13 +32,9 @@ par = {
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
-    # Network shape
-    'num_motion_tuned'  : 784,
-    'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 0,
-    'n_hidden'          : 50,
+    # hidden layer shape
+    'n_hidden'          : 300,
     'den_per_unit'      : 10,
-    'n_output'          : 11,
 
     # Timings and rates
     'dt'                : 25,
@@ -61,11 +56,6 @@ par = {
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
-    'num_receptive_fields'  : 4,    # contributes to 'possible_rules'
-    'num_categorizations'   : 2,    # contributes to 'possible_rules'
-    'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
-    'allowed_categories'    : [0],  # Can be 0,1
-    'permutation_id'        : 0,
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -103,6 +93,53 @@ par = {
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
 
+###########################
+### Task parameter sets ###
+###########################
+
+def set_task_profile():
+    """
+    Depending on the stimulus type, sets the network
+    to the appropriate configuration
+    """
+
+    if par['stimulus_type'] == 'mnist':
+        par['profile_path'] = './profiles/mnist.txt'
+
+        par['num_receptive_fields'] = 1
+        par['num_categorizations']  = 100
+        par['allowed_fields']       = [0]
+        par['allowed_categories']   = [0]
+        par['permutation_id']       = 0
+
+        par['num_motion_tuned']     = 784 * par['num_receptive_fields']
+        par['num_fix_tuned']        = 0
+        par['num_rule_tuned']       = 0
+        par['n_output']             = 11
+
+    elif par['stimulus_type'] == 'att':
+        par['profile_path'] = './profiles/attention.txt'
+
+        par['num_receptive_fields'] = 4             # contributes to 'possible_rules'
+        par['num_categorizations']  = 2             # contributes to 'possible_rules'
+        par['allowed_fields']       = [0,1,2,3]     # can hold 0 through num_fields - 1
+        par['allowed_categories']   = [0]           # Can be 0,1
+        par['permutation_id']       = 0
+
+        par['num_motion_tuned']     = 24 * par['num_receptive_fields']
+        par['num_fix_tuned']        = 0
+        par['num_rule_tuned']       = 8
+        par['n_output']             = 3
+
+    elif par['stimulus_type'] == 'dms':
+
+        print("DMS not currently working.")
+        quit()
+
+    else:
+        print("ERROR: Bad stimulus type.")
+        quit()
+
 ############################
 ### Dependent parameters ###
 ############################
@@ -121,6 +158,9 @@ def update_dependencies():
     """
     Updates all parameter dependencies
     """
+
+    # Set or update task info
+    set_task_profile()
 
     # Projected number of trials to take place
     par['projected_num_trials'] = par['batch_train_size']*par['num_batches']*par['num_iterations']
