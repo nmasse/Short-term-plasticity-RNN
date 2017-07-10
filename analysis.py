@@ -11,7 +11,14 @@ np.set_printoptions(threshold=np.nan)
 # Receiver operating characteristic (ROC) curve
 # Translated to python from Nick's Matlab code
 # returns a value from 0 to 1, with 0.5 representing complete overlap
-def calculate_roc(xlist, ylist):
+def calculate_roc(xlist, ylist, fast_calc = False):
+
+    if fast_calc:
+        # return the t-statistic instead of the ROC
+        sd = np.sqrt(np.var(xlist)/2 + np.var(ylist)/2)
+        d = np.mean(xlist) - np.mean(ylist)
+        return d/sd
+
     roc = 0
     unique_vals = np.unique(xlist)
 
@@ -26,6 +33,7 @@ def calculate_roc(xlist, ylist):
 
 # Provide either JSON filename or category rule, target direction, and hidden_state data
 # Calculates and returns ROC curve vale
+"""
 def roc_analysis(time_stamps=[], cat_rule=[], dir_cat=[], target_dir=[], neuron=[], dendrites=[], exc=[], inh=[]):
 
     # Pre-allocating ROC
@@ -105,22 +113,75 @@ def roc_analysis(time_stamps=[], cat_rule=[], dir_cat=[], target_dir=[], neuron=
 
     return roc
 
+"""
+def roc_analysis(trial_info, activity_hist):
+
+    num_rules = trial_info['rule_index'].shape[1]
+    num_samples = trial_info['sample_index'].shape[1]
+    time_pts = np.array(par['time_pts'])//par['dt']
+    roc = {}
+
+    n_trials = par['num_batches']*par['batch_train_size']
+    sample_cat = np.zeros((n_trials, par['num_receptive_fields'], par['num_categorizations']))
+
+    """"
+    Determine the category membership of stimuli in all receptive fields
+    """
+    t1=time.time()
+    for rf in range(par['num_receptive_fields']):
+        ind_rule0 = np.where(trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//2)[0]
+        ind_rule1 = np.where((trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//4)* \
+            (trial_info['sample_index'][:,rf]<3*par['num_motion_dirs']//4))[0]
+        sample_cat[ind_rule0, rf, 0] = 1
+        sample_cat[ind_rule1, rf, 1] = 1
+
+    for var in par['anova_vars']:
+        if activity_hist[var] == []:
+            # skip this variable if no data is available
+            continue
+        if var.count('dend') > 0:
+            dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), par['num_receptive_fields'], \
+                par['num_categorizations'], par['num_categorizations']]
+            dendrite = True
+        else:
+            dims = [par['n_hidden'], len(par['time_pts']), par['num_receptive_fields'], \
+                par['num_categorizations'], par['num_categorizations']]
+            dendrite = False
+        # create variables if they're not currently in the anova dictionary
+        if var not in roc.keys():
+            roc[var] = 0.5*np.ones((dims), dtype = np.float32)
+
+        for rf in range(par['num_receptive_fields']):
+            for rule in range(par['num_categorizations']):
+                for cat in range(par['num_categorizations']):
+                    ind0 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==0))
+                    ind1 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==1))
+                    for n in range(dims[0]):
+                        for t in range(dims[1]):
+                            if dendrite:
+                                roc[var][n,t,rf,rule,cat] = calculate_roc(activity_hist[var][time_pts[t],n%par['n_hidden'], \
+                                    n//par['n_hidden'],ind0], activity_hist[var][time_pts[t],n%par['n_hidden'], n//par['n_hidden'],ind1], fast_calc = True)
+                            else:
+                                roc[var][n,t,rf,rule,cat] = calculate_roc(activity_hist[var][time_pts[t],n,ind0], \
+                                    activity_hist[var][time_pts[t],n,ind1], fast_calc = True)
+
+
+    # reshape dendritic variables, assumuming the neccessary dendritic values were present (activity_hist[var] not empty)
+    for var in par['roc_vars']:
+        if var.count('dend') > 0 and not activity_hist[var] == []:
+            roc[var] = np.reshape(roc[var],(par['n_hidden'],par['den_per_unit'], \
+                len(par['time_pts']),par['num_receptive_fields'], par['num_categorizations'], par['num_categorizations']), order='F')
+
+    return roc
+
+
 
 # Calculate and return ANOVA values based on sample inputs (directions, images, etc.)
 def anova_analysis(trial_info, activity_hist):
 
-    print(trial_info['sample_index'].shape)
-    print(trial_info['rule_index'].shape)
-    print(1//10,7//10,10//10,11//10)
-
-    """
-    TODO: make vars (sample_index, rule_index) coming out of trial_generators.py to have fixed dims:
-    e.g. [trials X num_rules], [trials X num_receptive_fields]
-    """
     # REMOVE hard-coding of 1 at end
-    trial_info['sample_index'] = np.reshape(trial_info['sample_index'],(par['num_batches']*par['batch_train_size'], 1))
-    trial_info['rule_index'] = np.reshape(trial_info['rule_index'],(par['num_batches']*par['batch_train_size'], 1))
-
+    trial_info['sample_index'] = np.reshape(trial_info['sample_index'],(par['num_batches']*par['batch_train_size'], 4), order='F')
+    trial_info['rule_index'] = np.reshape(trial_info['rule_index'],(par['num_batches']*par['batch_train_size'], 2), order='F')
 
     num_rules = trial_info['rule_index'].shape[1]
     num_samples = trial_info['sample_index'].shape[1]
@@ -171,9 +232,9 @@ def anova_analysis(trial_info, activity_hist):
     for var in par['anova_vars']:
         if var.count('dend') > 0 and not activity_hist[var] == []:
             anova[var + '_pval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \
-                len(par['time_pts']), num_rules, num_samples))
+                len(par['time_pts']), num_rules, num_samples), order='F')
             anova[var + '_fval'] = np.reshape(anova[var + '_pval'],(par['n_hidden'],par['den_per_unit'], \
-                len(par['time_pts']), num_rules, num_samples))
+                len(par['time_pts']), num_rules, num_samples), order='F')
 
     return anova
 
@@ -181,7 +242,6 @@ def anova_analysis(trial_info, activity_hist):
 # Depending on parameters, returns analysis results for ROC, ANOVA, etc.
 def get_analysis(trial_info=[], activity_hist=[], filename=None):
 
-    print('analysis called')
     # Get hidden_state value from parameters if filename is not provided
     if filename is not None:
         print("ROC: Gathering data from JSON file")
@@ -193,7 +253,7 @@ def get_analysis(trial_info=[], activity_hist=[], filename=None):
     result = {'roc': [], 'anova': []}
 
     if par['roc_vars'] is not None:
-        result['roc'] = roc_analysis(trial_info)
+        result['roc'] = roc_analysis(trial_info, activity_hist)
     if par['anova_vars'] is not None:
         result['anova'] = anova_analysis(trial_info, activity_hist)
 
