@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
 import scipy.stats as stats
 import time
 import json
@@ -7,7 +8,9 @@ import pickle
 import model_saver
 from parameters import *
 
-np.set_printoptions(threshold=np.nan)
+global iteration
+iteration = 0
+
 # Receiver operating characteristic (ROC) curve
 # Translated to python from Nick's Matlab code
 # returns a value from 0 to 1, with 0.5 representing complete overlap
@@ -125,13 +128,13 @@ def roc_analysis(trial_info, activity_hist):
     roc = {}
 
     n_trials = par['num_batches']*par['batch_train_size']
-    sample_cat = np.zeros((n_trials, par['num_receptive_fields'], par['num_categorizations']))
+    sample_cat = np.zeros((n_trials, par['num_RFs'], par['num_rules']))
 
     """"
     Determine the category membership of stimuli in all receptive fields
     """
     t1=time.time()
-    for rf in range(par['num_receptive_fields']):
+    for rf in range(par['num_RFs']):
         ind_rule0 = np.where(trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//2)[0]
         ind_rule1 = np.where((trial_info['sample_index'][:,rf]>=par['num_motion_dirs']//4)* \
             (trial_info['sample_index'][:,rf]<3*par['num_motion_dirs']//4))[0]
@@ -143,21 +146,21 @@ def roc_analysis(trial_info, activity_hist):
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
-            dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), par['num_receptive_fields'], \
-                par['num_categorizations'], par['num_categorizations']]
+            dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), par['num_RFs'], \
+                par['num_rules'], par['num_rules']]
             dendrite = True
         else:
-            dims = [par['n_hidden'], len(par['time_pts']), par['num_receptive_fields'], \
-                par['num_categorizations'], par['num_categorizations']]
+            dims = [par['n_hidden'], len(par['time_pts']), par['num_RFs'], \
+                par['num_rules'], par['num_rules']]
             dendrite = False
         # create variables if they're not currently in the anova dictionary
         if var not in roc.keys():
             # TODO: Change this if using t-stat
             roc[var] = 0.5*np.ones((dims), dtype = np.float32)
 
-        for rf in range(par['num_receptive_fields']):
-            for rule in range(par['num_categorizations']):
-                for cat in range(par['num_categorizations']):
+        for rf in range(par['num_RFs']):
+            for rule in range(par['num_rules']):
+                for cat in range(par['num_rules']):
                     ind0 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==0))
                     ind1 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==1))
                     for n in range(dims[0]):
@@ -174,7 +177,7 @@ def roc_analysis(trial_info, activity_hist):
     for var in par['roc_vars']:
         if var.count('dend') > 0 and not activity_hist[var] == []:
             roc[var] = np.reshape(roc[var],(par['n_hidden'],par['den_per_unit'], \
-                len(par['time_pts']),par['num_receptive_fields'], par['num_categorizations'], par['num_categorizations']), order='F')
+                len(par['time_pts']),par['num_RFs'], par['num_rules'], par['num_rules']), order='F')
 
     return roc
 
@@ -243,6 +246,52 @@ def anova_analysis(trial_info, activity_hist):
     return anova
 
 
+
+# Just plotting a lot of things...
+def plot(trial_info, activity_hist):
+    global iteration
+    print("Plotting with iteration: ", iteration)
+
+    # print(trial_info['rule_index'].shape)           # (2, 800)      [[0, 3, 2, 3, 1 ...], [0, 0, 0, ...]]       loc_rule x cat_rule
+    # print(trial_info['sample_index'].shape)         # (800, 4)      [[6, 6, 5, 6], [0, 3, 2, 7], ...]      
+
+    # print(activity_hist['state_hist'].shape)        # (56, 50, 800)
+    # print(activity_hist['dend_hist'].shape)         # (56, 50, 5, 800)
+    # print(activity_hist['dend_exc_hist'].shape)
+    # print(activity_hist['dend_inh_hist'].shape)
+    
+    time_pts = np.array(par['time_pts'])//par['dt']
+    num_trials = par['num_batches']*par['batch_train_size']
+
+    for var in par['anova_vars']:
+        for t in time_pts:
+            for i in range(par['n_hidden']):
+                if trial_info['rule_index'][1,0] == 0:
+                    x = np.array([6,7,0,1,2,3,4,5])
+                elif trial_info['rule_index'][1,0] == 1:
+                    x = np.array
+
+                # [0, 3, 7, 2, 1, ...]
+                attended_dir = trial_info['sample_index'][range(num_trials), trial_info['rule_index'][0]]
+                
+                mean, std, roc = [], [], []
+                for val in x:
+                    data = activity_hist['state_hist'][t, i, np.where(attended_dir==val)]
+                    roc = np.append(roc, data)
+                    mean = np.append(mean, np.mean(data))
+                    std = np.append(std, np.std(data))
+
+                x_axis = [0,1,2,3,4,5,6,7]
+                plt.errorbar(x_axis, mean, std)
+                t_stat = calculate_roc(roc[0:(int)(num_trials/2)], roc[(int)(num_trials/2):num_trials],fast_calc=True)
+                plt.title('neuron'+str(i)+"_t_stat_"+str(t_stat))
+                plt.savefig('./analysis/neuron_'+str(i)+"_time_"+str(t*par['dt'])+"_iter_"+str(iteration)+'.jpg')
+                plt.clf()
+
+    iteration = iteration + 1
+
+
+
 # Depending on parameters, returns analysis results for ROC, ANOVA, etc.
 def get_analysis(trial_info=[], activity_hist=[], filename=None):
 
@@ -253,13 +302,17 @@ def get_analysis(trial_info=[], activity_hist=[], filename=None):
         data = model_saver.json_load(savedir=filename)
         time_stamps = np.array(data['params']['time_stamps'])
 
+    print("Inside analysis")
+
     # Get analysis results
     result = {'roc': [], 'anova': []}
 
-    if par['roc_vars'] is not None:
-        result['roc'] = roc_analysis(trial_info, activity_hist)
-    if par['anova_vars'] is not None:
-        result['anova'] = anova_analysis(trial_info, activity_hist)
+    # if par['roc_vars'] is not None:
+        # result['roc'] = roc_analysis(trial_info, activity_hist)
+    # if par['anova_vars'] is not None:
+        # result['anova'] = anova_analysis(trial_info, activity_hist)
+    
+    plot(trial_info, activity_hist)
 
 
     # Save analysis result
