@@ -123,14 +123,15 @@ def attention(N):
     stim_tuning, fix_tuning, rule_tuning = tuning()
 
     ### Pre-allocate inputs and outputs
+    # TODO: do we need default_input, default_output?
     default_input   = np.zeros((N, par['n_input']), dtype=np.float32)
-    rule_input      = copy.deepcopy(default_input)
-    sample_input    = copy.deepcopy(default_input)
+    rule_input      = np.zeros((N, par['n_input']), dtype=np.float32)
+    sample_input    = np.zeros((N, par['n_input']), dtype=np.float32)
 
     default_output  = np.zeros((N, par['n_output']), dtype=np.float32)
-    rule_output     = copy.deepcopy(default_output)
+    rule_output     = np.zeros((N, par['n_output']), dtype=np.float32)
     rule_output[:,0] = 1
-    sample_output   = copy.deepcopy(default_output)
+    sample_output   = np.zeros((N, par['n_output']), dtype=np.float32)
 
     rule_index = par['num_motion_tuned']
     neurons_per_field = par['num_motion_tuned']//par['num_receptive_fields']
@@ -140,7 +141,8 @@ def attention(N):
 
     location_rules = []
     category_rules = []
-    field_directions = []
+    #field_directions = []
+    sample_index = np.zeros((N, par['num_receptive_fields']), dtype=np.uint8)
     target_directions = []
 
     for n in range(N):
@@ -156,16 +158,14 @@ def attention(N):
         rule_input[n, rule_index:rule_index+par['num_rule_tuned']] = rule_tuning[category_rule,:,location_rule]
 
         active_fields = np.sort(np.random.permutation(par['allowed_fields'])[0:par['num_active_fields']])
-        directions    = np.random.randint(0, par['num_motion_dirs'], [par['num_receptive_fields']])
-
-        field_directions.append(directions)
+        sample_index[n,:] = np.random.randint(0, par['num_motion_dirs'], [par['num_receptive_fields']])
 
         # Output sample_input[n] from loop
         for f in active_fields:
             for i in range(f*neurons_per_field, (f+1)*neurons_per_field):
-                sample_input[n,i] = stim_tuning[i, f, directions[f]]
+                sample_input[n,i] = stim_tuning[i, f, sample_index[n, f]]
 
-        desired_dir = directions[location_rule]
+        desired_dir = sample_index[n, location_rule]
 
         target_directions.append(desired_dir)
 
@@ -198,7 +198,7 @@ def attention(N):
                    'default_output' :   default_output,
                    'outputs'        :   outputs,
                    'rule_index'     :   np.array([location_rules, category_rules]),
-                   'sample_index'   :   np.array(field_directions),
+                   'sample_index'   :   sample_index,
                    'test_index'     :   []
                   }
 
