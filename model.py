@@ -242,7 +242,7 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def main(switch):
+def main():
 
     """
     Create the stimulus class to generate trial paramaters and input activity
@@ -282,64 +282,67 @@ def main(switch):
         with open('./savedir/savefile%s.txt' % timestr, 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
-        prev_iteration = 0
+
         for i in range(par['num_iterations']):
 
-            prev_iteration = switch(i, prev_iteration, './savedir/savefile%s.txt' % timestr)
+            # switch the allowed rules if iteration number crosses a threshold
+            switch_rule(i)
 
-            # generate batch of N (batch_train_size X num_batches) trials
-            trial_info = stim.generate_trial(N)
+            """
+            Training
+            """
+            for j in range(par['num_train_batches']):
 
+                # generate batch of par['batch_train_size'] trials
+                trial_info = stim.generate_trial(par['batch_train_size'])
+
+                # train the model
+                _ = sess.run(model.train_op, {x: trial_info['neural_input'], y: trial_info['desired_output'], \
+                    mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
+
+            """
+            Testing
+            """
             # keep track of the model performance for this batch
             loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist = initialize_batch_data()
 
-            loss = np.zeros((par['num_batches']))
-            perf_loss = np.zeros((par['num_batches']))
-            spike_loss = np.zeros((par['num_batches']))
-            mean_hidden = np.zeros((par['num_batches']))
-            accuracy = np.zeros((par['num_batches']))
+            for j in range(par['num_test_batches']):
 
-            for j in range(par['num_batches']):
+                # generate batch of par['batch_train_size'] trials using all rules, RFs
+                trial_info = stim.generate_trial(par['batch_train_size'])
 
-                """
-                Select batches of size batch_train_size
-                """
-                target_data, input_data, train_mask = select_trial_data(trial_info, j)
-
-                """
-                Run the model
-                """
-                #_, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist[:,:,batch_ind], dend_hist[:,:,:,batch_ind], \
-                #    dend_exc_hist[:,:,:,batch_ind], dend_inh_hist[:,:,:,batch_ind] \
+                # run the model
                 _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist_batch, dend_hist_batch, \
-                    dend_exc_hist_batch, dend_inh_hist_batch \
-                    = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
-                                model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
-                                model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                                {x: input_data, y: target_data, mask: train_mask, learning_rate: par['learning_rate']})
+                dend_exc_hist_batch, dend_inh_hist_batch \
+                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
+                    model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
+                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
+                    {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask'], learning_rate: 0})
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
-                accuracy[j] = get_perf(target_data, y_hat, train_mask)
+                accuracy[j] = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
                 mean_hidden[j] = np.mean(state_hist_batch)
 
+            """
+            Analyze the data and save the results
+            """
             iteration_time = time.time() - t_start
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
-
-            """
-            Save the data and network model
-            """
-            if (i+1)%par['iterations_between_outputs']==0:
-
-                model_results['weights'] = extract_weights(model_results, trial_info)
-
-                #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-                analysis_val = analysis.get_analysis(trial_info, activity_hist)
-                model_results = append_analysis_vals(model_results, analysis_val)
-                print_data(timestr, model_results, analysis=analysis_val)
+            model_results['weights'] = extract_weights(model_results, trial_info)
+            #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
+            analysis_val = analysis.get_analysis(trial_info, activity_hist)
+            model_results = append_analysis_vals(model_results, analysis_val)
+            print_data(timestr, model_results, analysis=analysis_val)
 
     print('\nModel execution complete.\n')
 
+def switch_rule(iteration):
+
+    if (iteration+1)%par['switch_rule_iteration'] == 0:
+        new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
+        par['allowed_rules'] = [allowed_rule]
+        print('allowed_rules now equal to ', allowed_rule)
 
 def get_perf(y, y_hat, mask):
 
@@ -436,12 +439,6 @@ def extract_weights(model_results, trial_info):
         weights['w_rnn_dend'] = W_rnn_dend.eval()
 
     return weights
-
-
-def select_trial_data(trial_info, j):
-
-    ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
-    return trial_info['desired_output'][:,:,ind], trial_info['neural_input'][:,:,ind], trial_info['train_mask'][:,ind]
 
 
 def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch):
