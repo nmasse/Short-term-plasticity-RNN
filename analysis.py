@@ -127,7 +127,7 @@ def roc_analysis(trial_info, activity_hist):
     time_pts = np.array(par['time_pts'])//par['dt']
     roc = {}
 
-    n_trials = par['num_batches']*par['batch_train_size']
+    n_trials = par['num_test_batches']*par['batch_train_size']
     sample_cat = np.zeros((n_trials, par['num_RFs'], par['num_rules']))
 
     """"
@@ -187,8 +187,8 @@ def roc_analysis(trial_info, activity_hist):
 def anova_analysis(trial_info, activity_hist):
 
     # REMOVE hard-coding of 1 at end
-    trial_info['sample_index'] = np.reshape(trial_info['sample_index'],(par['num_batches']*par['batch_train_size'], 4), order='F')
-    trial_info['rule_index'] = np.reshape(trial_info['rule_index'],(par['num_batches']*par['batch_train_size'], 2), order='F')
+    trial_info['sample_index'] = np.reshape(trial_info['sample_index'],(par['num_test_batches']*par['batch_train_size'], 4), order='F')
+    trial_info['rule_index'] = np.reshape(trial_info['rule_index'],(par['num_test_batches']*par['batch_train_size'], 2), order='F')
 
     num_rules = trial_info['rule_index'].shape[1]
     num_samples = trial_info['sample_index'].shape[1]
@@ -251,27 +251,18 @@ def anova_analysis(trial_info, activity_hist):
 def plot(trial_info, activity_hist):
     global iteration
     print("Plotting with iteration: ", iteration)
-
-    # print(trial_info['rule_index'].shape)           # (2, 800)      [[0, 3, 2, 3, 1 ...], [0, 0, 0, ...]]       loc_rule x cat_rule
-    # print(trial_info['sample_index'].shape)         # (800, 4)      [[6, 6, 5, 6], [0, 3, 2, 7], ...]      
-
-    # print(activity_hist['state_hist'].shape)        # (56, 50, 800)
-    # print(activity_hist['dend_hist'].shape)         # (56, 50, 5, 800)
-    # print(activity_hist['dend_exc_hist'].shape)
-    # print(activity_hist['dend_inh_hist'].shape)
     
     time_pts = np.array(par['time_pts'])//par['dt']
-    num_trials = par['num_batches']*par['batch_train_size']
+    num_trials = par['num_test_batches']*par['batch_train_size']
 
     for var in par['anova_vars']:
         for t in time_pts:
             for i in range(par['n_hidden']):
                 if trial_info['rule_index'][1,0] == 0:
-                    x = np.array([6,7,0,1,2,3,4,5])
+                    x = np.array([0,1,2,3,4,5,6,7])
                 elif trial_info['rule_index'][1,0] == 1:
-                    x = np.array
+                    x = np.array([2,3,4,5,0,1,6,7])
 
-                # [0, 3, 7, 2, 1, ...]
                 attended_dir = trial_info['sample_index'][range(num_trials), trial_info['rule_index'][0]]
                 
                 mean, std, roc = [], [], []
@@ -281,8 +272,7 @@ def plot(trial_info, activity_hist):
                     mean = np.append(mean, np.mean(data))
                     std = np.append(std, np.std(data))
 
-                x_axis = [0,1,2,3,4,5,6,7]
-                plt.errorbar(x_axis, mean, std)
+                plt.errorbar(x, mean, std)
                 t_stat = calculate_roc(roc[0:(int)(num_trials/2)], roc[(int)(num_trials/2):num_trials],fast_calc=True)
                 plt.title('neuron'+str(i)+"_t_stat_"+str(t_stat))
                 plt.savefig('./analysis/neuron_'+str(i)+"_time_"+str(t*par['dt'])+"_iter_"+str(iteration)+'.jpg')
