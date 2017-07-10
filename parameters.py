@@ -17,8 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'mnist',
-    'profile_path'      : './profiles/mnist.txt',
+    'stimulus_type'     : 'mnist',    # dms, att, mnist
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
@@ -33,16 +32,12 @@ par = {
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
-    # Network shape
-    'num_motion_tuned'  : 28*28,
-    'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 12,
+    # hidden layer shape
     'n_hidden'          : 300,
-    'den_per_unit'      : 5,
-    'n_output'          : 11,
+    'den_per_unit'      : 10,
 
     # Timings and rates
-    'dt'                : 20,
+    'dt'                : 25,
     'learning_rate'     : 5e-3,
     'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
@@ -56,16 +51,10 @@ par = {
     'input_clip_max'    : 10000,     # keep this high unless limiting inputs
 
     # Tuning function data
-    'num_motion_dirs'   : 8,
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
-    'num_RFs'           : 4,    # contributes to 'possible_rules'
-    'num_rules'         : 2,    # contributes to 'possible_rules'
-    'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
-    'allowed_categories'    : [0],  # Can be 0,1
-    'permutation_id'        : 0,
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -88,8 +77,8 @@ par = {
     # Training specs
     'batch_train_size'  : 100,
     'num_batches'       : 10,
-    'num_iterations'    : 100000,
-    'iterations_between_outputs'    : 25,        # Ususally 500
+    'num_iterations'    : 10000,
+    'iterations_between_outputs'    : 5,        # Ususally 500
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -97,15 +86,119 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_pts'          : [1200, 1250],
+    'time_pts'          : [1100, 1200],
     'num_category_rule' : 1,
     'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
 
+##############################
+### Task parameter profile ###
+##############################
+
+def set_task_profile():
+    """
+    Depending on the stimulus type, sets the network
+    to the appropriate configuration
+    """
+
+    if par['stimulus_type'] == 'mnist':
+        par['profile_path'] = './profiles/mnist.txt'
+
+        par['num_RFs']              = 2
+        par['allowed_fields']       = [0,1]
+
+        par['num_rules']            = 1
+        par['allowed_rules']        = [0]
+
+        par['permutation_id']       = 0
+
+        par['num_stimulus_tuned']    = 784 * par['num_RFs']
+        par['num_fix_tuned']         = 0
+        par['num_rule_tuned']        = 2 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['n_output']              = 11
+
+        par['num_samples'] = 60000                  # Number of available samples
+
+    elif par['stimulus_type'] == 'att':
+        par['profile_path'] = './profiles/attention.txt'
+
+        par['num_RFs']              = 4             # contributes to 'possible_rules'
+        par['allowed_fields']       = [0,1,2,3]     # can hold 0 through num_fields - 1
+
+        par['num_rules']            = 2             # the number of possible judgements
+        par['allowed_rules']        = [0]           # Can be 0 OR 1 OR 0, 1
+
+        par['permutation_id']       = 0
+
+        par['num_stimulus_tuned']    = 24 * par['num_RFs']
+        par['num_fix_tuned']         = 0
+        par['num_rule_tuned']        = 2 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['n_output']              = 3
+
+        par['num_samples'] = 8                      # Number of motion directions
+
+    elif par['stimulus_type'] == 'dms':
+
+        print("DMS not currently working.")
+        quit()
+
+    else:
+        print("ERROR: Bad stimulus type.")
+        quit()
+
 ############################
 ### Dependent parameters ###
 ############################
+
+def initialize(dims, connection_prob):
+    n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
+    n *= (np.random.rand(*dims) < connection_prob)
+    return n
+
+
+def get_profile(profile_path):
+    """
+    Gets profile information from the profile file
+    """
+
+    with open(profile_path) as neurons:
+        raw_content = neurons.read().split("\n")
+
+    text = list(filter(None, raw_content))
+
+    for line in range(len(text)):
+        text[line] = text[line].split("\t")
+
+    name_of_stimulus = text[0][1]
+    date_stimulus_created = text[1][1]
+    author_of_stimulus_profile = text[2][1]
+
+    return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
+
+
+def get_events(profile_path):
+    """
+    Gets event information from the profile file
+    """
+
+    with open(profile_path) as event_list:
+        raw_content = event_list.read().split("\n")
+
+    text = list(filter(None, raw_content))
+
+    for line in range(len(text)):
+        if text[line][0] == "0":
+            content = text[line:]
+
+    for line in range(len(content)):
+        content[line] = content[line].split("\t")
+        content[line][0] = int(content[line][0])
+
+    return content
+
 
 def update_parameters(updates):
     """
@@ -117,16 +210,20 @@ def update_parameters(updates):
 
     update_dependencies()
 
+
 def update_dependencies():
     """
     Updates all parameter dependencies
     """
 
+    # Set or update task info
+    set_task_profile()
+
     # Projected number of trials to take place
     par['projected_num_trials'] = par['batch_train_size']*par['num_batches']*par['num_iterations']
 
     # Number of input neurons
-    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+    par['n_input'] = par['num_stimulus_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned'] + par['num_spatial_cue_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
@@ -187,55 +284,14 @@ def update_dependencies():
     # Dendrite time constant for dendritic branches
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
 
-    # Get permutation list
-    par['permutations'] = np.squeeze(ms.json_load('./resources/permutations/permutations.json'))
-
-
-    def initialize(dims, connection_prob):
-        n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
-        n *= (np.random.rand(*dims) < connection_prob)
-        return n
-
-
-    def get_profile(profile_path):
-        """
-        Gets profile information from the profile file
-        """
-
-        with open(profile_path) as neurons:
-            raw_content = neurons.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            text[line] = text[line].split("\t")
-
-        name_of_stimulus = text[0][1]
-        date_stimulus_created = text[1][1]
-        author_of_stimulus_profile = text[2][1]
-
-        return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
-
-
-    def get_events(profile_path):
-        """
-        Gets event information from the profile file
-        """
-
-        with open(profile_path) as event_list:
-            raw_content = event_list.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            if text[line][0] == "0":
-                content = text[line:]
-
-        for line in range(len(content)):
-            content[line] = content[line].split("\t")
-            content[line][0] = int(content[line][0])
-
-        return content
+    # Build seeded permutation list
+    template = np.arange(par['n_input']/par['num_RFs'])
+    p = [[template]]
+    np.random.seed(0)
+    for n in range(1, 100):
+        p.append([np.random.permutation(template)])
+    np.random.seed(None)
+    par['permutations'] = np.squeeze(p)
 
     # General event profile info
     par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])

@@ -13,23 +13,17 @@ from parameters import *
 class Stimulus:
 
     def __init__(self):
-        """
-        # Consider putting tuning functions here
-        """
-        self.generate_rule_tuning()
+
+        self.stim_tuning    = self.generate_stim_tuning()
+        self.fix_tuning     = self.generate_fix_tuning()
+        self.rule_tuning    = self.generate_rule_tuning()
+        self.spatial_tuning = self.generate_spatial_tuning()
+
 
     def generate_trial(self, num):
 
         # Note that num will typically be par['batch_train_size'] * par['num_batches']
-        if par['stimulus_type'] == 'dms':
-            trial_setup = gen.direction_dms(num)
-        elif par['stimulus_type'] == 'att':
-            trial_setup = gen.attention(num)
-        elif par['stimulus_type'] == 'mnist':
-            trial_setup = gen.mnist(num)
-        else:
-            print("Invalid stimulus type.")
-            quit()
+        trial_setup = gen.trial_batch(num, self.stim_tuning, self.fix_tuning, self.rule_tuning, self.spatial_tuning)
 
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 
@@ -37,29 +31,62 @@ class Stimulus:
                       'train_mask'      : np.asarray(schedules[2]),
                       'neural_input'    : schedules[0],
                       'rule_index'      : trial_setup['rule_index'],
-                      'sample_index'    : trial_setup['sample_index'],
-                      'test_index'      : trial_setup['test_index']
+                      'location_index'    : trial_setup['location_index'],
+                      'sample_index'        : trial_setup['sample_index'],
+                      'attended_sample_index'      : trial_setup['attended_sample_index']
                      }
 
         return trial_info
 
+    def generate_stim_tuning(self):
+        if par['stimulus_type'] == 'mnist':
+            from mnist import MNIST
+            mndata = MNIST('./resources/mnist/data/original')
+            images, labels = mndata.load_training()
+            return np.array(images)
+
+        elif par['stimulus_type'] == 'att':
+            pass
+
+        return stim_tuning
+
+
+    def generate_fix_tuning(self):
+        """
+        Currently unused.
+        """
+        return np.array([0])
+
+
     def generate_rule_tuning(self):
+        rule_tuning = np.zeros([par['num_rules'], par['num_rule_tuned']])
+        m = par['num_rule_tuned']//par['num_rules']
+        if m == 0:
+            print('ERROR: Use more spatial neurons than RFs.')
+            quit()
 
-        self.rule_tuning = np.zeros((par['num_rule_tuned'], par['num_RFs'], par['num_rules']), dtype = np.float32)
+        for r in range(par['num_rules']):
+            if r == par['num_rules']-1:
+                rule_tuning[r, r*m:] = 1
+            else:
+                rule_tuning[r, r*m:r*m+m] = 1
+        return rule_tuning
 
-        # neurons will alternate between RF tuning, and rule tuning
 
-        # RF tuning
-        for n in range(0, par['num_rule_tuned'], 2):
-            for rf in range(par['num_RFs']):
-                if (n//2)%par['num_RFs']==rf:
-                    self.rule_tuning[n,rf,:] = par['tuning_height']
+    def generate_spatial_tuning(self):
+        spatial_tuning = np.zeros([par['num_RFs'], par['num_spatial_cue_tuned']])
+        m = par['num_spatial_cue_tuned']//par['num_RFs']
+        if m == 0:
+            print('ERROR: Use more spatial neurons than RFs.')
+            quit()
 
-        # RF tuning
-        for n in range(1, par['num_rule_tuned'], 2):
-            for r in range(par['num_rules']):
-                if ((n-1)//2)%par['num_rules']==r:
-                    self.rule_tuning[n,:,r] = par['tuning_height']
+        for r in range(par['num_RFs']):
+            if r == par['num_RFs']-1:
+                spatial_tuning[r, r*m:] = 1
+            else:
+                spatial_tuning[r, r*m:r*m+m] = 1
+
+        return spatial_tuning
 
 
     def generate_schedule(self, events, trial_setup, N, mask_starts_off=True):
@@ -256,6 +283,7 @@ class Stimulus:
                     pass
 
         return input_schedule, output_schedule, mask_schedule
+
 
     def add_noise(self, m):
         """
