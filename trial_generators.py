@@ -20,12 +20,13 @@ def get_mnist():
 
 
 def stimulus_permutation(m):
+    m = np.atleast_2d(m)
     # Randomly permutes the inputs based on a set of seeded permutations
     output = np.zeros(np.shape(m))
 
     for n in range(np.shape(m)[0]):
         p_index = par['permutations'][par['permutation_id']][n]
-        output[n] = m[p_index]
+        output[n] = m[int(p_index)]
 
     return output
 
@@ -46,6 +47,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
 
     location_index  = np.zeros((N, 1), dtype=np.float32)
     rule_index      = np.zeros((N, 1), dtype=np.float32)
+    sample_index    = np.zeros((N, par['num_RFs']), dtype=np.float32)
     attended_sample_index = np.zeros((N, 1), dtype=np.float32)
 
     # Generate relevant indices (start = 0, end of spatial = n_input)
@@ -62,8 +64,14 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
     unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
                     3*par['num_samples']//4 , par['num_samples']]
 
-    for n in range(N):
+    # MNIST task helper:
+    if par['stimulus_type'] == 'mnist':
+        from mnist import MNIST
+        mndata = MNIST('./resources/mnist/data/original')
+        images, labels = mndata.load_training()
+        labels = np.array(labels)
 
+    for n in range(N):
         # Generate fixation, spatial and rule cues
         fix         = 0
         location    = np.random.choice(par['allowed_fields'])
@@ -81,28 +89,20 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
         active_fields = np.sort(np.random.permutation(par['allowed_fields'])[0:par['num_active_fields']])
         sample_indices = np.random.randint(0, par['num_samples'], [par['num_RFs']])
 
-        print(sample_indices)
-        quit()
 
         # Generate sample period inputs from the loop
         for f in active_fields:
             for i in range(f*neurons_per_field, (f+1)*neurons_per_field):
-                sample_input[n, i] = stimulus_permutation(stim_tuning[sample_indices[f], i])
+                sample_input[n, i] = stimulus_permutation(stim_tuning[sample_indices[f], i%neurons_per_field])
 
         # If MNIST task, match indices to translate to output
-        # TODO : This is in a horrible spot (but for now it works)
         if par['stimulus_type'] == 'mnist':
-            from mnist import mnist
-            mndata = MNIST('./resources/mnist/data/original')
-            images, labels = mndata.load_training()
-            labels = np.array(labels)
-
-            for i in range(par['num_samples']):
-                for f in range(par['num_receptive_fields']):
-                    sample_indices[f] = labels[sample_indices[f]]
+            for f in range(par['num_RFs']):
+                sample_indices[f] = labels[sample_indices[f]]
 
         # Target desired stimulus
         target = sample_indices[location]
+        sample_index[n,:] = sample_indices
         attended_sample_index[n] = target
 
         # Generate sample period outputs from the loop based on task-specific logic
@@ -129,17 +129,20 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
         else:
             print("ERROR: Bad stimulus type in trial generator.")
 
-        inputs = {'fix' : fix_input,
-                  'stim': sample_input
-                 }
+    inputs = {'fix' : fix_input,
+              'stim': sample_input
+             }
 
-        outputs = {'fix' : fix_output,
-                   'stim': sample_output
+    outputs = {'fix' : fix_output,
+               'stim': sample_output
+              }
+
+    trial_setup = {'inputs'                 : inputs,
+                   'outputs'                : outputs,
+                   'rule_index'             : rule_index,
+                   'sample_index'           : sample_index,
+                   'location_index'         : location_index,
+                   'attended_sample_index'  : attended_sample_index
                   }
 
-        trial_setup = {'inputs'                 : inputs,
-                       'outputs'                : outputs,
-                       'rule_index'             : rule_index,
-                       'location_index'         : location_index,
-                       'attended_sample_index'  : attended_sample_index
-                      }
+    return trial_setup

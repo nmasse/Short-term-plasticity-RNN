@@ -31,8 +31,9 @@ class Stimulus:
                       'train_mask'      : np.asarray(schedules[2]),
                       'neural_input'    : schedules[0],
                       'rule_index'      : trial_setup['rule_index'],
-                      'sample_index'    : trial_setup['sample_index'],
-                      'test_index'      : trial_setup['test_index']
+                      'location_index'    : trial_setup['location_index'],
+                      'sample_index'        : trial_setup['sample_index'],
+                      'attended_sample_index'      : trial_setup['attended_sample_index']
                      }
 
         return trial_info

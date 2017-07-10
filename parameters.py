@@ -105,8 +105,8 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['num_RFs']              = 1
-        par['allowed_fields']       = [0]
+        par['num_RFs']              = 2
+        par['allowed_fields']       = [0,1]
 
         par['num_rules']            = 1
         par['allowed_rules']        = [0]
@@ -290,6 +290,7 @@ def update_dependencies():
     np.random.seed(0)
     for n in range(1, 100):
         p.append([np.random.permutation(template)])
+    np.random.seed(None)
     par['permutations'] = np.squeeze(p)
 
     # General event profile info
