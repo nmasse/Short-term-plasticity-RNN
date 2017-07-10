@@ -219,35 +219,40 @@ def mnist(N):
     images, labels = get_mnist()
 
     ### Pre-allocate inputs and outputs
+    # TODO: Do we need default_input, default_output?
     default_input   = np.zeros((N, par['n_input']), dtype=np.float32)
-    fix_input       = copy.deepcopy(default_input)
-    sample_input    = copy.deepcopy(default_input)
+    #default_input = None
+    fix_input       = np.zeros((N, par['n_input']), dtype=np.float32)
+    sample_input    = np.zeros((N, par['n_input']), dtype=np.float32)
 
     default_output  = np.zeros((N, par['n_output']), dtype=np.float32)
-    fix_output      = copy.deepcopy(default_output)
+    #default_output = None
+    fix_output      = np.zeros((N, par['n_output']), dtype=np.float32)
     fix_output[:,0] = 1
-    sample_output   = copy.deepcopy(default_output)
+    sample_output   =  np.zeros((N, par['n_output']), dtype=np.float32)
 
-    presented_numbers = []
-    permutations      = []
+    presented_numbers = np.zeros((N, 1), dtype=np.float32)
+    permutations      = np.zeros((N, 1), dtype=np.float32)
 
     for n in range(N):
 
         # Generate a number as stimulus
-        num = np.random.randint(0, len(labels))
+        num = np.random.randint(len(labels))
         label = labels[num]
         image = images[num]
 
         # Set permutation
-        permutations.append(par['permutation_id'])
+        permutations[n,0] = par['permutation_id']
+        #permutations.append(par['permutation_id'])
         image = mnist_permutation(image)/255
 
         # Output sample_input[n] from loop
-        sample_input[n] = image
+        sample_input[n, :] = image
 
         # Output sample_output[n] from loop
-        presented_numbers.append(label)
-        sample_output[n][label] = 1
+        #presented_numbers.append(label)
+        presented_numbers[n,0] = label
+        sample_output[n, label] = 1
 
     inputs = {'none'    :   default_input,
               'fix'     :   fix_input,
@@ -263,8 +268,8 @@ def mnist(N):
                    'inputs'         :   inputs,
                    'default_output' :   default_output,
                    'outputs'        :   outputs,
-                   'rule_index'     :   np.array(permutations),
-                   'sample_index'   :   np.array(presented_numbers),
+                   'rule_index'     :   permutations,
+                   'sample_index'   :   presented_numbers,
                    'test_index'     :   []
                   }
 
