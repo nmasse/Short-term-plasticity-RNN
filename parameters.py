@@ -80,7 +80,7 @@ par = {
     'num_test_batches'  : 10,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration',        : 1000,
+    'switch_rule_iteration'         : 1000,
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
