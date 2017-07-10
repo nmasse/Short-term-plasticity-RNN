@@ -17,7 +17,10 @@ def calculate_roc(xlist, ylist, fast_calc = False):
         # return the t-statistic instead of the ROC
         sd = np.sqrt(np.var(xlist)/2 + np.var(ylist)/2)
         d = np.mean(xlist) - np.mean(ylist)
-        return d/sd
+        tstat = d/sd
+        if np.isnan(tstat):
+            tstat = 0
+        return tstat
 
     roc = 0
     unique_vals = np.unique(xlist)
@@ -149,6 +152,7 @@ def roc_analysis(trial_info, activity_hist):
             dendrite = False
         # create variables if they're not currently in the anova dictionary
         if var not in roc.keys():
+            # TODO: Change this if using t-stat
             roc[var] = 0.5*np.ones((dims), dtype = np.float32)
 
         for rf in range(par['num_receptive_fields']):
