@@ -106,27 +106,28 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['num_receptive_fields'] = 1
+        par['num_RFs']              = 1
+        par['num_rules']            = 2
         par['num_categorizations']  = 100
         par['allowed_fields']       = [0]
         par['allowed_categories']   = [0]
         par['permutation_id']       = 0
 
-        par['num_motion_tuned']     = 784 * par['num_receptive_fields']
+        par['num_motion_tuned']     = 784 * par['num_RFs']
         par['num_fix_tuned']        = 0
-        par['num_rule_tuned']       = 0
+        par['num_rule_tuned']       = 12
         par['n_output']             = 11
 
     elif par['stimulus_type'] == 'att':
         par['profile_path'] = './profiles/attention.txt'
 
-        par['num_receptive_fields'] = 4             # contributes to 'possible_rules'
-        par['num_categorizations']  = 2             # contributes to 'possible_rules'
+        par['num_RFs']              = 4             # contributes to 'possible_rules'
+        par['num_rules']            = 2             # contributes to 'possible_rules'
         par['allowed_fields']       = [0,1,2,3]     # can hold 0 through num_fields - 1
         par['allowed_categories']   = [0]           # Can be 0,1
         par['permutation_id']       = 0
 
-        par['num_motion_tuned']     = 24 * par['num_receptive_fields']
+        par['num_motion_tuned']     = 24 * par['num_RFs']
         par['num_fix_tuned']        = 0
         par['num_rule_tuned']       = 8
         par['n_output']             = 3
@@ -171,9 +172,9 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Possible rules based on rule type values
-    par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+    par['possible_rules'] = [par['num_RFs'], par['num_rules']]
     # Number of rules - used in input tuning
-    par['num_rules'] = len(par['possible_rules'])
+    #par['num_rules'] = len(par['possible_rules'])
 
     # Sets the number of accessible allowed fields, if equal, all allowed fields
     # are accessible, but no more than those.
