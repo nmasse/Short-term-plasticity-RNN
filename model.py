@@ -333,6 +333,7 @@ def main(switch):
 
                 #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
                 analysis_val = analysis.get_analysis(trial_info, activity_hist)
+                model_results = append_analysis_vals(model_results, analysis_val)
                 print_data(timestr, model_results, analysis=analysis_val)
 
     print('\nModel execution complete.\n')
@@ -369,12 +370,16 @@ def print_data(timestr, model_results, analysis):
             + '\n')
 
     # output model performance to screen
+    print('Trial: {:13.0f}'.format(model_results['trial'][-1]))
     print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
         model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
-    anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.01)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+    anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
     anova_print = ' | '.join(anova_print)
-    print('Anova P<0.01, ' + anova_print)
+    print('Anova P<0.001, ' + anova_print)
+    roc_print = [k[:-5] + ':{:8.3f} '.format(np.nanmean(np.abs(v[:,:,:,0]))) for k,v in analysis['roc'].items()]
+    roc_print = ' | '.join(roc_print)
+    print('Mean rectified t-stat, ' + roc_print)
 
 
     """
@@ -453,11 +458,11 @@ def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc
 
         h_dims = [par['num_time_steps'], par['n_hidden'], par['num_batches']*par['batch_train_size']]
         dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_batches']*par['batch_train_size']]
-        activity_hist['state_hist'] = np.reshape(activity_hist['state_hist'],h_dims)
+        activity_hist['state_hist'] = np.reshape(activity_hist['state_hist'],h_dims, order='F')
         if par['use_dendrites']:
-            activity_hist['dend_hist'] = np.reshape(activity_hist['dend_hist'],dend_dims)
-            activity_hist['dend_exc_hist'] = np.reshape(activity_hist['dend_exc_hist'],dend_dims)
-            activity_hist['dend_inh_hist'] = np.reshape(activity_hist['dend_inh_hist'],dend_dims)
+            activity_hist['dend_hist'] = np.reshape(activity_hist['dend_hist'],dend_dims, order='F')
+            activity_hist['dend_exc_hist'] = np.reshape(activity_hist['dend_exc_hist'],dend_dims, order='F')
+            activity_hist['dend_inh_hist'] = np.reshape(activity_hist['dend_inh_hist'],dend_dims, order='F')
 
 
     return activity_hist
@@ -477,3 +482,16 @@ def initialize_batch_data():
     activity_hist = {'state_hist': [], 'dend_hist': [], 'dend_exc_hist': [], 'dend_inh_hist': []}
 
     return loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist
+
+
+def append_analysis_vals(model_results, analysis_val):
+
+    for k in analysis_val.keys():
+        for k1,v in analysis_val[k].items():
+            current_key = k + '_' + k1
+            if not current_key in model_results.keys():
+                model_results[current_key] = [v]
+            else:
+                model_results[current_key].append([v])
+
+    return model_results
