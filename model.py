@@ -41,12 +41,13 @@ print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
 class Model:
 
-    def __init__(self, input_data, target_data, mask):
+    def __init__(self, input_data, target_data, mask, learning_rate):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
         self.input_data = tf.unstack(input_data, axis=1)
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
+        self.learning_rate = learning_rate
 
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
@@ -216,7 +217,7 @@ class Model:
 
         self.loss = self.perf_loss + self.spike_loss
 
-        opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
+        opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
         grads_and_vars = opt.compute_gradients(self.loss)
 
         """
@@ -259,9 +260,10 @@ def main(switch):
     mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
     x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
+    learning_rate = tf.placeholder(tf.float32) # target data
 
     with tf.Session() as sess:
-        model = Model(x, y, mask)
+        model = Model(x, y, mask, learning_rate)
         init = tf.global_variables_initializer()
         sess.run(init)
         t_start = time.time()
@@ -314,7 +316,7 @@ def main(switch):
                     = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
                                 model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                                 model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                                {x: input_data, y: target_data, mask: train_mask})
+                                {x: input_data, y: target_data, mask: train_mask, learning_rate = par['learning_rate']})
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
