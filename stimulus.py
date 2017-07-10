@@ -96,8 +96,8 @@ class Stimulus:
             if events[i][1] == 'mask':
                 mask_events.append(events[i])
 
-        input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], trial_setup['default_input'])
-        output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], trial_setup['default_output'])
+        input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], np.zeros((N, par['n_input']), dtype=np.float32))
+        output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], np.zeros((N, par['n_output']), dtype=np.float32))
         mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_off else [1]*N, flag="mask")
         # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
 
