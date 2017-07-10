@@ -27,26 +27,36 @@ class Stimulus:
 
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 
-        trial_info = {'desired_output'  : schedules[1],
-                      'train_mask'      : np.asarray(schedules[2]),
-                      'neural_input'    : schedules[0],
-                      'rule_index'      : trial_setup['rule_index'],
-                      'location_index'    : trial_setup['location_index'],
-                      'sample_index'        : trial_setup['sample_index'],
-                      'attended_sample_index'      : trial_setup['attended_sample_index']
+        trial_info = {'desired_output'          : schedules[1],
+                      'train_mask'              : np.asarray(schedules[2]),
+                      'neural_input'            : schedules[0],
+                      'rule_index'              : trial_setup['rule_index'],
+                      'location_index'          : trial_setup['location_index'],
+                      'sample_index'            : trial_setup['sample_index'],
+                      'attended_sample_index'   : trial_setup['attended_sample_index']
                      }
 
         return trial_info
+
 
     def generate_stim_tuning(self):
         if par['stimulus_type'] == 'mnist':
             from mnist import MNIST
             mndata = MNIST('./resources/mnist/data/original')
             images, labels = mndata.load_training()
-            return np.array(images)
+            stim_tuning = np.array(images)
 
         elif par['stimulus_type'] == 'att':
-            pass
+            stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']])
+
+            pref_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/(par['num_stim_tuned']//par['num_RFs'])))
+            stim_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/par['num_samples']))
+
+            for i in range(par['num_samples']):
+                for n in range(par['num_stim_tuned']//par['num_RFs']):
+                    d = np.cos(stim_dirs[i] - pref_dirs[n%len(pref_dirs)])
+                    stim_tuning[i, n] = par['tuning_height']*(np.exp(par['kappa']*d) \
+                                        - np.exp(-par['kappa']))/np.exp(par['kappa'])
 
         return stim_tuning
 

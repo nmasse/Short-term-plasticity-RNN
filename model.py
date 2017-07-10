@@ -252,7 +252,7 @@ def main():
     n_input, n_hidden, n_output = par['shape']
     trial_length = par['num_time_steps']
     batch_size = par['batch_train_size']
-    N = par['batch_train_size'] * par['num_batches'] # trials per iteration, calculate gradients after batch_train_size
+    N = par['batch_train_size'] * par['num_train_batches'] # trials per iteration, calculate gradients after batch_train_size
 
     """
     Define all placeholder

@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'mnist',    # dms, att, mnist
+    'stimulus_type'     : 'att',    # dms, att, mnist
     'save_dir'          : './savedir/',
     'debug_model'       : False,
     'load_previous_model' : False,
@@ -76,10 +76,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_test_batches'  : 100,
+    'num_train_batches' : 100,
     'num_test_batches'  : 10,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
+    'switch_rule_iteration',        : 1000,
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -114,7 +115,7 @@ def set_task_profile():
 
         par['permutation_id']       = 0
 
-        par['num_stimulus_tuned']    = 784 * par['num_RFs']
+        par['num_stim_tuned']    = 784 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 2 * par['num_rules']
         par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
@@ -133,7 +134,7 @@ def set_task_profile():
 
         par['permutation_id']       = 0
 
-        par['num_stimulus_tuned']    = 24 * par['num_RFs']
+        par['num_stim_tuned']    = 24 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 2 * par['num_rules']
         par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
@@ -221,10 +222,10 @@ def update_dependencies():
     set_task_profile()
 
     # Projected number of trials to take place
-    par['projected_num_trials'] = par['batch_train_size']*par['num_batches']*par['num_iterations']
+    par['projected_num_trials'] = par['batch_train_size']*par['num_train_batches']*par['num_iterations']
 
     # Number of input neurons
-    par['n_input'] = par['num_stimulus_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned'] + par['num_spatial_cue_tuned']
+    par['n_input'] = par['num_stim_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned'] + par['num_spatial_cue_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 

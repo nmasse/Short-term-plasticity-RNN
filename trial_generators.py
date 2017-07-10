@@ -51,12 +51,12 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
     attended_sample_index = np.zeros((N, 1), dtype=np.float32)
 
     # Generate relevant indices (start = 0, end of spatial = n_input)
-    eos = par['num_stimulus_tuned']             # End of sample neurons
+    eos = par['num_stim_tuned']             # End of sample neurons
     eof = eos + par['num_fix_tuned']            # End of fixation neurons
     eor = eof + par['num_rule_tuned']           # End of rule neurons
 
-    neurons_per_field = par['num_stimulus_tuned']//par['num_RFs']
-    if par['num_stimulus_tuned']/par['num_RFs'] != neurons_per_field:
+    neurons_per_field = par['num_stim_tuned']//par['num_RFs']
+    if par['num_stim_tuned']/par['num_RFs'] != neurons_per_field:
         print("ERROR: Please use an multiple of RFs * neurons per RF.")
         quit()
 
