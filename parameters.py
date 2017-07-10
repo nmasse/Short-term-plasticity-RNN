@@ -51,7 +51,6 @@ par = {
     'input_clip_max'    : 10000,     # keep this high unless limiting inputs
 
     # Tuning function data
-    'num_motion_dirs'   : 8,
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
@@ -93,9 +92,9 @@ par = {
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
 
-###########################
-### Task parameter sets ###
-###########################
+##############################
+### Task parameter profile ###
+##############################
 
 def set_task_profile():
     """
@@ -107,30 +106,39 @@ def set_task_profile():
         par['profile_path'] = './profiles/mnist.txt'
 
         par['num_RFs']              = 1
-        par['num_rules']            = 2
-        par['num_categorizations']  = 100
         par['allowed_fields']       = [0]
-        par['allowed_categories']   = [0]
+
+        par['num_rules']            = 1
+        par['allowed_rules']        = [0]
+
         par['permutation_id']       = 0
 
-        par['num_motion_tuned']     = 784 * par['num_RFs']
-        par['num_fix_tuned']        = 0
-        par['num_rule_tuned']       = 12
-        par['n_output']             = 11
+        par['num_stimulus_tuned']    = 784 * par['num_RFs']
+        par['num_fix_tuned']         = 0
+        par['num_rule_tuned']        = 2 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['n_output']              = 11
+
+        par['num_samples'] = 60000                  # Number of available samples
 
     elif par['stimulus_type'] == 'att':
         par['profile_path'] = './profiles/attention.txt'
 
         par['num_RFs']              = 4             # contributes to 'possible_rules'
-        par['num_rules']            = 2             # contributes to 'possible_rules'
         par['allowed_fields']       = [0,1,2,3]     # can hold 0 through num_fields - 1
-        par['allowed_categories']   = [0]           # Can be 0,1
+
+        par['num_rules']            = 2             # the number of possible judgements
+        par['allowed_rules']        = [0]           # Can be 0 OR 1 OR 0, 1
+
         par['permutation_id']       = 0
 
-        par['num_motion_tuned']     = 24 * par['num_RFs']
-        par['num_fix_tuned']        = 0
-        par['num_rule_tuned']       = 8
-        par['n_output']             = 3
+        par['num_stimulus_tuned']    = 24 * par['num_RFs']
+        par['num_fix_tuned']         = 0
+        par['num_rule_tuned']        = 2 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['n_output']              = 3
+
+        par['num_samples'] = 8                      # Number of motion directions
 
     elif par['stimulus_type'] == 'dms':
 
@@ -215,7 +223,7 @@ def update_dependencies():
     par['projected_num_trials'] = par['batch_train_size']*par['num_batches']*par['num_iterations']
 
     # Number of input neurons
-    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+    par['n_input'] = par['num_stimulus_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned'] + par['num_spatial_cue_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
