@@ -34,15 +34,15 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
-    'num_motion_tuned'  : 784,
+    'num_motion_tuned'  : 28*28,
     'num_fix_tuned'     : 0,
-    'num_rule_tuned'    : 0,
-    'n_hidden'          : 50,
-    'den_per_unit'      : 10,
+    'num_rule_tuned'    : 12,
+    'n_hidden'          : 300,
+    'den_per_unit'      : 5,
     'n_output'          : 11,
 
     # Timings and rates
-    'dt'                : 25,
+    'dt'                : 20,
     'learning_rate'     : 5e-3,
     'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
@@ -61,8 +61,8 @@ par = {
     'kappa'             : 1,        # concentration scaling factor for von Mises
     'catch_rate'        : 0.2,
     'match_rate'        : 0.5,      # tends a little higher than chosen rate
-    'num_receptive_fields'  : 4,    # contributes to 'possible_rules'
-    'num_categorizations'   : 2,    # contributes to 'possible_rules'
+    'num_RFs'           : 4,    # contributes to 'possible_rules'
+    'num_rules'         : 2,    # contributes to 'possible_rules'
     'allowed_fields'        : [0,1,2,3],  # can hold 0 through num_fields - 1
     'allowed_categories'    : [0],  # Can be 0,1
     'permutation_id'        : 0,
@@ -88,8 +88,8 @@ par = {
     # Training specs
     'batch_train_size'  : 100,
     'num_batches'       : 10,
-    'num_iterations'    : 10000,
-    'iterations_between_outputs'    : 5,        # Ususally 500
+    'num_iterations'    : 100000,
+    'iterations_between_outputs'    : 25,        # Ususally 500
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -97,7 +97,7 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_pts'          : [1100, 1200],
+    'time_pts'          : [1200, 1250],
     'num_category_rule' : 1,
     'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
@@ -131,9 +131,9 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Possible rules based on rule type values
-    par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+    par['possible_rules'] = [par['num_RFs'], par['num_rules']]
     # Number of rules - used in input tuning
-    par['num_rules'] = len(par['possible_rules'])
+    #par['num_rules'] = len(par['possible_rules'])
 
     # Sets the number of accessible allowed fields, if equal, all allowed fields
     # are accessible, but no more than those.
