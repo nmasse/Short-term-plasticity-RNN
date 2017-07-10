@@ -16,7 +16,7 @@ class Stimulus:
         """
         # Consider putting tuning functions here
         """
-        pass
+        self.generate_rule_tuning()
 
     def generate_trial(self, num):
 
@@ -42,6 +42,24 @@ class Stimulus:
                      }
 
         return trial_info
+
+    def generate_rule_tuning(self):
+
+        self.rule_tuning = np.zeros((par['num_rule_tuned'], par['num_RFs'], par['num_rules']), dtype = np.float32)
+
+        # neurons will alternate between RF tuning, and rule tuning
+
+        # RF tuning
+        for n in range(0, par['num_rule_tuned'], 2):
+            for rf in range(par['num_RFs']):
+                if (n//2)%par['num_RFs']==rf:
+                    self.rule_tuning[n,rf,:] = par['tuning_height']
+
+        # RF tuning
+        for n in range(1, par['num_rule_tuned'], 2):
+            for r in range(par['num_rules']):
+                if ((n-1)//2)%par['num_rules']==r:
+                    self.rule_tuning[n,:,r] = par['tuning_height']
 
 
     def generate_schedule(self, events, trial_setup, N, mask_starts_off=True):
