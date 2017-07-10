@@ -316,7 +316,7 @@ def main(switch):
                     = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
                                 model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                                 model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                                {x: input_data, y: target_data, mask: train_mask, learning_rate = par['learning_rate']})
+                                {x: input_data, y: target_data, mask: train_mask, learning_rate: par['learning_rate']})
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
