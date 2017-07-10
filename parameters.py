@@ -145,6 +145,53 @@ def set_task_profile():
 ### Dependent parameters ###
 ############################
 
+def initialize(dims, connection_prob):
+    n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
+    n *= (np.random.rand(*dims) < connection_prob)
+    return n
+
+
+def get_profile(profile_path):
+    """
+    Gets profile information from the profile file
+    """
+
+    with open(profile_path) as neurons:
+        raw_content = neurons.read().split("\n")
+
+    text = list(filter(None, raw_content))
+
+    for line in range(len(text)):
+        text[line] = text[line].split("\t")
+
+    name_of_stimulus = text[0][1]
+    date_stimulus_created = text[1][1]
+    author_of_stimulus_profile = text[2][1]
+
+    return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
+
+
+def get_events(profile_path):
+    """
+    Gets event information from the profile file
+    """
+
+    with open(profile_path) as event_list:
+        raw_content = event_list.read().split("\n")
+
+    text = list(filter(None, raw_content))
+
+    for line in range(len(text)):
+        if text[line][0] == "0":
+            content = text[line:]
+
+    for line in range(len(content)):
+        content[line] = content[line].split("\t")
+        content[line][0] = int(content[line][0])
+
+    return content
+
+
 def update_parameters(updates):
     """
     Takes a list of strings and values for updating parameters in the parameter dictionary
@@ -154,6 +201,7 @@ def update_parameters(updates):
         par[key] = val
 
     update_dependencies()
+
 
 def update_dependencies():
     """
@@ -228,55 +276,13 @@ def update_dependencies():
     # Dendrite time constant for dendritic branches
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
 
-    # Get permutation list
-    par['permutations'] = np.squeeze(ms.json_load('./resources/permutations/permutations.json'))
-
-
-    def initialize(dims, connection_prob):
-        n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
-        n *= (np.random.rand(*dims) < connection_prob)
-        return n
-
-
-    def get_profile(profile_path):
-        """
-        Gets profile information from the profile file
-        """
-
-        with open(profile_path) as neurons:
-            raw_content = neurons.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            text[line] = text[line].split("\t")
-
-        name_of_stimulus = text[0][1]
-        date_stimulus_created = text[1][1]
-        author_of_stimulus_profile = text[2][1]
-
-        return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
-
-
-    def get_events(profile_path):
-        """
-        Gets event information from the profile file
-        """
-
-        with open(profile_path) as event_list:
-            raw_content = event_list.read().split("\n")
-
-        text = list(filter(None, raw_content))
-
-        for line in range(len(text)):
-            if text[line][0] == "0":
-                content = text[line:]
-
-        for line in range(len(content)):
-            content[line] = content[line].split("\t")
-            content[line][0] = int(content[line][0])
-
-        return content
+    # Build seeded permutation list
+    template = np.arange(par['n_input']/par['num_RFs'])
+    p = [[template]]
+    np.random.seed(0)
+    for n in range(1, 100):
+        p.append([np.random.permutation(template)])
+    par['permutations'] = np.squeeze(p)
 
     # General event profile info
     par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
