@@ -312,10 +312,12 @@ def main():
             # keep track of the model performance for this batch
             loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist = initialize_batch_data()
 
+            # generate one large batch of testing trials
+            trial_info = stim.generate_trial(par['num_test_batches']*par['batch_train_size'])
+
             for j in range(par['num_test_batches']):
 
-                # generate batch of par['batch_train_size'] trials using all rules, RFs
-                trial_info = stim.generate_trial(par['batch_train_size'])
+                trial_ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
 
                 # run the model
                 _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist_batch, dend_hist_batch, \
@@ -323,7 +325,8 @@ def main():
                 = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                    {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask'], learning_rate: 0})
+                    {x: trial_info['neural_input'][:,:,trial_ind], y: trial_info['desired_output'][:,:,trial_ind], \
+                    mask: trial_info['train_mask'][:,trial_ind], learning_rate: 0})
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
