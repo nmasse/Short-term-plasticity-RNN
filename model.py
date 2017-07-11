@@ -255,7 +255,7 @@ def main():
     N = par['batch_train_size'] * par['num_train_batches'] # trials per iteration, calculate gradients after batch_train_size
 
     """
-    Define all placeholder
+    Define all placeholders
     """
     mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
     x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
@@ -291,6 +291,7 @@ def main():
             """
             Training
             """
+
             for j in range(par['num_train_batches']):
 
                 # generate batch of par['batch_train_size'] trials
@@ -299,6 +300,13 @@ def main():
                 # train the model
                 _ = sess.run(model.train_op, {x: trial_info['neural_input'], y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
+
+                # show model progress
+                progress = ((j+1)/par['num_train_batches'])
+                length = int(np.round(progress*20))
+                bar = "Training Model: [{0}]\r".format("#"*length + " "*(20-length))
+                print(bar, end='\r')
+            print("Training session {:} complete.".format(i))
 
             """
             Testing
@@ -450,15 +458,15 @@ def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc
         activity_hist['dend_inh_hist'].append(dend_inh_hist_batch)
 
     # stack if all batches have been added
-    if len(activity_hist['state_hist']) == par['num_batches']:
+    if len(activity_hist['state_hist']) == par['num_test_batches']:
         activity_hist['state_hist'] = np.stack(np.stack(activity_hist['state_hist'],axis=3),axis=0)
         if par['use_dendrites']:
             activity_hist['dend_hist'] = np.stack(np.stack(activity_hist['dend_hist'],axis=4),axis=0)
             activity_hist['dend_exc_hist'] = np.stack(np.stack(activity_hist['dend_exc_hist'],axis=4),axis=0)
             activity_hist['dend_inh_hist'] = np.stack(np.stack(activity_hist['dend_inh_hist'],axis=4),axis=0)
 
-        h_dims = [par['num_time_steps'], par['n_hidden'], par['num_batches']*par['batch_train_size']]
-        dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_batches']*par['batch_train_size']]
+        h_dims = [par['num_time_steps'], par['n_hidden'], par['num_test_batches']*par['batch_train_size']]
+        dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_test_batches']*par['batch_train_size']]
         activity_hist['state_hist'] = np.reshape(activity_hist['state_hist'],h_dims, order='F')
         if par['use_dendrites']:
             activity_hist['dend_hist'] = np.reshape(activity_hist['dend_hist'],dend_dims, order='F')
@@ -471,14 +479,14 @@ def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc
 
 def initialize_batch_data():
 
-    loss = np.zeros((par['num_batches']), dtype=np.float32)
-    perf_loss = np.zeros((par['num_batches']), dtype=np.float32)
-    spike_loss = np.zeros((par['num_batches']), dtype=np.float32)
-    mean_hidden = np.zeros((par['num_batches']), dtype=np.float32)
-    accuracy = np.zeros((par['num_batches']), dtype=np.float32)
+    loss = np.zeros((par['num_test_batches']), dtype=np.float32)
+    perf_loss = np.zeros((par['num_test_batches']), dtype=np.float32)
+    spike_loss = np.zeros((par['num_test_batches']), dtype=np.float32)
+    mean_hidden = np.zeros((par['num_test_batches']), dtype=np.float32)
+    accuracy = np.zeros((par['num_test_batches']), dtype=np.float32)
 
-    hist_dims = [par['num_time_steps'], par['n_hidden'],  par['num_batches']*par['num_batches']]
-    hist_dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_batches']*par['num_batches']]
+    hist_dims = [par['num_time_steps'], par['n_hidden'],  par['num_test_batches']*par['num_test_batches']]
+    hist_dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_test_batches']*par['num_test_batches']]
 
     activity_hist = {'state_hist': [], 'dend_hist': [], 'dend_exc_hist': [], 'dend_inh_hist': []}
 
