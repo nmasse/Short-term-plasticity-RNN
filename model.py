@@ -330,7 +330,7 @@ def main():
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
                 activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
-                accuracy[j] = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+                accuracy[j] = get_perf(trial_info['desired_output'][:,:,trial_ind], y_hat, trial_info['train_mask'][:,trial_ind])
                 mean_hidden[j] = np.mean(state_hist_batch)
 
             """
