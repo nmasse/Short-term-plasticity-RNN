@@ -302,9 +302,8 @@ def main():
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
 
                 # show model progress
-                progress = ((j+1)/par['num_train_batches'])
-                length = int(np.round(progress*20))
-                bar = "Training Model: [{0}]\r".format("#"*length + " "*(20-length))
+                progress = int(np.round(((j+1)/par['num_train_batches'])*20))
+                bar = "Training Model: [{0}]\r".format("#"*progress + " "*(20-progress))
                 print(bar, end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
