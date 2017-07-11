@@ -324,7 +324,8 @@ def dendrite_function0008(W_in, W_rnn, rnn_input, h_soma, dend):
     exc_activity += den_in
 
     h_den_out = (1-par['alpha_dendrite'])*dend + \
-        par['alpha_dendrite']*tf.nn.relu(exc_activity - alpha)*tf.nn.relu(beta - inh_activity))
+        par['alpha_dendrite']*tf.nn.relu(exc_activity - alpha)*tf.nn.relu(beta - inh_activity)
 
+    h_soma_in = ac_simple_sum(h_den_out)
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
