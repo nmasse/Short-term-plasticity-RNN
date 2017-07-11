@@ -75,8 +75,8 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 100,
-    'num_train_batches' : 100,
+    'batch_train_size'  : 10,
+    'num_train_batches' : 10,
     'num_test_batches'  : 10,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
@@ -217,9 +217,6 @@ def update_dependencies():
     """
     Updates all parameter dependencies
     """
-
-    # Set or update task info
-    set_task_profile()
 
     # Projected number of trials to take place
     par['projected_num_trials'] = par['batch_train_size']*par['num_train_batches']*par['num_iterations']
@@ -434,5 +431,6 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
+set_task_profile()
 update_dependencies()
 print("--> Parameters successfully loaded.\n")

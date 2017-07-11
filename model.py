@@ -9,7 +9,6 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import time
-import sys
 import os
 import psutil
 from model_saver import *
@@ -267,7 +266,6 @@ def main():
         init = tf.global_variables_initializer()
         sess.run(init)
         t_start = time.time()
-        timestr = time.strftime('%H%M%S-%Y%m%d')
 
         saver = tf.train.Saver()
         # Restore variables from previous model if desired
@@ -275,15 +273,31 @@ def main():
             saver.restore(sess, par['save_dir'] + par['ckpt_load_fn'])
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
+        # Generate an identifying timestamp and save directory for the model
+        timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
+        if par['use_dendrites']:
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
+        else:
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + 'nd' + timestamp
+
+        # Write intermittent results to text file
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+
+        # Store a copy of the parameters setup in its default state
+        json_save(par, dirpath + '/parameters.json')
+
+        # Create summary file
+        with open(dirpath + '/model_summary.txt', 'w') as f:
+            f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
+
         # keep track of the model performance across training
         model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
-        # Write intermittent results to text file
-        with open('./savedir/savefile%s.txt' % timestr, 'w') as f:
-            f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
-
-
         for i in range(par['num_iterations']):
+
+            # reset any altered task parameters back to their defaults
+            set_task_profile()
 
             # switch the allowed rules if iteration number crosses a threshold
             switch_rule(i)
@@ -291,7 +305,6 @@ def main():
             """
             Training
             """
-
             for j in range(par['num_train_batches']):
 
                 # generate batch of par['batch_train_size'] trials
@@ -302,19 +315,26 @@ def main():
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
 
                 # show model progress
-                progress = int(np.round(((j+1)/par['num_train_batches'])*20))
-                print("Training Model: [{0}]\r".format("#"*progress + " "*(20-progress)), end='\r')
+                progress = (j+1)/par['num_train_batches']
+                bar = int(np.round(progress*20))
+                print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            """
-            Testing
-            """
+
+            # Allows all fields and rules for testing purposes
+            par['allowed_fields']       = np.arange(par['num_RFs'])
+            par['allowed_rules']        = np.arange(par['num_rules'])
+            par['num_active_fields']    = len(par['allowed_fields'])
+
             # keep track of the model performance for this batch
             loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist = initialize_batch_data()
 
             # generate one large batch of testing trials
             trial_info = stim.generate_trial(par['num_test_batches']*par['batch_train_size'])
 
+            """
+            Testing
+            """
             for j in range(par['num_test_batches']):
 
                 trial_ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
@@ -333,18 +353,32 @@ def main():
                 accuracy[j] = get_perf(trial_info['desired_output'][:,:,trial_ind], y_hat, trial_info['train_mask'][:,trial_ind])
                 mean_hidden[j] = np.mean(state_hist_batch)
 
+                # show model progress
+                progress = (j+1)/par['num_test_batches']
+                bar = int(np.round(progress*20))
+                print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+            print("\nTesting session {:} complete.\n".format(i))
+
+
             """
             Analyze the data and save the results
             """
+
+            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
+
             iteration_time = time.time() - t_start
+
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
-            model_results['weights'] = extract_weights(model_results, trial_info)
+            model_results['weights'] = extract_weights()
+
             #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
             analysis_val = analysis.get_analysis(trial_info, activity_hist)
             model_results = append_analysis_vals(model_results, analysis_val)
-            print_data(timestr, model_results, analysis=analysis_val)
+
+            print_data(dirpath, model_results, analysis_val)
 
     print('\nModel execution complete.\n')
+
 
 def switch_rule(iteration):
 
@@ -352,6 +386,7 @@ def switch_rule(iteration):
         new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
         par['allowed_rules'] = [allowed_rule]
         print('allowed_rules now equal to ', allowed_rule)
+
 
 def get_perf(y, y_hat, mask):
 
@@ -369,11 +404,11 @@ def get_perf(y, y_hat, mask):
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
-def print_data(timestr, model_results, analysis):
+def print_data(dirpath, model_results, analysis):
 
     hud.update_data(model_results['trial'][-1], model_results['perf_loss'][-1], model_results['accuracy'][-1])
 
-    with open('./savedir/savefile%s.txt' % timestr, 'a') as f:
+    with open(dirpath + '/model_summary.txt', 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
         f.write('{:7d}'.format(model_results['trial'][-1]) \
             + '\t{:0.2f}'.format(model_results['time'][-1]) \
@@ -384,9 +419,9 @@ def print_data(timestr, model_results, analysis):
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:13.0f}'.format(model_results['trial'][-1]))
-    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
-        model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
+    print('Trial: {:13.0f} | Time: {:14.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
+    print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
+        model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
     if not analysis['anova'] == []:
         anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
@@ -423,7 +458,7 @@ def append_model_performance(model_results, accuracy, loss, perf_loss, spike_los
     return model_results
 
 
-def extract_weights(model_results, trial_info):
+def extract_weights():
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:

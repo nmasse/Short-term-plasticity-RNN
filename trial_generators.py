@@ -34,7 +34,7 @@ def stimulus_permutation(m):
 ### Trial generator functions ###
 #################################
 
-def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing=False):
+def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning):
 
     # Pre-allocate inputs, outputs, rules, and samples
     fix_input       = np.zeros((N, par['n_input']), dtype=np.float32)
@@ -69,12 +69,6 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
         mndata = MNIST('./resources/mnist/data/original')
         images, labels = mndata.load_training()
         labels = np.array(labels)
-
-    # Allows all fields and rules for testing purposes
-    if testing:
-        par['allowed_fields']       = np.arange(par['num_RFs'])
-        par['allowed_rules']        = np.arange(par['num_rules'])
-        par['num_active_fields']    = len(par['allowed_fields'])
 
     for n in range(N):
         # Generate fixation, spatial and rule cues
@@ -157,9 +151,5 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
                    'location_index'         : location_index,
                    'attended_sample_index'  : attended_sample_index
                   }
-
-    # Resets all parameters to their defaults in case the next batch is not testing
-    if testing:
-        update_dependencies()
 
     return trial_setup
