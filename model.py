@@ -284,6 +284,10 @@ def main():
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
 
+        # Store a copy of the parameters setup in its default state
+        json_save(par, dirpath + '/parameters.json')
+
+        # Create summary file
         with open(dirpath + '/model_summary.txt', 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
@@ -292,13 +296,15 @@ def main():
 
         for i in range(par['num_iterations']):
 
+            # reset any altered task parameters back to their defaults
+            set_task_profile()
+
             # switch the allowed rules if iteration number crosses a threshold
             switch_rule(i)
 
             """
             Training
             """
-
             for j in range(par['num_train_batches']):
 
                 # generate batch of par['batch_train_size'] trials
@@ -314,15 +320,21 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            """
-            Testing
-            """
+
+            # Allows all fields and rules for testing purposes
+            par['allowed_fields']       = np.arange(par['num_RFs'])
+            par['allowed_rules']        = np.arange(par['num_rules'])
+            par['num_active_fields']    = len(par['allowed_fields'])
+
             # keep track of the model performance for this batch
             loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist = initialize_batch_data()
 
             # generate one large batch of testing trials
             trial_info = stim.generate_trial(par['num_test_batches']*par['batch_train_size'])
 
+            """
+            Testing
+            """
             for j in range(par['num_test_batches']):
 
                 trial_ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
@@ -351,6 +363,9 @@ def main():
             """
             Analyze the data and save the results
             """
+
+            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
+
             iteration_time = time.time() - t_start
 
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
