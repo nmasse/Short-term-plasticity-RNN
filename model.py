@@ -365,17 +365,19 @@ def main():
             """
 
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
-
             iteration_time = time.time() - t_start
 
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
-            model_results['weights'] = extract_weights()
+            #model_results['weights'] = extract_weights()
 
             #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
             analysis_val = analysis.get_analysis(trial_info, activity_hist)
             model_results = append_analysis_vals(model_results, analysis_val)
 
             print_data(dirpath, model_results, analysis_val)
+
+            json_save([testing_conditions, trial_info, analysis_val], dirpath + '/iter{}_results.json'.format(i))
+            json_save(model_results, dirpath + '/model_results.json')
 
     print('\nModel execution complete.\n')
 
@@ -419,7 +421,7 @@ def print_data(dirpath, model_results, analysis):
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:13.0f} | Time: {:14.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
+    print('Trial: {:13.0f} | Time: {:15.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
     print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
