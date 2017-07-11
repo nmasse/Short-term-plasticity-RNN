@@ -44,10 +44,10 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
     fix_output[:,0] = 1
     sample_output   = np.zeros((N, par['n_output']), dtype=np.float32)
 
-    location_index  = np.zeros((N, 1), dtype=np.float32)
-    rule_index      = np.zeros((N, 1), dtype=np.float32)
-    sample_index    = np.zeros((N, par['num_RFs']), dtype=np.float32)
-    attended_sample_index = np.zeros((N, 1), dtype=np.float32)
+    location_index  = np.zeros((N, 1), dtype=np.uint8)
+    rule_index      = np.zeros((N, 1), dtype=np.uint8)
+    sample_index    = np.zeros((N, par['num_RFs']), dtype=np.uint8)
+    attended_sample_index = np.zeros((N, 1), dtype=np.uint8)
 
     # Generate relevant indices (start = 0, end of spatial = n_input)
     eos = par['num_stim_tuned']                 # End of sample neurons
