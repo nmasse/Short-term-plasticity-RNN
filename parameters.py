@@ -75,8 +75,8 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 100,
-    'num_train_batches' : 100,
+    'batch_train_size'  : 10,
+    'num_train_batches' : 10,
     'num_test_batches'  : 10,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
@@ -200,19 +200,6 @@ def get_events(profile_path):
         content[line][0] = int(content[line][0])
 
     return content
-
-def get_filename():
-    """
-    Generates a filename for saving based on current parameters
-    """
-    if par['use_dendrites']:
-        filename = 'model_run_' + str(par['stimulus_type']) + '_h' + str(par['n_hidden']) + '_wd' + par['df_num']
-
-    else:
-        filename = 'model_run_' + str(par['stimulus_type']) + '_h' + str(par['n_hidden']) + '_wod'
-
-    return filename
-
 
 
 def update_parameters(updates):

@@ -9,7 +9,6 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import time
-import sys
 import os
 import psutil
 from model_saver import *
@@ -274,13 +273,22 @@ def main():
             saver.restore(sess, par['save_dir'] + par['ckpt_load_fn'])
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
-        # keep track of the model performance across training
-        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
+        # Generate an identifying timestamp and save directory for the model
+        timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
+        if par['use_dendrites']:
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
+        else:
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + 'nd' + timestamp
 
         # Write intermittent results to text file
-        with open('./savedir/%s.txt' % get_filename(), 'w') as f:
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+
+        with open(dirpath + '/model_summary.txt', 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
+        # keep track of the model performance across training
+        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         for i in range(par['num_iterations']):
 
@@ -301,8 +309,9 @@ def main():
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
 
                 # show model progress
-                progress = int(np.round(((j+1)/par['num_train_batches'])*20))
-                print("Training Model: [{0}]\r".format("#"*progress + " "*(20-progress)), end='\r')
+                progress = (j+1)/par['num_train_batches']
+                bar = int(np.round(progress*20))
+                print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
             """
@@ -332,16 +341,26 @@ def main():
                 accuracy[j] = get_perf(trial_info['desired_output'][:,:,trial_ind], y_hat, trial_info['train_mask'][:,trial_ind])
                 mean_hidden[j] = np.mean(state_hist_batch)
 
+                # show model progress
+                progress = (j+1)/par['num_test_batches']
+                bar = int(np.round(progress*20))
+                print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+            print("\nTesting session {:} complete.\n".format(i))
+
+
             """
             Analyze the data and save the results
             """
             iteration_time = time.time() - t_start
+
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
             model_results['weights'] = extract_weights(model_results, trial_info)
+
             #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
             analysis_val = analysis.get_analysis(trial_info, activity_hist)
             model_results = append_analysis_vals(model_results, analysis_val)
-            print_data(model_results, analysis=analysis_val)
+
+            print_data(dirpath, model_results, analysis_val)
 
     print('\nModel execution complete.\n')
 
@@ -368,11 +387,11 @@ def get_perf(y, y_hat, mask):
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
-def print_data(model_results, analysis):
+def print_data(dirpath, model_results, analysis):
 
     hud.update_data(model_results['trial'][-1], model_results['perf_loss'][-1], model_results['accuracy'][-1])
 
-    with open('./savedir/%s.txt' % get_filename(), 'a') as f:
+    with open(dirpath + '/model_summary.txt', 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
         f.write('{:7d}'.format(model_results['trial'][-1]) \
             + '\t{:0.2f}'.format(model_results['time'][-1]) \
