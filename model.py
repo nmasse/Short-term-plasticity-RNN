@@ -369,7 +369,7 @@ def main():
             iteration_time = time.time() - t_start
 
             model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
-            model_results['weights'] = extract_weights(model_results, trial_info)
+            model_results['weights'] = extract_weights()
 
             #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
             analysis_val = analysis.get_analysis(trial_info, activity_hist)
@@ -379,12 +379,14 @@ def main():
 
     print('\nModel execution complete.\n')
 
+
 def switch_rule(iteration):
 
     if (iteration+1)%par['switch_rule_iteration'] == 0:
         new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
         par['allowed_rules'] = [allowed_rule]
         print('allowed_rules now equal to ', allowed_rule)
+
 
 def get_perf(y, y_hat, mask):
 
@@ -417,9 +419,9 @@ def print_data(dirpath, model_results, analysis):
             + '\n')
 
     # output model performance to screen
-    print('Trial: {:13.0f}'.format(model_results['trial'][-1]))
-    print('Time: {:13.2f} s | Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:13.4f}'.format( \
-        model_results['time'][-1], model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
+    print('Trial: {:13.0f} | Time: {:14.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
+    print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
+        model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
     if not analysis['anova'] == []:
         anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
@@ -456,7 +458,7 @@ def append_model_performance(model_results, accuracy, loss, perf_loss, spike_los
     return model_results
 
 
-def extract_weights(model_results, trial_info):
+def extract_weights():
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
