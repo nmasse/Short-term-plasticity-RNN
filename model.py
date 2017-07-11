@@ -306,7 +306,7 @@ def main():
                 length = int(np.round(progress*20))
                 bar = "Training Model: [{0}]\r".format("#"*length + " "*(20-length))
                 print(bar, end='\r')
-            print("Training session {:} complete.".format(i))
+            print("\nTraining session {:} complete.".format(i+1))
 
             """
             Testing
