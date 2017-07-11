@@ -17,12 +17,12 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'     : 'att',    # dms, att, mnist
-    'save_dir'          : './savedir/',
-    'debug_model'       : False,
-    'load_previous_model' : False,
-    'processor_affinity'  : [0, 1],   # Default is [], for no preference
-    'use_HUD'             : False,
+    'stimulus_type'         : 'att',    # dms, att, mnist
+    'save_dir'              : './savedir/',
+    'debug_model'           : False,
+    'load_previous_model'   : False,
+    'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'use_HUD'               : False,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -107,15 +107,15 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['num_RFs']              = 2
-        par['allowed_fields']       = [0,1]
+        par['num_RFs']               = 2
+        par['allowed_fields']        = [0,1]
 
-        par['num_rules']            = 1
-        par['allowed_rules']        = [0]
+        par['num_rules']             = 3
+        par['allowed_rules']         = [0]          # 0 is regular, 1 is horizontal flilp, 2 is vertical flip
 
-        par['permutation_id']       = 0
+        par['permutation_id']        = 0
 
-        par['num_stim_tuned']    = 784 * par['num_RFs']
+        par['num_stim_tuned']        = 784 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 2 * par['num_rules']
         par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
@@ -126,15 +126,15 @@ def set_task_profile():
     elif par['stimulus_type'] == 'att':
         par['profile_path'] = './profiles/attention.txt'
 
-        par['num_RFs']              = 4             # contributes to 'possible_rules'
-        par['allowed_fields']       = [0,1,2,3]     # can hold 0 through num_fields - 1
+        par['num_RFs']               = 4             # contributes to 'possible_rules'
+        par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
 
-        par['num_rules']            = 2             # the number of possible judgements
-        par['allowed_rules']        = [0]           # Can be 0 OR 1 OR 0, 1
+        par['num_rules']             = 2             # the number of possible judgements
+        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
 
-        par['permutation_id']       = 0
+        par['permutation_id']        = 0
 
-        par['num_stim_tuned']    = 24 * par['num_RFs']
+        par['num_stim_tuned']        = 24 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 2 * par['num_rules']
         par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
@@ -287,7 +287,7 @@ def update_dependencies():
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']
 
     # Build seeded permutation list
-    template = np.arange(par['n_input']/par['num_RFs'])
+    template = np.arange(par['num_stim_tuned']/par['num_RFs'])
     p = [[template]]
     np.random.seed(0)
     for n in range(1, 100):

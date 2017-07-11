@@ -303,8 +303,7 @@ def main():
 
                 # show model progress
                 progress = int(np.round(((j+1)/par['num_train_batches'])*20))
-                bar = "Training Model: [{0}]\r".format("#"*progress + " "*(20-progress))
-                print(bar, end='\r')
+                print("Training Model: [{0}]\r".format("#"*progress + " "*(20-progress)), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
             """
@@ -321,7 +320,7 @@ def main():
                 # run the model
                 _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist_batch, dend_hist_batch, \
                 dend_exc_hist_batch, dend_inh_hist_batch \
-                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss,
+                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask'], learning_rate: 0})
