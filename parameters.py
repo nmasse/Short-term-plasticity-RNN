@@ -206,10 +206,10 @@ def get_filename():
     Generates a filename for saving based on current parameters
     """
     if par['use_dendrites']:
-        filename = 'model_run_' + str(par['stimulus_type']) + 'h' + str('n_hidden') + '_wd' + par['dendrite_function']
+        filename = 'model_run_' + str(par['stimulus_type']) + '_h' + str(par['n_hidden']) + '_wd' + par['df_num']
 
     else:
-        filename = 'model_run_' + str(par['stimulus_type']) + 'h' + str('n_hidden') + '_wod'
+        filename = 'model_run_' + str(par['stimulus_type']) + '_h' + str(par['n_hidden']) + '_wod'
 
     return filename
 

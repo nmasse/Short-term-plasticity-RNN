@@ -7,6 +7,7 @@ import json
 import copy
 import base64
 import re
+from parameters import *
 
 global multi_types
 global singlet_types
@@ -105,3 +106,12 @@ def json_load(savedir="save.json", toplevel=True, a=None):
         pass
 
     return x
+
+
+def params_to_file(savedir=".\savedir\params.txt"):
+    with open(savedir, 'w') as f:
+        for key, value in par.items:
+            f.write(key + "\t" + value + "\m")
+
+print(par['n_input'])
+params_to_file()
