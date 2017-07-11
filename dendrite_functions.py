@@ -252,7 +252,7 @@ def dendrite_function0004(W_in, W_rnn, rnn_input, h_soma, dend):
     alpha = tf.constant(np.float32(0.5))
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+    _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     exc_activity += den_in
 
@@ -269,7 +269,7 @@ def dendrite_function0005(W_in, W_rnn, rnn_input, h_soma, dend):
     """
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+    _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*tf.nn.relu(exc_activity + den_in - inh_activity)
 
@@ -284,7 +284,7 @@ def dendrite_function0006(W_in, W_rnn, rnn_input, h_soma, dend):
     """
 
     den_in = in_tensordot(W_in, rnn_input)
-    rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+    _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*(exc_activity + den_in - inh_activity)
 
@@ -305,5 +305,26 @@ def dendrite_function0007(W_in, W_rnn, rnn_input, h_soma, dend):
     h_den_in = den_in + rnn_in
     h_den_out = pr_retain(h_den_in, dend)
     h_soma_in = ac_two_groups(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity
+
+
+def dendrite_function0008(W_in, W_rnn, rnn_input, h_soma, dend):
+    """
+    Creation Date: 2017/7/11
+    Notes: Inhibition gates inputs. EXC and INH are multiplied
+    See "On Multiplicative Integration with Recurrent Neural Networks", Wu et al 2016
+    """
+    beta = tf.constant(np.float32(1))
+    alpha = tf.constant(np.float32(1))
+
+    den_in = in_tensordot(W_in, rnn_input)
+    _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+
+    exc_activity += den_in
+
+    h_den_out = (1-par['alpha_dendrite'])*dend + \
+        par['alpha_dendrite']*tf.nn.relu((exc_activity - alpha)*(beta - inh_activity))
+
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
