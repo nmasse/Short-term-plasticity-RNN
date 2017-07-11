@@ -5,6 +5,14 @@
 import numpy as np
 import copy
 from parameters import *
+from mnist import MNIST
+
+global images
+global labels
+
+mndata = MNIST('./resources/mnist/data/original')
+images, labels = mndata.load_training()
+labels = np.array(labels)
 
 
 ############################
@@ -62,13 +70,6 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning):
     # Attention task helper:
     unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
                     3*par['num_samples']//4 , par['num_samples']]
-
-    # MNIST task helper:
-    if par['stimulus_type'] == 'mnist':
-        from mnist import MNIST
-        mndata = MNIST('./resources/mnist/data/original')
-        images, labels = mndata.load_training()
-        labels = np.array(labels)
 
     for n in range(N):
         # Generate fixation, spatial and rule cues

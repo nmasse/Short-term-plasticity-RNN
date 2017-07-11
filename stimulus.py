@@ -14,6 +14,11 @@ class Stimulus:
 
     def __init__(self):
 
+        from mnist import MNIST
+        mndata = MNIST('./resources/mnist/data/original')
+        images, labels = mndata.load_training()
+        self.mnist_images = images
+
         self.stim_tuning    = self.generate_stim_tuning()
         self.fix_tuning     = self.generate_fix_tuning()
         self.rule_tuning    = self.generate_rule_tuning()
@@ -41,10 +46,7 @@ class Stimulus:
 
     def generate_stim_tuning(self):
         if par['stimulus_type'] == 'mnist':
-            from mnist import MNIST
-            mndata = MNIST('./resources/mnist/data/original')
-            images, labels = mndata.load_training()
-            stim_tuning = np.array(images)
+            stim_tuning = np.array(self.mnist_images)
 
         elif par['stimulus_type'] == 'att':
             stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']])
