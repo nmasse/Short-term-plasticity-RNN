@@ -267,7 +267,6 @@ def main():
         init = tf.global_variables_initializer()
         sess.run(init)
         t_start = time.time()
-        timestr = time.strftime('%H%M%S-%Y%m%d')
 
         saver = tf.train.Saver()
         # Restore variables from previous model if desired
@@ -279,7 +278,7 @@ def main():
         model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Write intermittent results to text file
-        with open('./savedir/savefile%s.txt' % timestr, 'w') as f:
+        with open('./savedir/%s.txt' % get_filename(), 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
 
@@ -342,7 +341,7 @@ def main():
             #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
             analysis_val = analysis.get_analysis(trial_info, activity_hist)
             model_results = append_analysis_vals(model_results, analysis_val)
-            print_data(timestr, model_results, analysis=analysis_val)
+            print_data(model_results, analysis=analysis_val)
 
     print('\nModel execution complete.\n')
 
@@ -369,11 +368,11 @@ def get_perf(y, y_hat, mask):
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
-def print_data(timestr, model_results, analysis):
+def print_data(model_results, analysis):
 
     hud.update_data(model_results['trial'][-1], model_results['perf_loss'][-1], model_results['accuracy'][-1])
 
-    with open('./savedir/savefile%s.txt' % timestr, 'a') as f:
+    with open('./savedir/%s.txt' % get_filename(), 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
         f.write('{:7d}'.format(model_results['trial'][-1]) \
             + '\t{:0.2f}'.format(model_results['time'][-1]) \

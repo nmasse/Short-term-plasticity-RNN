@@ -201,6 +201,19 @@ def get_events(profile_path):
 
     return content
 
+def get_filename():
+    """
+    Generates a filename for saving based on current parameters
+    """
+    if par['use_dendrites']:
+        filename = 'model_run_' + str(par['stimulus_type']) + 'h' + str('n_hidden') + '_wd' + par['dendrite_function']
+
+    else:
+        filename = 'model_run_' + str(par['stimulus_type']) + 'h' + str('n_hidden') + '_wod'
+
+    return filename
+
+
 
 def update_parameters(updates):
     """
