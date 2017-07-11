@@ -386,8 +386,8 @@ def switch_rule(iteration):
 
     if (iteration+1)%par['switch_rule_iteration'] == 0:
         new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
-        par['allowed_rules'] = [allowed_rule]
-        print('allowed_rules now equal to ', allowed_rule)
+        par['allowed_rules'] = [new_allowed_rule]
+        print('allowed_rules now equal to ', new_allowed_rule)
 
 
 def get_perf(y, y_hat, mask):
