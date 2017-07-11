@@ -37,6 +37,7 @@ def calculate_roc(xlist, ylist, fast_calc = False):
     return roc
 
 
+
 def roc_analysis(trial_info, activity_hist):
 
     num_rules = trial_info['rule_index'].shape[1]
@@ -159,6 +160,40 @@ def anova_analysis(trial_info, activity_hist):
 
 
 
+# calclulate mean activity
+def get_means(trial_info, activity_hist):
+
+    # Variables
+    time_pts = np.array(par['time_pts'])//par['dt']
+    num_trials = par['num_test_batches']*par['batch_train_size']
+
+    # Pre-allocation
+    att_firing_rate = np.zeros([par['n_hidden'],len(time_pts),par['num_RFs'],par['num_rules'],par['num_samples']])
+    unatt_firing_rate = np.zeros([par['n_hidden'],len(time_pts),par['num_RFs'],par['num_rules'],par['num_samples']])
+
+    # Calculate mean firing rate for attended RF and unattended RF
+    for var in par['anova_vars']:
+        for t in range(len(time_pts)):
+            for n in range(par['n_hidden']):
+                for r in range(par['num_rules']):
+                    rule_ind = trial_info['rule_index']==[r]
+                    for rf in range(par['num_RFs']):
+                        rf_ind = trial_info['location_index']==[rf]
+                        un_rf_ind = trial_info['location_index']!=[rf]
+                        directions = trial_info['sample_index'][range(num_trials), rf]
+                        for d in range(par['num_samples']):
+                            att_firing_rate[n,t,rf,r,d] = np.mean(activity_hist['state_hist'][time_pts[t],n, \
+                                                                  np.where((directions==d)*rule_ind*rf_ind)[0]])
+                            unatt_firing_rate[n,t,rf,r,d] = np.mean(activity_hist['state_hist'][time_pts[t],n, \
+                                                                    np.where((directions==d)*rule_ind*un_rf_ind)[0]])
+
+    
+    mean_firing_rate = {'attended': att_firing_rate, 'unattended': unatt_firing_rate}
+
+    return mean_firing_rate
+
+
+
 # Just plotting a lot of things...
 def plot(trial_info, activity_hist):
     global iteration
@@ -209,13 +244,13 @@ def get_analysis(trial_info=[], activity_hist=[], filename=None):
     # Get analysis results
     result = {'roc': [], 'anova': []}
 
-    if par['roc_vars'] is not None:
-        result['roc'] = roc_analysis(trial_info, activity_hist)
-    if par['anova_vars'] is not None:
-        result['anova'] = anova_analysis(trial_info, activity_hist)
+    # if par['roc_vars'] is not None:
+        # result['roc'] = roc_analysis(trial_info, activity_hist)
+    # if par['anova_vars'] is not None:
+        # result['anova'] = anova_analysis(trial_info, activity_hist)
 
     #plot(trial_info, activity_hist)
-
+    get_means(trial_info, activity_hist)
 
     # Save analysis result
     # with open('.\savedir\dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
