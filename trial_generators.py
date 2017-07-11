@@ -20,7 +20,6 @@ def get_mnist():
 
 
 def stimulus_permutation(m):
-    m = np.atleast_2d(m)
     # Randomly permutes the inputs based on a set of seeded permutations
     output = np.zeros(np.shape(m))
 
@@ -51,7 +50,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
     attended_sample_index = np.zeros((N, 1), dtype=np.float32)
 
     # Generate relevant indices (start = 0, end of spatial = n_input)
-    eos = par['num_stim_tuned']             # End of sample neurons
+    eos = par['num_stim_tuned']                 # End of sample neurons
     eof = eos + par['num_fix_tuned']            # End of fixation neurons
     eor = eof + par['num_rule_tuned']           # End of rule neurons
 
@@ -71,6 +70,12 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
         images, labels = mndata.load_training()
         labels = np.array(labels)
 
+    # Allows all fields and rules for testing purposes
+    if testing:
+        par['allowed_fields']       = np.arange(par['num_RFs'])
+        par['allowed_rules']        = np.arange(par['num_rules'])
+        par['num_active_fields']    = len(par['allowed_fields'])
+
     for n in range(N):
         # Generate fixation, spatial and rule cues
         fix         = 0
@@ -89,12 +94,20 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
         active_fields = np.sort(np.random.permutation(par['allowed_fields'])[0:par['num_active_fields']])
         sample_indices = np.random.randint(0, par['num_samples'], [par['num_RFs']])
 
-
-        # Generate sample period inputs from the loop
+        # Generate sample period inputs from the loop, and flip matrices if the
+        # rule dictates (currently MNIST only)
         for f in active_fields:
-            for i in range(f*neurons_per_field, (f+1)*neurons_per_field):
-                sample_input[n, i] = stimulus_permutation(stim_tuning[sample_indices[f], i%neurons_per_field])
-
+            sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = stimulus_permutation(stim_tuning[sample_indices[f]])
+            if par['stimulus_type'] == 'mnist':
+                if rule == 0:
+                    pass
+                elif rule == 1:
+                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                elif rule == 2:
+                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                else:
+                    print("ERROR: Bad MNIST rule.")
+                    quit()
         # If MNIST task, match indices to translate to output
         if par['stimulus_type'] == 'mnist':
             for f in range(par['num_RFs']):
@@ -144,5 +157,9 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, testing
                    'location_index'         : location_index,
                    'attended_sample_index'  : attended_sample_index
                   }
+
+    # Resets all parameters to their defaults in case the next batch is not testing
+    if testing:
+        update_dependencies()
 
     return trial_setup
