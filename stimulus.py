@@ -18,6 +18,7 @@ class Stimulus:
         mndata = MNIST('./resources/mnist/data/original')
         images, labels = mndata.load_training()
         self.mnist_images = images
+        self.mnist_labels = np.array(labels)
 
         self.stim_tuning    = self.generate_stim_tuning()
         self.fix_tuning     = self.generate_fix_tuning()
@@ -28,7 +29,7 @@ class Stimulus:
     def generate_trial(self, num):
 
         # Note that num will typically be par['batch_train_size'] * par['num_batches']
-        trial_setup = gen.trial_batch(num, self.stim_tuning, self.fix_tuning, self.rule_tuning, self.spatial_tuning)
+        trial_setup = gen.trial_batch(num, self.stim_tuning, self.fix_tuning, self.rule_tuning, self.spatial_tuning, self.mnist_images, self.mnist_labels)
 
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 

@@ -5,27 +5,10 @@
 import numpy as np
 import copy
 from parameters import *
-from mnist import MNIST
-
-global images
-global labels
-
-mndata = MNIST('./resources/mnist/data/original')
-images, labels = mndata.load_training()
-labels = np.array(labels)
-
 
 ############################
 ### Adjustment functions ###
 ############################
-
-def get_mnist():
-    from mnist import MNIST
-    mndata = MNIST('./resources/mnist/data/original')
-    images, labels = mndata.load_training()
-
-    return images, labels
-
 
 def stimulus_permutation(m):
     # Randomly permutes the inputs based on a set of seeded permutations
@@ -42,7 +25,7 @@ def stimulus_permutation(m):
 ### Trial generator functions ###
 #################################
 
-def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning):
+def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images, labels):
 
     # Pre-allocate inputs, outputs, rules, and samples
     fix_input       = np.zeros((N, par['n_input']), dtype=np.float32)
