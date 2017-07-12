@@ -8,7 +8,7 @@ print("\nRunning model...\n")
 import tensorflow as tf
 import numpy as np
 
-from paramters import *
+from parameters import *
 from model_saver import *
 import dendrite_functions as df
 import stimulus
@@ -313,19 +313,17 @@ def main():
             set_task_profile()
             switch_rule(i)
 
-            """
-            Training
-            """
+            # Training loop
             for j in range(par['num_train_batches']):
 
-                # generate batch of par['batch_train_size'] trials
+                # Generate batch of par['batch_train_size'] trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
 
-                # train the model
+                # Train the model
                 _ = sess.run(model.train_op, {x: trial_info['neural_input'], y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
 
-                # show model progress
+                # Show model progress
                 progress = (j+1)/par['num_train_batches']
                 bar = int(np.round(progress*20))
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
@@ -337,18 +335,16 @@ def main():
             par['allowed_rules']        = np.arange(par['num_rules'])
             par['num_active_fields']    = len(par['allowed_fields'])
 
-            # keep track of the model performance for this batch
+            # Keep track of the model performance for this batch
             test_data = initialize_test_data()
 
-            """
-            Testing
-            """
+            # Testing loop
             for j in range(par['num_test_batches']):
 
-                # generate batch of testing trials
+                # Generate batch of testing trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
 
-                # run the model
+                # Run the model
                 _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], y_hat, \
                 state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
                 = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
@@ -357,22 +353,19 @@ def main():
                     {x: trial_info['neural_input'], y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: 0})
 
-                # calculate model accuracy and the mean activity of the hidden neurons for analysis
+                # Calculate model accuracy and the mean activity of the hidden neurons for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
                 test_data['accuracy'][j] = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
                 test_data['mean_hidden'][j] = np.mean(state_hist_batch)
 
-                # show model progress
+                # Show model progress
                 progress = (j+1)/par['num_test_batches']
                 bar = int(np.round(progress*20))
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
 
 
-            """
-            Analyze the data and save the results
-            """
-
+            # Analyze the data and save the results
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             iteration_time = time.time() - t_start
 
