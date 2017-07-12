@@ -219,6 +219,30 @@ def tuning_analysis(test_data):
     return tuning
 
 
+def accuracy_analysis(test_data):
+    """
+    IN PROGRESS
+    """
+
+    # Deriving accuracy for each rule
+    print(np.shape(test_data['sample_index']), np.shape(test_data['location_index']), np.shape(test_data['rule_index']))
+    rule_hits = np.zeros([par['num_rules']], dtype=np.float32)
+    print(np.shape(test_data['accuracy']))
+
+    for n in range(np.shape(test_data['sample_index'])[0]):
+        target = test_data['sample_index'][n][test_data['location_index'][n][0]]
+        rule   = test_data['rule_index'][n][0]
+        print(target, rule)
+        quit()
+
+        #target = sample_indices[location]
+        #sample_index[n,:] = sample_indices
+        #attended_sample_index[n] = target
+
+    quit()
+    return 0
+
+
 
 # Just plotting a lot of things...
 def plot(test_data):
@@ -253,10 +277,33 @@ def plot(test_data):
 
     iteration = iteration + 1
 
+def get_perf(y, y_hat, mask):
+    """
+    Calculate task accuracy by comparing the actual network output to the desired output
+    only examine time points when test stimulus is on
+    in another words, when y[0,:,:] is not 0
+    """
+
+    accuracy = np.zeros([par['num_test_batches']])
+
+    for j in range(np.shape(y)[0]):
+        a = y[j]
+        a_hat = y_hat[j]
+        m = mask[j]
+
+        a_hat = np.stack(a_hat, axis=1)
+        m *= a[0,:,:]==0
+        a = np.argmax(a, axis=0)
+        a_hat = np.argmax(a_hat, axis=0)
+
+        accuracy[j] = np.sum(np.float32(a == a_hat)*np.squeeze(m))/np.sum(m)
+    return np.mean(accuracy)
 
 
-# Depending on parameters, returns analysis results for ROC, ANOVA, etc.
 def get_analysis(test_data=[], filename=None):
+    """
+    Depending on parameters, returns analysis results for ROC, ANOVA, etc.
+    """
 
     # Get hidden_state value from parameters if filename is not provided
     if filename is not None:
@@ -266,8 +313,12 @@ def get_analysis(test_data=[], filename=None):
         time_stamps = np.array(data['params']['time_stamps'])
 
     # Get analysis results
-    result = {'roc': [], 'anova': [], 'tuning': []}
+    result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : []}
 
+    # Analyze the network output and get the accuracy values
+    result['accuracy'] = get_perf(test_data['y_hat'], test_data['y'], test_data['train_mask'])
+
+    # Get ROC, ANOVA, and Tuning results as requested
     if par['roc_vars'] is not None:
         result['roc'] = roc_analysis(test_data)
     if par['anova_vars'] is not None:

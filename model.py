@@ -345,7 +345,7 @@ def main():
                 trial_info = stim.generate_trial(par['batch_train_size'])
 
                 # Run the model
-                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], y_hat, \
+                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
                 state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
                 = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
@@ -353,9 +353,10 @@ def main():
                     {x: trial_info['neural_input'], y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: 0})
 
-                # Calculate model accuracy and the mean activity of the hidden neurons for analysis
+                # Aggregate the test data for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
-                test_data['accuracy'][j] = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+                test_data['y_hat'][j] = trial_info['desired_output']
+                test_data['train_mask'][j] = trial_info['train_mask']
                 test_data['mean_hidden'][j] = np.mean(state_hist_batch)
 
                 # Show model progress
@@ -364,11 +365,8 @@ def main():
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
 
-
             # Analyze the data and save the results
-            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             iteration_time = time.time() - t_start
-
             N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             #model_results['weights'] = extract_weights()
@@ -376,8 +374,10 @@ def main():
             analysis_val = analysis.get_analysis(test_data)
 
             model_results = append_analysis_vals(model_results, analysis_val)
+
             print_data(dirpath, model_results, analysis_val)
 
+            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
             json_save(model_results, dirpath + '/model_results.json')
 
@@ -391,22 +391,6 @@ def switch_rule(iteration):
         new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
         par['allowed_rules'] = [new_allowed_rule]
         print('allowed_rules now equal to ', new_allowed_rule)
-
-
-def get_perf(y, y_hat, mask):
-
-    """
-    Calculate task accuracy by comparing the actual network output to the desired output
-    only examine time points when test stimulus is on
-    in another words, when y[0,:,:] is not 0
-    """
-
-    y_hat = np.stack(y_hat,axis=1)
-    mask *= y[0,:,:]==0
-    y = np.argmax(y, axis = 0)
-    y_hat = np.argmax(y_hat, axis = 0)
-
-    return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
 
 def print_data(dirpath, model_results, analysis):
@@ -450,7 +434,6 @@ def print_data(dirpath, model_results, analysis):
 
 def append_model_performance(model_results, test_data, trial_num, iteration_time):
 
-    model_results['accuracy'].append(np.mean(test_data['accuracy']))
     model_results['loss'].append(np.mean(test_data['loss']))
     model_results['spike_loss'].append(np.mean(test_data['spike_loss']))
     model_results['perf_loss'].append(np.mean(test_data['perf_loss']))
@@ -518,6 +501,10 @@ def initialize_test_data():
         'mean_hidden'   : np.zeros((par['num_test_batches']), dtype=np.float32),
         'accuracy'      : np.zeros((par['num_test_batches']), dtype=np.float32),
 
+        'y'             : np.zeros((par['num_test_batches'], par['num_time_steps'], par['n_output'], par['batch_train_size'])),
+        'y_hat'         : np.zeros((par['num_test_batches'], par['n_output'], par['num_time_steps'], par['batch_train_size'])),
+        'train_mask'    : np.zeros((par['num_test_batches'], par['num_time_steps'], par['batch_train_size'])),
+
         'sample_index'  : np.zeros((N, par['num_RFs']), dtype=np.uint8),
         'location_index': np.zeros((N, 1), dtype=np.uint8),
         'rule_index'    : np.zeros((N, 1), dtype=np.uint8),
@@ -533,9 +520,11 @@ def initialize_test_data():
 
 
 def append_analysis_vals(model_results, analysis_val):
-
+    
     for k in analysis_val.keys():
-        if not analysis_val[k] == []:
+        if k == 'accuracy':
+            model_results['accuracy'].append(analysis_val['accuracy'])
+        elif not analysis_val[k] == []:
             for k1,v in analysis_val[k].items():
                 current_key = k + '_' + k1
                 if not current_key in model_results.keys():
