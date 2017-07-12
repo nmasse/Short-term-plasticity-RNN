@@ -74,14 +74,21 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
         # Generate sample period inputs from the loop, and flip matrices if the
         # rule dictates (currently MNIST only)
         for f in active_fields:
-            sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = stimulus_permutation(stim_tuning[sample_indices[f]])
+            sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = \
+                        stimulus_permutation(stim_tuning[sample_indices[f]])
+
+            # Based on rules in the MNIST task, inverts the neural input in
+            # each field vertically or horizontally.  Currently hard-coded to
+            # a 784-long input array.
             if par['stimulus_type'] == 'mnist':
                 if rule == 0:
                     pass
                 elif rule == 1:
-                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
+                        = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
                 elif rule == 2:
-                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
+                        = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
                 else:
                     print("ERROR: Bad MNIST rule.")
                     quit()
@@ -119,6 +126,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
         else:
             print("ERROR: Bad stimulus type in trial generator.")
 
+    # Assemble input and output dictionaries
     inputs = {'fix' : fix_input,
               'stim': sample_input
              }

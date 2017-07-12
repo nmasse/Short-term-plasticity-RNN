@@ -7,16 +7,16 @@ print("\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
-import stimulus
-import time
-import os
-import psutil
+
+from paramters import *
 from model_saver import *
-from parameters import *
 import dendrite_functions as df
-import hud
+import stimulus
 import analysis
 
+import os
+import time
+import psutil
 
 # Reset TensorFlow before running anythin
 tf.reset_default_graph()
@@ -28,11 +28,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 if os.name == 'nt':
     p = psutil.Process(os.getpid())
     p.cpu_affinity(par['processor_affinity'])
-    print('Running with PID', os.getpid(), "on processor(s)", str(p.cpu_affinity()) + ".", "\n")
+    print('Running with PID', os.getpid(), "on processor(s)", \
+            str(p.cpu_affinity()) + ".", "\n")
 
-print('Using dendrites:\t', par['use_dendrites'])
-print('Using EI network:\t', par['EI'])
-print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
 #################################
 ### Model setup and execution ###
@@ -42,13 +40,15 @@ class Model:
 
     def __init__(self, input_data, target_data, mask, learning_rate):
 
-        # Load the input activity, the target data, and the training mask for this batch of trials
+        # Load the input activity, the target data, and the training mask
+        # for this batch of trials
         self.input_data = tf.unstack(input_data, axis=1)
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
         self.learning_rate = learning_rate
 
-        # Load the initial hidden state activity to be used at the start of each trial
+        # Load the initial hidden state activity to be used at
+        # the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
         self.dendrites_init = tf.constant(par['d_init'])
 
@@ -65,29 +65,31 @@ class Model:
 
 
     def run_model(self):
+        """
+        Run the recurrent network model using the set parameters
+        """
 
-        """
-        Run the reccurent network
-        History of hidden state activity stored in self.hidden_state_hist
-        """
+        # The RNN Cell Loop contains the majority of the model calculations
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.dendrites_init, self.synapse_x_init, self.synapse_u_init)
 
+        # Describes the output variables and scope
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = np.float32(par['w_out0']), trainable=True)
             b_out = tf.get_variable('b_out', initializer = np.float32(par['b_out0']), trainable=True)
 
-        """
-        Network output
-        Only use excitatory projections from the RNN to the output layer
-        """
+        # Setting the desired network output, considering only
+        # excitatory RNN projections
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
 
     def rnn_cell_loop(self, x_unstacked, h, d, syn_x, syn_u):
+        """
+        Sets up the weights and baises for the hidden layer, then establishes
+        the network computation
+        """
 
-        """
-        Initialize weights and biases
-        """
+        # Initialize weights and biases, with behavior changes based on
+        # dendrite usage (with dendrites requies a rank higher of tensor)
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
                 W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
@@ -97,6 +99,7 @@ class Model:
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
+        # Sets up the histories for the computation
         self.hidden_state_hist = []
         self.dendrites_hist = []
         self.dendrites_inputs_exc_hist = []
@@ -104,10 +107,7 @@ class Model:
         self.syn_x_hist = []
         self.syn_u_hist = []
 
-        """
-        Loop through the neural inputs to the RNN, indexed in time
-        """
-
+        # Loops through the neural inputs to the network, indexed in time
         for rnn_input in x_unstacked:
             h, d, syn_x, syn_u, e, i = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
             self.hidden_state_hist.append(h)
@@ -120,9 +120,11 @@ class Model:
 
     def rnn_cell(self, rnn_input, h_soma, dend, syn_x, syn_u):
         """
-        Main computation of the recurrent network
+        Run the main computation of the recurrent network
         """
 
+        # Get the requisite variables for running the model.  Again, the
+        # inclusion of dendrites changes the tensor shapes
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
                 W_in_dend = tf.get_variable('W_in_dend')
@@ -134,39 +136,39 @@ class Model:
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.constant(par['EI_matrix'], name='W_ei')
 
+        # If using an excitatory-inhibitory network, ensures that E neurons
+        # have only positive outgoing weights, and that I neurons have only
+        # negative outgoing weights
         if par['EI']:
-            # ensure excitatory neurons only have postive outgoing weights,
-            # and inhibitory neurons have negative outgoing weights
             W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
-
         else:
             W_rnn_soma_effective = W_rnn_soma
 
-        """
-        Update the synaptic plasticity parameters
-        """
+        # Update the synaptic plasticity parameters
         if par['synapse_config'] == 'std_stf':
-            # implement both synaptic short term facilitation and depression
+            # Implement both synaptic short term facilitation and depression
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
-            syn_u += par['alpha_std']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
+            syn_u += par['alpha_std']*(par['U']-syn_u) \
+                     + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_u*syn_x*h_soma
         elif par['synapse_config'] == 'std':
-            # implement synaptic short term depression, but no facilitation
-            # assume that syn_u remains constant at 1
+            # Implement synaptic short term depression, but no facilitation
+            # (assume that syn_u remains constant at 1)
             syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h_soma
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_x*h_soma
         elif par['synapse_config'] == 'stf':
-            # implement synaptic short term facilitation, but no depression
-            # assume that syn_x remains constant at 1
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h_soma
+            # Implement synaptic short term facilitation, but no depression
+            # (assume that syn_x remains constant at 1)
+            syn_u += par['alpha_stf']*(par['U']-syn_u) \
+                     + par['dt_sec']*par['U']*(1-syn_u)*h_soma
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post_syn = syn_u*h_soma
         else:
-            # no synaptic plasticity
+            # Mo synaptic plasticity
             h_post_syn = h_soma
 
         """
@@ -175,24 +177,26 @@ class Model:
         All input and RNN activity will be non-negative
         """
 
+        # Apply a dendrite function to the inputs to the hidden layer,
+        # if applicable.  The dendrite function in particular is specified
+        # in the parameters file.
         if par['use_dendrites']:
-
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
-
-            # Creates the input to the soma based on the inputs to the dendrites
-            h_soma_in, dend_out, exc_activity, inh_activity = dendrite_function(W_in_dend, W_rnn_dend, rnn_input, h_post_syn, dend)
-
+            h_soma_in, dend_out, exc_activity, inh_activity = \
+                dendrite_function(W_in_dend, W_rnn_dend, rnn_input, h_post_syn, dend)
         else:
             dend_out = dend
             h_soma_in = 0
 
-        # Applies, in order: alpha decay, dendritic input, soma recurrence,
-        # bias terms, and Gaussian randomness.
+        # Apply, in order: alpha decay, dendritic input, soma recurrence,
+        # bias terms, and Gaussian randomness.  This generates the output of
+        # the hidden layer.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
-                            + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
-                            + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)) + b_rnn) \
-                            + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
+                     + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
+                     + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)) + b_rnn) \
+                     + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
+        # Return the network information
         if par['use_dendrites']:
             return h_soma_out, dend_out, syn_x, syn_u, exc_activity, inh_activity
         else:
@@ -200,30 +204,31 @@ class Model:
 
 
     def optimize(self):
+        """
+        Calculate the loss functions for weight optimization, and apply weight
+        masks where necessary.
+        """
 
-        """
-        Calculate the loss functions and optimize the weights
-        """
-        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
+        # Calculate performance loss
+        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for (h, mask)
-                            in zip(self.hidden_state_hist, self.mask)]
+        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) \
+                    for (h, mask) in zip(self.hidden_state_hist, self.mask)]
 
+        # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-
         self.loss = self.perf_loss + self.spike_loss
 
+        # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
         grads_and_vars = opt.compute_gradients(self.loss)
 
-        """
-        Apply any applicable weights masks to the gradient and clip
-        """
-        capped_gvs = []
 
+        #Apply any applicable weights masks to the gradient and clip
+        capped_gvs = []
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
@@ -242,45 +247,49 @@ class Model:
 
 
 def main():
+    """
+    Builds and runs a task with the specified model, based on the current
+    parameter setup and task scenario.
+    """
 
-    """
-    Create the stimulus class to generate trial paramaters and input activity
-    """
+    print('Using dendrites:\t', par['use_dendrites'])
+    print('Using EI network:\t', par['EI'])
+    print('Synaptic configuration:\t', par['synapse_config'], "\n")
+
+    # Create the stimulus class to generate trial paramaters and input activity
     stim = stimulus.Stimulus()
 
-    n_input, n_hidden, n_output = par['shape']
-    trial_length = par['num_time_steps']
-    batch_size = par['batch_train_size']
-    N = par['batch_train_size'] * par['num_train_batches'] # trials per iteration, calculate gradients after batch_train_size
+    # Define all placeholders
+    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
+    x = tf.placeholder(tf.float32, shape=[par['n_input'], par['num_time_steps'], par['batch_train_size']])
+    y = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
+    learning_rate = tf.placeholder(tf.float32)
 
-    """
-    Define all placeholders
-    """
-    mask = tf.placeholder(tf.float32, shape=[trial_length, batch_size])
-    x = tf.placeholder(tf.float32, shape=[n_input, trial_length, batch_size])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, trial_length, batch_size]) # target data
-    learning_rate = tf.placeholder(tf.float32) # target data
-
+    # Create the TensorFlow session
     with tf.Session() as sess:
+        # Create the model in TensorFlow and start running the session
         model = Model(x, y, mask, learning_rate)
         init = tf.global_variables_initializer()
-        sess.run(init)
         t_start = time.time()
+        sess.run(init)
 
-        saver = tf.train.Saver()
         # Restore variables from previous model if desired
+        saver = tf.train.Saver()
         if par['load_previous_model']:
             saver.restore(sess, par['save_dir'] + par['ckpt_load_fn'])
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
         # Generate an identifying timestamp and save directory for the model
-        timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
+        timestamp = "_D" + time.strftime("%y-%m-%d") \
+                    + "_T" + time.strftime("%H-%M-%S")
         if par['use_dendrites']:
-            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
+                        str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
         else:
-            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + str(par['n_hidden']) + 'nd' + timestamp
+            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
+                        str(par['n_hidden']) + 'nd' + timestamp
 
-        # Write intermittent results to text file
+        # Make new folder for parameters, results, and analysis
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
 
@@ -291,15 +300,17 @@ def main():
         with open(dirpath + '/model_summary.txt', 'w') as f:
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
-        # keep track of the model performance across training
-        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
+        # Keep track of the model performance across training
+        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], \
+                         'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
+        # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
-            # reset any altered task parameters back to their defaults
+            # Reset any altered task parameters back to their defaults, then
+            # switch the allowed rules if the iteration number crosses a
+            # specified threshold
             set_task_profile()
-
-            # switch the allowed rules if iteration number crosses a threshold
             switch_rule(i)
 
             """

@@ -40,7 +40,9 @@ def json_save(x, savedir="save.json", toplevel=True):
                 x[i] = ["ndarray", str(base64.b64encode(x[i])), str(x[i].shape), str(x[i].dtype)]
             elif (s == type(np.float32(0.)) or s == type(np.float64(0.))):
                 x[i] = np.asscalar(x[i])
-            elif (s == type(np.int8(0.)) or s == type(np.int16(0.)) or type(np.int32(0.)) or type(np.int64(0.))):
+            elif (s == type(np.int8(0.)) or s == type(np.int16(0.)) \
+                                         or s == type(np.int32(0.)) \
+                                         or s == type(np.int64(0.))):
                 x[i] = np.asscalar(x[i])
             elif (s == type(range(0,1))):
                 x[i] = ["range", x[i].start, x[i].stop, x[i].step]
@@ -105,4 +107,3 @@ def json_load(savedir="save.json", toplevel=True, a=None):
         pass
 
     return x
-    
