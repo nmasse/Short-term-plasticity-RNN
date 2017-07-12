@@ -27,7 +27,7 @@ par = {
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
@@ -48,7 +48,6 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1,
     'noise_sd'          : 0.5,
-    'input_clip_max'    : 10000,     # keep this high unless limiting inputs
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
