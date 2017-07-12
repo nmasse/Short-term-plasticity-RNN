@@ -27,11 +27,15 @@ class Stimulus:
 
     def generate_trial(self, num):
 
-        # Note that num will typically be par['batch_train_size'] * par['num_batches']
-        trial_setup = gen.trial_batch(num, self.stim_tuning, self.fix_tuning, self.rule_tuning, self.spatial_tuning, self.mnist_images, self.mnist_labels)
+        # Generate a set of trials for the desired task
+        trial_setup = gen.trial_batch(num, self.stim_tuning, self.fix_tuning, \
+                                           self.rule_tuning, self.spatial_tuning, \
+                                           self.mnist_images, self.mnist_labels)
 
+        # Propagate the trials through time
         schedules = self.generate_schedule(copy.deepcopy(par['events']), trial_setup, num)
 
+        # Build the trial info dictionary for use in running the model
         trial_info = {'desired_output'          : schedules[1],
                       'train_mask'              : np.asarray(schedules[2]),
                       'neural_input'            : schedules[0],
@@ -45,6 +49,10 @@ class Stimulus:
 
 
     def generate_stim_tuning(self):
+        """
+        Based on the task type, return the possible neural input tunings
+        """
+
         if par['stimulus_type'] == 'mnist':
             stim_tuning = np.array(self.mnist_images)
 
@@ -53,7 +61,6 @@ class Stimulus:
 
             pref_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/(par['num_stim_tuned']//par['num_RFs'])))
             stim_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/par['num_samples']))
-
             for i in range(par['num_samples']):
                 for n in range(par['num_stim_tuned']//par['num_RFs']):
                     d = np.cos(stim_dirs[i] - pref_dirs[n%len(pref_dirs)])
@@ -65,12 +72,17 @@ class Stimulus:
 
     def generate_fix_tuning(self):
         """
-        Currently unused.
+        Currently unused, but typically generates fixation tunings.
         """
         return np.array([0])
 
 
     def generate_rule_tuning(self):
+        """
+        Uses the number of rules and rule-tuned neurons to generate a neural
+        input mapping for presenting rules to the network
+        """
+
         rule_tuning = np.zeros([par['num_rules'], par['num_rule_tuned']])
         m = par['num_rule_tuned']//par['num_rules']
         if m == 0:
@@ -86,6 +98,11 @@ class Stimulus:
 
 
     def generate_spatial_tuning(self):
+        """
+        Uses the number of RFs and spatially-tuned neurons to generate a neural
+        input mapping for presenting location cues to the network
+        """
+
         spatial_tuning = np.zeros([par['num_RFs'], par['num_spatial_cue_tuned']])
         m = par['num_spatial_cue_tuned']//par['num_RFs']
         if m == 0:
@@ -302,6 +319,6 @@ class Stimulus:
         Add Gaussian noise to a matrix, and return only non-negative
         numbers within the matrix.
         """
-        
+
         m = np.maximum(m + np.random.normal(0, par['input_sd'], np.shape(m)), 0)
         return m

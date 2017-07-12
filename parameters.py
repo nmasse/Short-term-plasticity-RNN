@@ -5,7 +5,6 @@ Overhauling the parameters setup
 
 import numpy as np
 import tensorflow as tf
-import model_saver as ms
 
 print("\n--> Loading parameters...")
 
