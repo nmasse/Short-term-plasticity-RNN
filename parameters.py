@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',    # dms, att, mnist
+    'stimulus_type'         : 'mnist',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -27,20 +27,20 @@ par = {
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
-    'use_dendrites'     : True,
-    'df_num'            : '0001',    # Designates which dendrite function to use
+    'use_dendrites'     : False,
+    'df_num'            : '0008',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 300,
+    'n_hidden'          : 30,
     'den_per_unit'      : 10,
 
     # Timings and rates
-    'dt'                : 25,
+    'dt'                : 20,
     'learning_rate'     : 5e-3,
-    'membrane_time_constant'    : 100,
-    'dendrite_time_constant'    : 100,
+    'membrane_time_constant'    : 20,
+    'dendrite_time_constant'    : 200,
     'connection_prob'   : 0.2,         # Usually 1
 
     # Variance values
@@ -75,12 +75,12 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 10,
-    'num_train_batches' : 10,
-    'num_test_batches'  : 10,
+    'batch_train_size'  : 100,
+    'num_train_batches' : 2,
+    'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 1000,
+    'switch_rule_iteration'         : 3,
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -91,7 +91,8 @@ par = {
     'time_pts'          : [1100, 1200],
     'num_category_rule' : 1,
     'roc_vars'          : None,
-    'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
+    'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
 
 ##############################
@@ -107,8 +108,8 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['num_RFs']               = 2
-        par['allowed_fields']        = [0,1]
+        par['num_RFs']               = 4
+        par['allowed_fields']        = [0,1,2,3]
 
         par['num_rules']             = 3
         par['allowed_rules']         = [0]          # 0 is regular, 1 is horizontal flilp, 2 is vertical flip
@@ -117,11 +118,12 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 784 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 2 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['num_rule_tuned']        = 20 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 20 * par['num_RFs']
         par['n_output']              = 11
 
-        par['num_samples'] = 60000                  # Number of available samples
+        par['num_samples']           = 60000    # Number of available samples
+        par['num_unique_samples']    = 10
 
     elif par['stimulus_type'] == 'att':
         par['profile_path'] = './profiles/attention.txt'
@@ -140,7 +142,8 @@ def set_task_profile():
         par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
         par['n_output']              = 3
 
-        par['num_samples'] = 8                      # Number of motion directions
+        par['num_samples']           = 8     # Number of motion directions
+        par['num_unique_samples']    = 8
 
     elif par['stimulus_type'] == 'dms':
 
