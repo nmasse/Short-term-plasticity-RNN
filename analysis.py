@@ -99,69 +99,77 @@ def roc_analysis(test_data):
 
 # Calculate and return ANOVA values based on sample inputs (directions, images, etc.)
 def anova_analysis(test_data):
-
     time_pts = np.array(par['time_pts'])//par['dt']
     anova = {}
 
     """
     Loop through rules, samples, neurons, etc. and calculate the ANOVAs
     """
+    for var in par['anova_vars']:
+        if not var in test_data.keys():
+            # skip this variable if no data is available
+            continue
+        if var.count('dend') > 0:
+            dims = [par['n_hidden'], par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts'])]
+        else:
+            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts'])]
+        # create variables if they're not currently in the anova dictionary
+        anova[var + '_attn_pval'] = np.ones((dims), dtype = np.float32)
+        anova[var + '_attn_fval'] = np.zeros((dims), dtype = np.float32)
+        anova[var + '_no_attn_pval'] = np.ones((dims), dtype = np.float32)
+        anova[var + '_no_attn_fval'] = np.zeros((dims), dtype = np.float32)
+
+
     for rf in range(par['num_RFs']):
-        bool_attend = test_data['location_index'] == rf
+        bool_attend = test_data['location_index'][:,0] == rf
         for r in range(par['num_rules']):
-            bool_rule = test_data['rule_index'] == r
+            bool_attn_rule = bool_attend*(test_data['rule_index'][:,0] == r)
+            bool_no_attn_rule = np.logical_not(bool_attend)*(test_data['rule_index'][:,0] == r)
+
             # find the trial indices for current stimulus and rule cue
             trial_index_attend = []
             trial_index_not_attend = []
             for s in range(par['num_unique_samples']):
-                trial_index_attend.append(np.where(bool_rule*bool_attend*(test_data['sample_index'][:,rf]==s))[0])
-                trial_index_not_attend.append(np.where(bool_rule*np.logical_not(bool_attend)*(test_data['sample_index'][:,rf]==s))[0])
+                bool_sample = test_data['sample_index'][:,rf] == s
+                trial_index_attend.append(np.where(bool_attn_rule*bool_sample)[0])
+                trial_index_not_attend.append(np.where(bool_no_attn_rule*bool_sample)[0])
 
             for var in par['anova_vars']:
-                if not var in test_data.keys():
-                    # skip this variable if no data is available
-                    continue
-                if var.count('dend') > 0:
-                    dims = [par['n_hidden']*par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts'])]
-                    dendrite = True
-                else:
-                    dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts'])]
-                    dendrite = False
-                # create variables if they're not currently in the anova dictionary
-                if (var + '_pval') not in anova.keys():
-                    anova[var + '_attn_pval'] = np.ones((dims), dtype = np.float32)
-                    anova[var + '_attn_fval'] = np.zeros((dims), dtype = np.float32)
-                    anova[var + '_no_attn_pval'] = np.ones((dims), dtype = np.float32)
-                    anova[var + '_no_attn_fval'] = np.zeros((dims), dtype = np.float32)
-                for n in range(dims[0]):
-                    for t in range(len(par['time_pts'])):
-                        attend_vals = []
-                        not_attend_vals = []
-                        for trial_list in trial_index_attend:
-                            if dendrite:
-                                attend_vals.append(test_data[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
-                            else:
+                for t in range(len(par['time_pts'])):
+                    for n in range(par['n_hidden']):
+                        if var.count('dend') > 0:
+                            for d in range(par['den_per_unit']):
+                                attend_vals = []
+                                not_attend_vals = []
+
+                                for trial_list in trial_index_attend:
+                                    attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
+                                for trial_list in trial_index_not_attend:
+                                    not_attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
+
+                                f_attend, p_attend = stats.f_oneway(*attend_vals)
+                                f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
+                                if not np.isnan(p_attend):
+                                    anova[var + '_attn_pval'][n,d,rf,r,t] = p_attend
+                                    anova[var + '_attn_fval'][n,d,rf,r,t] = f_attend
+                                    anova[var + '_no_attn_pval'][n,d,rf,r,t] = p_not_attend
+                                    anova[var + '_no_attn_fval'][n,d,rf,r,t] = f_not_attend
+                        else:
+                            attend_vals = []
+                            not_attend_vals = []
+
+                            for trial_list in trial_index_attend:
                                 attend_vals.append(test_data[var][time_pts[t],n,trial_list])
-                        for trial_list in trial_index_not_attend:
-                            if dendrite:
-                                not_attend_vals.append(test_data[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
-                            else:
+                            for trial_list in trial_index_not_attend:
                                 not_attend_vals.append(test_data[var][time_pts[t],n,trial_list])
 
-                        f_attend, p_attend = stats.f_oneway(*attend_vals)
-                        f_not_attend, p_not_attend = stats.f_oneway(*attend_vals)
-
-                        if not np.isnan(p_attend):
-                            anova[var + '_attn_pval'][n,rf,r,t] = p_attend
-                            anova[var + '_attn_fval'][n,rf,r,t] = f_attend
-                            anova[var + '_no_attn_pval'][n,rf,r,t] = p_not_attend
-                            anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
-
-    # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
-    for k,v in anova.items():
-        if k.count('dend') > 0:
-            anova[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
-                par['num_RFs'], par['num_rules'],len(par['time_pts'])), order='F')
+                            f_attend, p_attend = stats.f_oneway(*attend_vals)
+                            f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
+                            if not np.isnan(p_attend):
+                                anova[var + '_attn_pval'][n,rf,r,t] = p_attend
+                                anova[var + '_attn_fval'][n,rf,r,t] = f_attend
+                                anova[var + '_no_attn_pval'][n,rf,r,t] = p_not_attend
+                                anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
 
     return anova
 
@@ -265,7 +273,7 @@ def get_analysis(test_data=[], filename=None):
         result['roc'] = roc_analysis(test_data)
     if par['anova_vars'] is not None:
         t1 = time.time()
-        #result['anova'] = anova_analysis(test_data)
+        result['anova'] = anova_analysis(test_data)
         print('ANOVA time ', time.time()-t1)
     if par['tuning_vars'] is not None:
         t1 = time.time()
