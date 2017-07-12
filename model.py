@@ -327,31 +327,29 @@ def main():
             par['num_active_fields']    = len(par['allowed_fields'])
 
             # keep track of the model performance for this batch
-            loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist = initialize_batch_data()
-
-            # generate one large batch of testing trials
-            trial_info = stim.generate_trial(par['num_test_batches']*par['batch_train_size'])
+            test_data = initialize_test_data()
 
             """
             Testing
             """
             for j in range(par['num_test_batches']):
 
-                trial_ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
+                # generate batch of testing trials
+                trial_info = stim.generate_trial(par['batch_train_size'])
 
                 # run the model
-                _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist_batch, dend_hist_batch, \
-                dend_exc_hist_batch, dend_inh_hist_batch \
+                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], y_hat, \
+                state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
                 = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                    {x: trial_info['neural_input'][:,:,trial_ind], y: trial_info['desired_output'][:,:,trial_ind], \
-                    mask: trial_info['train_mask'][:,trial_ind], learning_rate: 0})
+                    {x: trial_info['neural_input'], y: trial_info['desired_output'], \
+                    mask: trial_info['train_mask'], learning_rate: 0})
 
                 # calculate model accuracy and the mean activity of the hidden neurons for analysis
-                activity_hist = append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch)
-                accuracy[j] = get_perf(trial_info['desired_output'][:,:,trial_ind], y_hat, trial_info['train_mask'][:,trial_ind])
-                mean_hidden[j] = np.mean(state_hist_batch)
+                test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
+                test_data['accuracy'][j] = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+                test_data['mean_hidden'][j] = np.mean(state_hist_batch)
 
                 # show model progress
                 progress = (j+1)/par['num_test_batches']
@@ -367,17 +365,17 @@ def main():
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             iteration_time = time.time() - t_start
 
-            model_results = append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, (i+1)*N, iteration_time)
+            model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             #model_results['weights'] = extract_weights()
 
-            #json_save(model_results, savedir=(par['save_dir']+par['save_fn']))
-            analysis_val = analysis.get_analysis(trial_info, activity_hist)
-            model_results = append_analysis_vals(model_results, analysis_val)
+            analysis_val = analysis.get_analysis(test_data)
 
+            model_results = append_analysis_vals(model_results, analysis_val)
             print_data(dirpath, model_results, analysis_val)
 
-            json_save([testing_conditions, trial_info, analysis_val], dirpath + '/iter{}_results.json'.format(i))
+            json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
             json_save(model_results, dirpath + '/model_results.json')
+
 
     print('\nModel execution complete.\n')
 
@@ -447,13 +445,13 @@ def print_data(dirpath, model_results, analysis):
     print("\n")
 
 
-def append_model_performance(model_results, accuracy, loss, perf_loss, spike_loss, mean_hidden, trial_num, iteration_time):
+def append_model_performance(model_results, test_data, trial_num, iteration_time):
 
-    model_results['accuracy'].append(np.mean(accuracy))
-    model_results['loss'].append(np.mean(loss))
-    model_results['spike_loss'].append(np.mean(spike_loss))
-    model_results['perf_loss'].append(np.mean(perf_loss))
-    model_results['mean_hidden'].append(np.mean(mean_hidden))
+    model_results['accuracy'].append(np.mean(test_data['accuracy']))
+    model_results['loss'].append(np.mean(test_data['loss']))
+    model_results['spike_loss'].append(np.mean(test_data['spike_loss']))
+    model_results['perf_loss'].append(np.mean(test_data['perf_loss']))
+    model_results['mean_hidden'].append(np.mean(test_data['mean_hidden']))
     model_results['trial'].append(trial_num)
     model_results['time'].append(iteration_time)
 
@@ -487,48 +485,48 @@ def extract_weights():
     return weights
 
 
-def append_batch_data(activity_hist, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch):
+def append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, batch_num):
 
-    activity_hist['state_hist'].append(state_hist_batch)
+    trial_ind = range(batch_num*par['batch_train_size'], (batch_num+1)*par['batch_train_size'])
+
+    # add stimulus information
+    test_data['sample_index'][trial_ind,:] = trial_info['sample_index']
+    test_data['rule_index'][trial_ind] = trial_info['rule_index']
+    test_data['location_index'][trial_ind] = trial_info['location_index']
+
+    # add neuronal activity
+    test_data['state_hist'][:,:,trial_ind] = state_hist_batch
     if par['use_dendrites']:
-        activity_hist['dend_hist'].append(dend_hist_batch)
-        activity_hist['dend_exc_hist'].append(dend_exc_hist_batch)
-        activity_hist['dend_inh_hist'].append(dend_inh_hist_batch)
+        test_data['dend_hist'][:,:,:,trial_ind] = dend_hist_batch
+        test_data['dend_exc_hist'][:,:,:,trial_ind] = dend_exc_hist_batch
+        test_data['dend_inh_hist'][:,:,:,trial_ind] = dend_inh_hist_batch
 
-    # stack if all batches have been added
-    if len(activity_hist['state_hist']) == par['num_test_batches']:
-        activity_hist['state_hist'] = np.stack(np.stack(activity_hist['state_hist'],axis=3),axis=0)
-        if par['use_dendrites']:
-            activity_hist['dend_hist'] = np.stack(np.stack(activity_hist['dend_hist'],axis=4),axis=0)
-            activity_hist['dend_exc_hist'] = np.stack(np.stack(activity_hist['dend_exc_hist'],axis=4),axis=0)
-            activity_hist['dend_inh_hist'] = np.stack(np.stack(activity_hist['dend_inh_hist'],axis=4),axis=0)
-
-        h_dims = [par['num_time_steps'], par['n_hidden'], par['num_test_batches']*par['batch_train_size']]
-        dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_test_batches']*par['batch_train_size']]
-        activity_hist['state_hist'] = np.reshape(activity_hist['state_hist'],h_dims, order='F')
-        if par['use_dendrites']:
-            activity_hist['dend_hist'] = np.reshape(activity_hist['dend_hist'],dend_dims, order='F')
-            activity_hist['dend_exc_hist'] = np.reshape(activity_hist['dend_exc_hist'],dend_dims, order='F')
-            activity_hist['dend_inh_hist'] = np.reshape(activity_hist['dend_inh_hist'],dend_dims, order='F')
+    return test_data
 
 
-    return activity_hist
+def initialize_test_data():
 
+    N = par['batch_train_size']*par['num_test_batches']
 
-def initialize_batch_data():
+    test_data = {
+        'loss'          : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'perf_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'spike_loss'    : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'mean_hidden'   : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'accuracy'      : np.zeros((par['num_test_batches']), dtype=np.float32),
 
-    loss = np.zeros((par['num_test_batches']), dtype=np.float32)
-    perf_loss = np.zeros((par['num_test_batches']), dtype=np.float32)
-    spike_loss = np.zeros((par['num_test_batches']), dtype=np.float32)
-    mean_hidden = np.zeros((par['num_test_batches']), dtype=np.float32)
-    accuracy = np.zeros((par['num_test_batches']), dtype=np.float32)
+        'sample_index'  : np.zeros((N, par['num_RFs']), dtype=np.uint8),
+        'location_index': np.zeros((N, 1), dtype=np.uint8),
+        'rule_index'    : np.zeros((N, 1), dtype=np.uint8),
+        'state_hist'    : np.zeros((par['num_time_steps'], par['n_hidden'], N), dtype=np.float32)
+    }
 
-    hist_dims = [par['num_time_steps'], par['n_hidden'],  par['num_test_batches']*par['num_test_batches']]
-    hist_dend_dims = [par['num_time_steps'], par['n_hidden'], par['den_per_unit'], par['num_test_batches']*par['num_test_batches']]
+    if par['use_dendrites']:
+        test_data['dend_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
+        test_data['dend_exc_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
+        test_data['dend_inh_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
 
-    activity_hist = {'state_hist': [], 'dend_hist': [], 'dend_exc_hist': [], 'dend_inh_hist': []}
-
-    return loss, perf_loss, spike_loss, mean_hidden, accuracy, activity_hist
+    return test_data
 
 
 def append_analysis_vals(model_results, analysis_val):
