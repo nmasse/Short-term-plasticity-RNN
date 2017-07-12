@@ -38,7 +38,7 @@ def calculate_roc(xlist, ylist, fast_calc = False):
 
 
 
-def roc_analysis(trial_info, activity_hist):
+def roc_analysis(test_data):
 
     time_pts = np.array(par['time_pts'])//par['dt']
     roc = {}
@@ -50,14 +50,14 @@ def roc_analysis(trial_info, activity_hist):
     Determine the category membership of stimuli in all receptive fields
     """
     for rf in range(par['num_RFs']):
-        ind_rule0 = np.where(trial_info['sample_index'][:,rf]>=par['num_unique_samples']//2)[0]
-        ind_rule1 = np.where((trial_info['sample_index'][:,rf]>=par['num_unique_samples']//4)* \
-            (trial_info['sample_index'][:,rf]<3*par['num_samples']//4))[0]
+        ind_rule0 = np.where(test_data['sample_index'][:,rf]>=par['num_unique_samples']//2)[0]
+        ind_rule1 = np.where((test_data['sample_index'][:,rf]>=par['num_unique_samples']//4)* \
+            (test_data['sample_index'][:,rf]<3*par['num_samples']//4))[0]
         sample_cat[ind_rule0, rf, 0] = 1
         sample_cat[ind_rule1, rf, 1] = 1
 
     for var in par['anova_vars']:
-        if activity_hist[var] == []:
+        if not var in test_data.keys():
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
@@ -76,21 +76,21 @@ def roc_analysis(trial_info, activity_hist):
         for rf in range(par['num_RFs']):
             for rule in range(par['num_rules']):
                 for cat in range(par['num_rules']):
-                    ind0 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==0))
-                    ind1 = np.where((trial_info['rule_index']==rule)*(sample_cat[:,rf,cat]==1))
+                    ind0 = np.where((test_data['rule_index']==rule)*(sample_cat[:,rf,cat]==0))
+                    ind1 = np.where((test_data['rule_index']==rule)*(sample_cat[:,rf,cat]==1))
                     for n in range(dims[0]):
                         for t in range(dims[1]):
                             if dendrite:
-                                roc[var][n,t,rf,rule,cat] = calculate_roc(activity_hist[var][time_pts[t],n%par['n_hidden'], \
-                                    n//par['n_hidden'],ind0], activity_hist[var][time_pts[t],n%par['n_hidden'], n//par['n_hidden'],ind1], fast_calc = True)
+                                roc[var][n,t,rf,rule,cat] = calculate_roc(test_data[var][time_pts[t],n%par['n_hidden'], \
+                                    n//par['n_hidden'],ind0], test_data[var][time_pts[t],n%par['n_hidden'], n//par['n_hidden'],ind1], fast_calc = True)
                             else:
-                                roc[var][n,t,rf,rule,cat] = calculate_roc(activity_hist[var][time_pts[t],n,ind0], \
-                                    activity_hist[var][time_pts[t],n,ind1], fast_calc = True)
+                                roc[var][n,t,rf,rule,cat] = calculate_roc(test_data[var][time_pts[t],n,ind0], \
+                                    test_data[var][time_pts[t],n,ind1], fast_calc = True)
 
 
-    # reshape dendritic variables, assumuming the neccessary dendritic values were present (activity_hist[var] not empty)
+    # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
     for var in par['roc_vars']:
-        if var.count('dend') > 0 and not activity_hist[var] == []:
+        if var.count('dend') > 0 and not test_data[var] == []:
             roc[var] = np.reshape(roc[var],(par['n_hidden'],par['den_per_unit'], \
                 len(par['time_pts']),par['num_RFs'], par['num_rules'], par['num_rules']), order='F')
 
@@ -99,7 +99,7 @@ def roc_analysis(trial_info, activity_hist):
 
 
 # Calculate and return ANOVA values based on sample inputs (directions, images, etc.)
-def anova_analysis(trial_info, activity_hist):
+def anova_analysis(test_data):
 
     time_pts = np.array(par['time_pts'])//par['dt']
     anova = {}
@@ -108,18 +108,18 @@ def anova_analysis(trial_info, activity_hist):
     Loop through rules, samples, neurons, etc. and calculate the ANOVAs
     """
     for rf in range(par['num_RFs']):
-        bool_attend = trial_info['location_index'] == rf
+        bool_attend = test_data['location_index'] == rf
         for r in range(par['num_rules']):
-            bool_rule = trial_info['rule_index'] == r
+            bool_rule = test_data['rule_index'] == r
             # find the trial indices for current stimulus and rule cue
             trial_index_attend = []
             trial_index_not_attend = []
             for s in range(par['num_unique_samples']):
-                trial_index_attend.append(np.where(bool_rule*bool_attend*(trial_info['sample_index'][:,rf]==s))[0])
-                trial_index_not_attend.append(np.where(bool_rule*np.logical_not(bool_attend)*(trial_info['sample_index'][:,rf]==s))[0])
+                trial_index_attend.append(np.where(bool_rule*bool_attend*(test_data['sample_index'][:,rf]==s))[0])
+                trial_index_not_attend.append(np.where(bool_rule*np.logical_not(bool_attend)*(test_data['sample_index'][:,rf]==s))[0])
 
             for var in par['anova_vars']:
-                if activity_hist[var] == []:
+                if not var in test_data.keys():
                     # skip this variable if no data is available
                     continue
                 if var.count('dend') > 0:
@@ -140,14 +140,14 @@ def anova_analysis(trial_info, activity_hist):
                         not_attend_vals = []
                         for trial_list in trial_index_attend:
                             if dendrite:
-                                attend_vals.append(activity_hist[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
+                                attend_vals.append(test_data[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
                             else:
-                                attend_vals.append(activity_hist[var][time_pts[t],n,trial_list])
+                                attend_vals.append(test_data[var][time_pts[t],n,trial_list])
                         for trial_list in trial_index_not_attend:
                             if dendrite:
-                                not_attend_vals.append(activity_hist[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
+                                not_attend_vals.append(test_data[var][time_pts[t],n%par['n_hidden'],n//par['n_hidden'],trial_list])
                             else:
-                                not_attend_vals.append(activity_hist[var][time_pts[t],n,trial_list])
+                                not_attend_vals.append(test_data[var][time_pts[t],n,trial_list])
 
                         f_attend, p_attend = stats.f_oneway(*attend_vals)
                         f_not_attend, p_not_attend = stats.f_oneway(*attend_vals)
@@ -158,9 +158,9 @@ def anova_analysis(trial_info, activity_hist):
                             anova[var + '_no_attn_pval'][n,rf,r,t] = p_not_attend
                             anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
 
-    # reshape dendritic variables, assumuming the neccessary dendritic values were present (activity_hist[var] not empty)
+    # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
     for var in par['anova_vars']:
-        if var.count('dend') > 0 and not activity_hist[var] == []:
+        if var.count('dend') > 0 and var in test_data.keys():
                 for k,v in anova.items():
                     anova[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
                         len(par['time_pts']),  par['num_RFs'], par['num_rules']), order='F')
@@ -170,7 +170,7 @@ def anova_analysis(trial_info, activity_hist):
 
 
 # calclulate mean activity
-def tuning_analysis(trial_info, activity_hist):
+def tuning_analysis(test_data):
 
     # Variables
     time_pts = np.array(par['time_pts'])//par['dt']
@@ -178,7 +178,7 @@ def tuning_analysis(trial_info, activity_hist):
 
     # Calculate mean firing rate for attended RF and unattended RF
     for var in par['tuning_vars']:
-        if activity_hist[var] == []:
+        if not var in test_data.keys():
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
@@ -193,28 +193,28 @@ def tuning_analysis(trial_info, activity_hist):
             tuning[var + '_no_attn'] = np.zeros((dims), dtype = np.float32)
 
         for rf in range(par['num_RFs']):
-            bool_attend = trial_info['location_index'] == rf
+            bool_attend = test_data['location_index'] == rf
             for r in range(par['num_rules']):
-                bool_rule = trial_info['rule_index'] == r
+                bool_rule = test_data['rule_index'] == r
                 for s in range(par['num_unique_samples']):
-                    trial_ind_attend = np.where(bool_rule*bool_attend*(trial_info['sample_index'][:,rf]==s))[0]
-                    trial_ind_not_attend = np.where(bool_rule*np.logical_not(bool_attend)*(trial_info['sample_index'][:,rf]==s))[0]
+                    trial_ind_attend = np.where(bool_rule*bool_attend*(test_data['sample_index'][:,rf]==s))[0]
+                    trial_ind_not_attend = np.where(bool_rule*np.logical_not(bool_attend)*(test_data['sample_index'][:,rf]==s))[0]
 
                     for n in range(dims[0]):
                         for t in range(len(par['time_pts'])):
 
                             if dendrite:
-                                tuning[var + '_attn'][n,rf,r,t] = np.mean(activity_hist[var][time_pts[t], \
+                                tuning[var + '_attn'][n,rf,r,t] = np.mean(test_data[var][time_pts[t], \
                                     n%par['n_hidden'],n//par['n_hidden'],trial_ind_attend])
-                                tuning[var + '_no_attn'][n,rf,r,t] = np.mean(activity_hist[var][time_pts[t],n%par['n_hidden'], \
+                                tuning[var + '_no_attn'][n,rf,r,t] = np.mean(test_data[var][time_pts[t],n%par['n_hidden'], \
                                     n//par['n_hidden'],trial_ind_not_attend])
                             else:
-                                tuning[var + '_attn'][n,rf,r,t] = np.mean(activity_hist[var][time_pts[t],n,trial_ind_attend])
-                                tuning[var + '_no_attn'][n,rf,r,t] = np.mean(activity_hist[var][time_pts[t],n,trial_ind_not_attend])
+                                tuning[var + '_attn'][n,rf,r,t] = np.mean(test_data[var][time_pts[t],n,trial_ind_attend])
+                                tuning[var + '_no_attn'][n,rf,r,t] = np.mean(test_data[var][time_pts[t],n,trial_ind_not_attend])
 
-    # reshape dendritic variables, assumuming the neccessary dendritic values were present (activity_hist[var] not empty)
+    # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
     for var in par['tuning_vars']:
-        if var.count('dend') > 0 and not activity_hist[var] == []:
+        if var.count('dend') > 0 and var in test_data.keys():
                 for k,v in tuning.items():
                     tuning[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
                         len(par['time_pts']),  par['num_RFs'], par['num_rules']), order='F')
@@ -224,7 +224,7 @@ def tuning_analysis(trial_info, activity_hist):
 
 
 # Just plotting a lot of things...
-def plot(trial_info, activity_hist):
+def plot(test_data):
     global iteration
     print("Plotting with iteration: ", iteration)
 
@@ -234,16 +234,16 @@ def plot(trial_info, activity_hist):
     for var in par['anova_vars']:
         for t in time_pts:
             for i in range(par['n_hidden']):
-                if trial_info['rule_index'][1,0] == 0:
+                if test_data['rule_index'][1,0] == 0:
                     x = np.array([0,1,2,3,4,5,6,7])
-                elif trial_info['rule_index'][1,0] == 1:
+                elif test_data['rule_index'][1,0] == 1:
                     x = np.array([2,3,4,5,0,1,6,7])
 
-                attended_dir = trial_info['sample_index'][range(num_trials), trial_info['rule_index'][0]]
+                attended_dir = test_data['sample_index'][range(num_trials), test_data['rule_index'][0]]
 
                 mean, std, roc = [], [], []
                 for val in x:
-                    data = activity_hist['state_hist'][t, i, np.where(attended_dir==val)]
+                    data = test_data['state_hist'][t, i, np.where(attended_dir==val)]
                     roc = np.append(roc, data)
                     mean = np.append(mean, np.mean(data))
                     std = np.append(std, np.std(data))
@@ -259,7 +259,7 @@ def plot(trial_info, activity_hist):
 
 
 # Depending on parameters, returns analysis results for ROC, ANOVA, etc.
-def get_analysis(trial_info=[], activity_hist=[], filename=None):
+def get_analysis(test_data=[], filename=None):
 
     # Get hidden_state value from parameters if filename is not provided
     if filename is not None:
@@ -272,13 +272,13 @@ def get_analysis(trial_info=[], activity_hist=[], filename=None):
     result = {'roc': [], 'anova': [], 'tuning': []}
 
     if par['roc_vars'] is not None:
-        result['roc'] = roc_analysis(trial_info, activity_hist)
+        result['roc'] = roc_analysis(test_data)
     if par['anova_vars'] is not None:
-        result['anova'] = anova_analysis(trial_info, activity_hist)
+        result['anova'] = anova_analysis(test_data)
     if par['tuning_vars'] is not None:
-        result['tuning'] = tuning_analysis(trial_info, activity_hist)
+        result['tuning'] = tuning_analysis(test_data)
 
-    #plot(trial_info, activity_hist)
+    #plot(test_data)
 
     # Save analysis result
     # with open('.\savedir\dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
