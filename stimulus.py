@@ -5,8 +5,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import trial_generators as gen
+import psutil
 import copy
-import imp
 from parameters import *
 
 
@@ -24,7 +24,6 @@ class Stimulus:
         self.fix_tuning     = self.generate_fix_tuning()
         self.rule_tuning    = self.generate_rule_tuning()
         self.spatial_tuning = self.generate_spatial_tuning()
-
 
     def generate_trial(self, num):
 
@@ -50,7 +49,7 @@ class Stimulus:
             stim_tuning = np.array(self.mnist_images)
 
         elif par['stimulus_type'] == 'att':
-            stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']])
+            stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']], dtype=np.float32)
 
             pref_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/(par['num_stim_tuned']//par['num_RFs'])))
             stim_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/par['num_samples']))
@@ -303,8 +302,6 @@ class Stimulus:
         Add Gaussian noise to a matrix, and return only non-negative
         numbers within the matrix.
         """
-
-        gauss = np.random.normal(0, par['input_sd'], np.shape(m))
-        m = np.clip(m + gauss, 0, par['input_clip_max'])
-
+        
+        m = np.maximum(m + np.random.normal(0, par['input_sd'], np.shape(m)), 0)
         return m
