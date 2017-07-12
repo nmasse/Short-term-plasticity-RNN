@@ -89,11 +89,10 @@ def roc_analysis(test_data):
 
 
     # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
-    for var in par['roc_vars']:
-        if var.count('dend') > 0 and not test_data[var] == []:
-            roc[var] = np.reshape(roc[var],(par['n_hidden'],par['den_per_unit'], \
-                len(par['time_pts']),par['num_RFs'], par['num_rules'], par['num_rules']), order='F')
-
+    for k,v in roc.items():
+        if k.count('dend') > 0:
+            roc[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
+                par['num_RFs'], par['num_rules'],len(par['time_pts'])), order='F')
     return roc
 
 
@@ -159,11 +158,10 @@ def anova_analysis(test_data):
                             anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
 
     # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
-    for var in par['anova_vars']:
-        if var.count('dend') > 0 and var in test_data.keys():
-                for k,v in anova.items():
-                    anova[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
-                        len(par['time_pts']),  par['num_RFs'], par['num_rules']), order='F')
+    for k,v in anova.items():
+        if k.count('dend') > 0:
+            anova[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
+                par['num_RFs'], par['num_rules'],len(par['time_pts'])), order='F')
 
     return anova
 
@@ -213,11 +211,10 @@ def tuning_analysis(test_data):
                                 tuning[var + '_no_attn'][n,rf,r,t] = np.mean(test_data[var][time_pts[t],n,trial_ind_not_attend])
 
     # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
-    for var in par['tuning_vars']:
-        if var.count('dend') > 0 and var in test_data.keys():
-                for k,v in tuning.items():
-                    tuning[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
-                        len(par['time_pts']),  par['num_RFs'], par['num_rules']), order='F')
+    for k,v in tuning.items():
+        if k.count('dend') > 0:
+            tuning[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
+                par['num_RFs'], par['num_rules'],len(par['time_pts'])), order='F')
 
     return tuning
 
@@ -274,9 +271,13 @@ def get_analysis(test_data=[], filename=None):
     if par['roc_vars'] is not None:
         result['roc'] = roc_analysis(test_data)
     if par['anova_vars'] is not None:
+        t1 = time.time()
         result['anova'] = anova_analysis(test_data)
+        print('ANOVA time ', time.time()-t1)
     if par['tuning_vars'] is not None:
+        t1 = time.time()
         result['tuning'] = tuning_analysis(test_data)
+        print('TUNING time ', time.time()-t1)
 
     #plot(test_data)
 

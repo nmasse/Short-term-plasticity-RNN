@@ -369,6 +369,7 @@ def main():
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             iteration_time = time.time() - t_start
 
+            N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             #model_results['weights'] = extract_weights()
 
@@ -409,8 +410,6 @@ def get_perf(y, y_hat, mask):
 
 
 def print_data(dirpath, model_results, analysis):
-
-    hud.update_data(model_results['trial'][-1], model_results['perf_loss'][-1], model_results['accuracy'][-1])
 
     with open(dirpath + '/model_summary.txt', 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
