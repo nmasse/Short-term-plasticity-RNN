@@ -317,7 +317,7 @@ def main():
             # switch the allowed rules if the iteration number crosses a
             # specified threshold
             set_task_profile()
-            switch_rule(i)
+            set_rule(i)
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -391,12 +391,10 @@ def main():
     print('\nModel execution complete.\n')
 
 
-def switch_rule(iteration):
+def set_rule(iteration):
 
-    if (iteration+1)%par['switch_rule_iteration'] == 0:
-        new_allowed_rule = (par['allowed_rules'][0]+1)%par['num_rules']
-        par['allowed_rules'] = [new_allowed_rule]
-        print('allowed_rules now equal to ', new_allowed_rule)
+    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    print('Allowed task rule ', par['allowed_rules'])
 
 
 def print_data(dirpath, model_results, analysis):
