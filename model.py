@@ -410,21 +410,29 @@ def print_data(dirpath, model_results, analysis):
             + '\n')
 
     # output model performance to screen
+    print('\nIteration Summary:')
+    print('------------------')
     print('Trial: {:13.0f} | Time: {:15.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
     print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
-    print('Rule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
+    print('\nRule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
     if not analysis['anova'] == []:
         anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
-        anova_print = ' | '.join(anova_print)
-        print('Anova P<0.001, ' + anova_print)
+        print('\nAnova P < 0.001:')
+        print('----------------')
+        for i in range(0, len(anova_print), 2):
+            print(anova_print[i] + "\t| " + anova_print[i+1])
+        if len(anova_print)%2 != 0:
+            print(anova_print[-1] + "\t|")
     if not analysis['roc'] == []:
-        roc_print = [k + ':{:8.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
-        roc_print = ' | '.join(roc_print)
-        print('98th prctile t-stat, ' + roc_print)
-
-
+        roc_print = [k[:-5] + ':{:8.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
+        print('\n98th prctile t-stat:')
+        print('--------------------')
+        for i in range(0, len(roc_print), 2):
+            print(roc_print[i] + "\t| " + roc_print[i+1])
+        if len(roc_print)%2 != 0:
+            print(roc_print[-1] + "\t|")
     print("\n")
 
 
