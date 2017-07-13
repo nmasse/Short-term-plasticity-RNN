@@ -236,6 +236,12 @@ class Model:
             elif var.name == "rnn_cell/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
                 print('Applied weight mask to w_rnn_soma.')
+            elif var.name == "rnn_cell/W_in_soma:0":
+                grad *= par['w_in_soma_mask']
+                print('Applied weight mask to w_in_soma.')
+            elif var.name == "rnn_cell/W_in_dend:0":
+                grad *= par['w_in_dend_mask']
+                print('Applied weight mask to w_in_dend.')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
@@ -370,17 +376,18 @@ def main():
             N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             #model_results['weights'] = extract_weights()
-
+            print('before analysis')
             analysis_val = analysis.get_analysis(test_data)
-
+            print('after analysis')
+            print('before append')
             model_results = append_analysis_vals(model_results, analysis_val)
-
+            print('after analysis')
             print_data(dirpath, model_results, analysis_val)
-
+            print('before save')
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
             json_save(model_results, dirpath + '/model_results.json')
-
+            print('after save')
 
     print('\nModel execution complete.\n')
 
@@ -411,24 +418,15 @@ def print_data(dirpath, model_results, analysis):
         model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
 
     if not analysis['anova'] == []:
-        anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+        anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         anova_print = ' | '.join(anova_print)
         print('Anova P<0.001, ' + anova_print)
     if not analysis['roc'] == []:
-        roc_print = [k[:-5] + ':{:8.3f} '.format(np.percentile(np.abs(v[:,:,:,0]), 98)) for k,v in analysis['roc'].items()]
+        roc_print = [k + ':{:8.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
         roc_print = ' | '.join(roc_print)
         print('98th prctile t-stat, ' + roc_print)
 
 
-    """
-    print('ROC Value (Neuron): \t\t ROC Value (Dendrites):')
-    for i in range(len(analysis['roc']['neurons'][1])):
-        print(analysis['roc']['neurons'][1][i].round(2), '\t\t\t', analysis['roc']['dendrites'][1][i].round(2))
-
-    print('ROC Value (Dend_excitatory): \t ROC Value (Dend_inhibitory):')
-    for i in range(len(analysis['roc']['neurons'][1])):
-        print(analysis['roc']['dendrite_exc'][1][i].round(2), '\t\t\t', analysis['roc']['dendrite_inh'][1][i].round(2))
-    """
     print("\n")
 
 
@@ -520,7 +518,7 @@ def initialize_test_data():
 
 
 def append_analysis_vals(model_results, analysis_val):
-    
+
     for k in analysis_val.keys():
         if k == 'accuracy':
             model_results['accuracy'].append(analysis_val['accuracy'])
