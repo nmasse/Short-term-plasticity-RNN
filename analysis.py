@@ -230,7 +230,6 @@ def accuracy_analysis(test_data):
     # Deriving accuracy for each rule
     print(np.shape(test_data['sample_index']), np.shape(test_data['location_index']), np.shape(test_data['rule_index']))
     rule_hits = np.zeros([par['num_rules']], dtype=np.float32)
-    print(np.shape(test_data['accuracy']))
 
     for n in range(np.shape(test_data['sample_index'])[0]):
         target = test_data['sample_index'][n][test_data['location_index'][n][0]]
@@ -245,6 +244,47 @@ def accuracy_analysis(test_data):
     quit()
     return 0
 
+
+def get_perf(test_data):
+    """
+    Calculate task accuracy by comparing the actual network output to the
+    desired output, but only examines time points when test stimulus is on
+    (in another words, when y[0,:,:] is not 0)
+    """
+
+    rule_accuracy   = np.zeros([par['num_test_batches'], par['batch_train_size'], par['num_rules']])
+    accuracy        = np.zeros([par['num_test_batches'], par['batch_train_size']])
+
+    # Put axes in order [batch x trial x time steps x outputs]
+    y_raw           = np.transpose(test_data['y'], [0,3,1,2])
+    y_hat_raw       = np.transpose(test_data['y_hat'], [0,3,2,1])
+    mask_raw        = np.transpose(test_data['train_mask'], [0,2,1])
+
+    for b in range(par['num_test_batches']):
+        for n in range(par['batch_train_size']):
+            # First, isolate a single trial
+            # The axes are now [time steps x outputs]
+            y       = y_raw[b,n]
+            y_hat   = y_hat_raw[b,n]
+            m       = mask_raw[b,n]
+
+            # In corporate the fixation period into the mask
+            # When the 0th output neuron is 0, there is no fixation, and so
+            # is not incorporated into the mask as a 0
+            m *= y_hat[:,0]==0
+
+            # Now both y and y_hat are of shape [time steps]
+            y     = np.argmax(y, axis=1)
+            y_hat = np.argmax(y_hat, axis=1)
+
+            # y and y_hat are now compared before being multiplied by the mask,
+            # so as to only look at desired parts of the output.
+            if np.sum(m) == 0:
+                print(m)
+                print(y_hat)
+            accuracy[b,n] = np.sum(np.multiply(np.float32(y == y_hat), m))/np.sum(m)
+
+    return np.mean(accuracy)
 
 
 # Just plotting a lot of things...
@@ -280,30 +320,8 @@ def plot(test_data):
 
     iteration = iteration + 1
 
-def get_perf(y, y_hat, mask):
-    """
-    Calculate task accuracy by comparing the actual network output to the desired output
-    only examine time points when test stimulus is on
-    in another words, when y[0,:,:] is not 0
-    """
 
-    accuracy = np.zeros([par['num_test_batches']])
-
-    for j in range(np.shape(y)[0]):
-        a = y[j]
-        a_hat = y_hat[j]
-        m = mask[j]
-
-        a_hat = np.stack(a_hat, axis=1)
-        m *= a[0,:,:]==0
-        a = np.argmax(a, axis=0)
-        a_hat = np.argmax(a_hat, axis=0)
-
-        accuracy[j] = np.sum(np.float32(a == a_hat)*np.squeeze(m))/np.sum(m)
-    return np.mean(accuracy)
-
-
-def get_analysis(test_data=[], filename=None):
+def get_analysis(test_data={}, filename=None):
     """
     Depending on parameters, returns analysis results for ROC, ANOVA, etc.
     """
@@ -319,7 +337,7 @@ def get_analysis(test_data=[], filename=None):
     result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : []}
 
     # Analyze the network output and get the accuracy values
-    result['accuracy'] = get_perf(test_data['y_hat'], test_data['y'], test_data['train_mask'])
+    result['accuracy'] = get_perf(test_data)
 
     # Get ROC, ANOVA, and Tuning results as requested
     if par['roc_vars'] is not None:
