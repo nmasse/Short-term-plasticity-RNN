@@ -19,10 +19,11 @@ def calculate_roc(xlist, ylist, fast_calc = False):
     if fast_calc:
         # return the t-statistic instead of the ROC
         sd = np.sqrt(np.var(xlist)/2 + np.var(ylist)/2)
+        if sd == 0:
+            return 0
         d = np.mean(xlist) - np.mean(ylist)
         tstat = d/sd
-        if np.isnan(tstat):
-            tstat = 0
+
         return tstat
 
     roc = 0
@@ -141,6 +142,8 @@ def anova_analysis(test_data):
                     for n in range(par['n_hidden']):
                         if var.count('dend') > 0:
                             for d in range(par['den_per_unit']):
+                                if np.var(test_data[var][time_pts[t],n,d,:]) < 1e-12:
+                                    continue
                                 attend_vals = []
                                 not_attend_vals = []
 
@@ -157,6 +160,8 @@ def anova_analysis(test_data):
                                     anova[var + '_no_attn_pval'][n,d,rf,r,t] = p_not_attend
                                     anova[var + '_no_attn_fval'][n,d,rf,r,t] = f_not_attend
                         else:
+                            if np.var(test_data[var][time_pts[t],n,:]) < 1e-12:
+                                continue
                             attend_vals = []
                             not_attend_vals = []
 
@@ -190,9 +195,9 @@ def tuning_analysis(test_data):
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
-            dims = [par['n_hidden'],par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts'])]
+            dims = [par['n_hidden'],par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts']),par['num_unique_samples']]
         else:
-            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts'])]
+            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts']),par['num_unique_samples']]
         tuning[var + '_attn'] = np.zeros((dims), dtype = np.float32)
         tuning[var + '_no_attn'] = np.zeros((dims), dtype = np.float32)
 
@@ -209,14 +214,14 @@ def tuning_analysis(test_data):
                 for t in range(len(par['time_pts'])):
                     for var in par['tuning_vars']:
                         if var.count('dend') > 0:
-                            tuning[var + '_attn'][:,:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_attn'][:,:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, :, trial_ind_attend], axis=0, keepdims=True)
-                            tuning[var + '_no_attn'][:,:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_no_attn'][:,:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, :,trial_ind_not_attend], axis=0, keepdims=True)
                         else:
-                            tuning[var + '_attn'][:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_attn'][:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, trial_ind_attend], axis=0, keepdims=True)
-                            tuning[var + '_no_attn'][:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_no_attn'][:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, trial_ind_not_attend], axis=0, keepdims=True)
 
     return tuning
@@ -328,7 +333,9 @@ def get_analysis(test_data={}, filename=None):
 
     # Get ROC, ANOVA, and Tuning results as requested
     if par['roc_vars'] is not None:
+        t1 = time.time()
         result['roc'] = roc_analysis(test_data)
+        print('ROC time ', time.time()-t1)
     if par['anova_vars'] is not None:
         t1 = time.time()
         result['anova'] = anova_analysis(test_data)
