@@ -122,7 +122,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
                     print("Error in trial generator.")
                     quit()
         elif par['stimulus_type'] == 'mnist':
-            sample_output[n, target] = 1
+            sample_output[n, target+1] = 1
         else:
             print("ERROR: Bad stimulus type in trial generator.")
 
