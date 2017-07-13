@@ -195,9 +195,9 @@ def tuning_analysis(test_data):
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
-            dims = [par['n_hidden'],par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts'])]
+            dims = [par['n_hidden'],par['den_per_unit'], par['num_RFs'],par['num_rules'], len(par['time_pts']),par['num_unique_samples']]
         else:
-            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts'])]
+            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'], len(par['time_pts']),par['num_unique_samples']]
         tuning[var + '_attn'] = np.zeros((dims), dtype = np.float32)
         tuning[var + '_no_attn'] = np.zeros((dims), dtype = np.float32)
 
@@ -214,14 +214,14 @@ def tuning_analysis(test_data):
                 for t in range(len(par['time_pts'])):
                     for var in par['tuning_vars']:
                         if var.count('dend') > 0:
-                            tuning[var + '_attn'][:,:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_attn'][:,:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, :, trial_ind_attend], axis=0, keepdims=True)
-                            tuning[var + '_no_attn'][:,:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_no_attn'][:,:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, :,trial_ind_not_attend], axis=0, keepdims=True)
                         else:
-                            tuning[var + '_attn'][:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_attn'][:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, trial_ind_attend], axis=0, keepdims=True)
-                            tuning[var + '_no_attn'][:,rf,r,t] = np.mean(test_data[var][time_pts[t], \
+                            tuning[var + '_no_attn'][:,rf,r,t,s] = np.mean(test_data[var][time_pts[t], \
                                 :, trial_ind_not_attend], axis=0, keepdims=True)
 
     return tuning
