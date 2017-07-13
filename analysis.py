@@ -56,43 +56,44 @@ def roc_analysis(test_data):
         sample_cat[ind_rule0, rf, 0] = 1
         sample_cat[ind_rule1, rf, 1] = 1
 
-    for var in par['anova_vars']:
+    for var in par['roc_vars']:
         if not var in test_data.keys():
             # skip this variable if no data is available
             continue
         if var.count('dend') > 0:
-            dims = [par['n_hidden']*par['den_per_unit'], len(par['time_pts']), par['num_RFs'], \
-                par['num_rules'], par['num_rules']]
-            dendrite = True
+            dims = [par['n_hidden'], par['den_per_unit'], par['num_RFs'],par['num_rules'],par['num_rules'], len(par['time_pts'])]
         else:
-            dims = [par['n_hidden'], len(par['time_pts']), par['num_RFs'], \
-                par['num_rules'], par['num_rules']]
-            dendrite = False
+            dims = [par['n_hidden'], par['num_RFs'], par['num_rules'],par['num_rules'], len(par['time_pts'])]
         # create variables if they're not currently in the anova dictionary
-        if var not in roc.keys():
-            # TODO: Change this if using t-stat or ROC
-            roc[var] = np.zeros((dims), dtype = np.float32)
+        roc[var + '_attn'] = np.zeros((dims), dtype = np.float32)
+        roc[var + '_no_attn'] = np.zeros((dims), dtype = np.float32)
 
         for rf in range(par['num_RFs']):
+            bool_attend = test_data['location_index'][:,0] == rf
             for rule in range(par['num_rules']):
+                bool_attn_rule = bool_attend*(test_data['rule_index'][:,0] == rule)
+                bool_no_attn_rule = np.logical_not(bool_attend)*(test_data['rule_index'][:,0] == rule)
                 for cat in range(par['num_rules']):
-                    ind0 = np.where((test_data['rule_index']==rule)*(sample_cat[:,rf,cat]==0))
-                    ind1 = np.where((test_data['rule_index']==rule)*(sample_cat[:,rf,cat]==1))
-                    for n in range(dims[0]):
-                        for t in range(dims[1]):
-                            if dendrite:
-                                roc[var][n,t,rf,rule,cat] = calculate_roc(test_data[var][time_pts[t],n%par['n_hidden'], \
-                                    n//par['n_hidden'],ind0], test_data[var][time_pts[t],n%par['n_hidden'], n//par['n_hidden'],ind1], fast_calc = True)
+                    ind0_attn = np.where(bool_attn_rule*(sample_cat[:,rf,cat]==0))
+                    ind1_attn = np.where(bool_attn_rule*(sample_cat[:,rf,cat]==1))
+                    ind0_no_attn = np.where(bool_no_attn_rule*(sample_cat[:,rf,cat]==0))
+                    ind1_no_attn = np.where(bool_no_attn_rule*(sample_cat[:,rf,cat]==1))
+                    for t in range(len(par['time_pts'])):
+                        for n in range(par['n_hidden']):
+                            if var.count('dend') > 0:
+                                for d in range(par['den_per_unit']):
+                                    roc[var + '_attn'][n,d,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
+                                        n%par['n_hidden'], n//par['n_hidden'],ind0_attn], test_data[var][time_pts[t], \
+                                        n%par['n_hidden'], n//par['n_hidden'],ind1_attn], fast_calc = True)
+                                    roc[var + '_no_attn'][n,d,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
+                                        n%par['n_hidden'], n//par['n_hidden'],ind0_no_attn], test_data[var][time_pts[t], \
+                                        n%par['n_hidden'], n//par['n_hidden'],ind1_no_attn], fast_calc = True)
                             else:
-                                roc[var][n,t,rf,rule,cat] = calculate_roc(test_data[var][time_pts[t],n,ind0], \
-                                    test_data[var][time_pts[t],n,ind1], fast_calc = True)
+                                roc[var + '_attn'][n,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
+                                    n,ind0_attn], test_data[var][time_pts[t], n,ind1_attn], fast_calc = True)
+                                roc[var + '_no_attn'][n,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
+                                    n,ind0_no_attn], test_data[var][time_pts[t], n,ind1_no_attn], fast_calc = True)
 
-
-    # reshape dendritic variables, assumuming the neccessary dendritic values were present (test_data[var] not empty)
-    for k,v in roc.items():
-        if k.count('dend') > 0:
-            roc[k] = np.reshape(v, (par['n_hidden'],par['den_per_unit'], \
-                par['num_RFs'], par['num_rules'],len(par['time_pts'])), order='F')
     return roc
 
 
@@ -132,7 +133,8 @@ def anova_analysis(test_data):
             for s in range(par['num_unique_samples']):
                 bool_sample = test_data['sample_index'][:,rf] == s
                 trial_index_attend.append(np.where(bool_attn_rule*bool_sample)[0])
-                trial_index_not_attend.append(np.where(bool_no_attn_rule*bool_sample)[0])
+                m = len(trial_index_attend)
+                trial_index_not_attend.append(np.where(bool_no_attn_rule*bool_sample)[0][:m])
 
             for var in par['anova_vars']:
                 for t in range(len(par['time_pts'])):
