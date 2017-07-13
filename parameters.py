@@ -74,11 +74,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 30,
+    'num_train_batches' : 400,
     'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 20,
+    'switch_rule_iteration'         : 10,
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -230,16 +230,18 @@ def generate_masks():
 
 
     connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    # to soma
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
     connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
     connectivity[0, 3, 2:4] = 1 # PV will project to EXC,PV
     connectivity[0, 4, 5] = 1 # VIP will project to SOM
 
-    connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
-    connectivity[0, 1, 2:5] = 1 # rule tuned will project to EXC,PV,VIP
-    connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
-    connectivity[0, 4, 5] = 1 # VIP will project to SOM
-    connectivity[0, 5, 2:4] = 1 # SOM will project to EXC,PV
+    # to dendrites
+    connectivity[1, 0, 2:4] = 1 # stim tuned will project to EXC,PV
+    connectivity[1, 1, 2:5] = 1 # rule tuned will project to EXC,PV,VIP
+    connectivity[1, 2, 2:4] = 1 # EXC will project to EXC,PV
+    connectivity[1, 4, 5] = 1 # VIP will project to SOM
+    connectivity[1, 5, 2:4] = 1 # SOM will project to EXC,PV
 
     par['w_rnn_dend_mask'] = np.zeros((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
     par['w_rnn_soma_mask'] = np.zeros((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
