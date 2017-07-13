@@ -222,29 +222,6 @@ def tuning_analysis(test_data):
     return tuning
 
 
-def accuracy_analysis(test_data):
-    """
-    IN PROGRESS
-    """
-
-    # Deriving accuracy for each rule
-    print(np.shape(test_data['sample_index']), np.shape(test_data['location_index']), np.shape(test_data['rule_index']))
-    rule_hits = np.zeros([par['num_rules']], dtype=np.float32)
-
-    for n in range(np.shape(test_data['sample_index'])[0]):
-        target = test_data['sample_index'][n][test_data['location_index'][n][0]]
-        rule   = test_data['rule_index'][n][0]
-        print(target, rule)
-        quit()
-
-        #target = sample_indices[location]
-        #sample_index[n,:] = sample_indices
-        #attended_sample_index[n] = target
-
-    quit()
-    return 0
-
-
 def get_perf(test_data):
     """
     Calculate task accuracy by comparing the actual network output to the
@@ -252,7 +229,8 @@ def get_perf(test_data):
     (in another words, when y[0,:,:] is not 0)
     """
 
-    rule_accuracy   = np.zeros([par['num_test_batches'], par['batch_train_size'], par['num_rules']])
+    rule_accuracy   = np.zeros([par['num_rules']])
+    rule_counters   = np.zeros([par['num_rules']])
     accuracy        = np.zeros([par['num_test_batches'], par['batch_train_size']])
 
     # Put axes in order [batch x trial x time steps x outputs]
@@ -279,12 +257,20 @@ def get_perf(test_data):
 
             # y and y_hat are now compared before being multiplied by the mask,
             # so as to only look at desired parts of the output.
-            if np.sum(m) == 0:
-                print(m)
-                print(y_hat)
             accuracy[b,n] = np.sum(np.multiply(np.float32(y == y_hat), m))/np.sum(m)
 
-    return np.mean(accuracy)
+            # Now that we know the accuracy for this trial, determine the rule
+            # used for this trial.  The accuracy is then added to the proper
+            # rule accuracy.
+            rule = test_data['rule_index'][b*par['batch_train_size']+n,0]
+            rule_accuracy[rule] += accuracy[b,n]
+            rule_counters[rule] += 1
+
+    # Normalize the rule accuracies by the number of occurences of that rule
+    for r in range(par['num_rules']):
+        rule_accuracy[r] = rule_accuracy[r]/rule_counters[r]
+
+    return np.mean(accuracy), rule_accuracy
 
 
 # Just plotting a lot of things...
@@ -334,10 +320,11 @@ def get_analysis(test_data={}, filename=None):
         time_stamps = np.array(data['params']['time_stamps'])
 
     # Get analysis results
-    result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : []}
+    result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : [], \
+              'rule_accuracy' : []}
 
     # Analyze the network output and get the accuracy values
-    result['accuracy'] = get_perf(test_data)
+    result['accuracy'], result['rule_accuracy'] = get_perf(test_data)
 
     # Get ROC, ANOVA, and Tuning results as requested
     if par['roc_vars'] is not None:

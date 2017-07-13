@@ -301,7 +301,7 @@ def main():
             f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
         # Keep track of the model performance across training
-        model_results = {'accuracy': [], 'loss': [], 'perf_loss': [], \
+        model_results = {'accuracy': [], 'rule_accuracy' : [], 'loss': [], 'perf_loss': [], \
                          'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Loop through the desired number of iterations
@@ -409,6 +409,7 @@ def print_data(dirpath, model_results, analysis):
     print('Trial: {:13.0f} | Time: {:15.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
     print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
+    print('Rule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
     if not analysis['anova'] == []:
         anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v[:,:,:,0]<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
@@ -520,10 +521,12 @@ def initialize_test_data():
 
 
 def append_analysis_vals(model_results, analysis_val):
-    
+
     for k in analysis_val.keys():
         if k == 'accuracy':
             model_results['accuracy'].append(analysis_val['accuracy'])
+        elif k == 'rule_accuracy':
+            model_results['rule_accuracy'].append(analysis_val['rule_accuracy'])
         elif not analysis_val[k] == []:
             for k1,v in analysis_val[k].items():
                 current_key = k + '_' + k1
