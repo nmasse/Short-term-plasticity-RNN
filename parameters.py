@@ -16,7 +16,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'mnist',    # dms, att, mnist
+    'stimulus_type'         : 'att',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -32,15 +32,15 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 30,
+    'n_hidden'          : 250,
     'den_per_unit'      : 10,
 
     # Timings and rates
     'dt'                : 20,
     'learning_rate'     : 5e-3,
-    'membrane_time_constant'    : 20,
+    'membrane_time_constant'    : 50,
     'dendrite_time_constant'    : 200,
-    'connection_prob'   : 0.2,         # Usually 1
+    'connection_prob'   : 0.5,         # Usually 1
 
     # Variance values
     'clip_max_grad_val' : 0.25,
@@ -59,7 +59,7 @@ par = {
     'probe_time'        : 25,
 
     # Cost parameters
-    'spike_cost'        : 5e-5,
+    'spike_cost'        : 1e-3,
     'wiring_cost'       : 5e-7,
 
     # Synaptic plasticity specs
@@ -74,11 +74,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 2,
+    'num_train_batches' : 30,
     'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 3,
+    'switch_rule_iteration'         : 20,
 
     # Pickle save paths
     'save_fn'           : 'model_data.json',
@@ -88,7 +88,7 @@ par = {
     # Analysis
     'time_pts'          : [1100, 1200],
     'num_category_rule' : 1,
-    'roc_vars'          : None,
+    'roc_vars'          : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
@@ -116,8 +116,8 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 784 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 20 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 20 * par['num_RFs']
+        par['num_rule_tuned']        = 40 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 40 * par['num_RFs']
         par['n_output']              = 11
 
         par['num_samples']           = 60000    # Number of available samples
@@ -134,14 +134,14 @@ def set_task_profile():
 
         par['permutation_id']        = 0
 
-        par['num_stim_tuned']        = 24 * par['num_RFs']
+        par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 2 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 2 * par['num_RFs']
+        par['num_rule_tuned']        = 24 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
-        par['num_samples']           = 8     # Number of motion directions
-        par['num_unique_samples']    = 8
+        par['num_samples']           = 12     # Number of motion directions
+        par['num_unique_samples']    = 12
 
     elif par['stimulus_type'] == 'dms':
 
@@ -160,6 +160,7 @@ def initialize(dims, connection_prob):
     n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
     n *= (np.random.rand(*dims) < connection_prob)
     return n
+
 
 
 def get_profile(profile_path):
@@ -212,6 +213,51 @@ def update_parameters(updates):
         par[key] = val
 
     update_dependencies()
+
+def generate_masks():
+
+    # for input neurons, stimulus tuned will have ID=0, rule/fix tuned will have ID =1
+    input_type = np.zeros((par['n_input']), dtype = np.uint8)
+    input_type[par['num_stim_tuned']:] = 1
+
+    # for hidden nuerons, EXC will have ID=2, PV will have ID=3, VIP will have ID=4, SOM will have ID=5
+    # 50% of INH neurons will be PV, 25% for VIP, SOM
+    n = par['num_inh_units']//4
+    hidden_type = 2*np.ones((par['n_input']), dtype = np.uint8)
+    hidden_type[par['num_exc_units']:par['num_exc_units']+2*n] = 3
+    hidden_type[par['num_exc_units']+2*n:par['num_exc_units']+2*3] = 4
+    hidden_type[par['num_exc_units']+3*n::] = 5
+
+
+    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
+    connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
+    connectivity[0, 3, 2:4] = 1 # PV will project to EXC,PV
+    connectivity[0, 4, 5] = 1 # VIP will project to SOM
+
+    connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
+    connectivity[0, 1, 2:5] = 1 # rule tuned will project to EXC,PV,VIP
+    connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
+    connectivity[0, 4, 5] = 1 # VIP will project to SOM
+    connectivity[0, 5, 2:4] = 1 # SOM will project to EXC,PV
+
+    par['w_rnn_dend_mask'] = np.zeros((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
+    par['w_rnn_soma_mask'] = np.zeros((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
+
+    par['w_in_dend_mask'] = np.zeros((par['input_to_hidden_dend_dims']), dtype=np.float32)
+    par['w_in_soma_mask'] = np.zeros((par['input_to_hidden_soma_dims']), dtype=np.float32)
+
+    # input to hidden
+    for source in range(par['n_input']):
+        for target in range(par['n_hidden']):
+            par['w_in_dend_mask'][target,:,source] = connectivity[1,input_type[source],hidden_type[target]]
+            par['w_in_soma_mask'][target,source] = connectivity[0,input_type[source],hidden_type[target]]
+
+    # hidden to hidden
+    for source in range(par['n_hidden']):
+        for target in range(par['n_hidden']):
+            par['w_rnn_dend_mask'][target,:,source] = connectivity[1,hidden_type[source],hidden_type[target]]
+            par['w_rnn_soma_mask'][target,source] = connectivity[0,hidden_type[source],hidden_type[target]]
 
 
 def update_dependencies():
@@ -332,9 +378,16 @@ def update_dependencies():
     par['hidden_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
     par['hidden_to_hidden_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
+
+    generate_masks()
+
+
     # Initialize input weights
     par['w_in_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
     par['w_in_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
+
+    par['w_in_dend0'] *= par['w_in_dend_mask']
+    par['w_in_soma0'] *= par['w_in_soma_mask']
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -343,12 +396,12 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn_dend0'] = initialize(par['hidden_to_hidden_dend_dims'], par['connection_prob'])
         par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob'])
-        par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
-        par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        #par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
+        #par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
         for i in range(par['n_hidden']):
             par['w_rnn_soma0'][i,i] = 0
-            par['w_rnn_dend_mask'][i,:,i] = 0
+            #par['w_rnn_dend_mask'][i,:,i] = 0
             par['w_rnn_dend0'][i,:,i] = 0
 
     else:
@@ -358,8 +411,11 @@ def update_dependencies():
         for i in range(par['n_hidden']):
             par['w_rnn_dend0'][i,:,i] = 1
 
-        par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
-        par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
+        #par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
+        #par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
+
+    par['w_rnn_dend0'] *= par['w_rnn_dend_mask']
+    par['w_rnn_soma0'] *= par['w_rnn_soma_mask']
 
     # Initialize starting recurrent biases
     # Note that the second dimension in the bias initialization term can be either
