@@ -19,10 +19,11 @@ def calculate_roc(xlist, ylist, fast_calc = False):
     if fast_calc:
         # return the t-statistic instead of the ROC
         sd = np.sqrt(np.var(xlist)/2 + np.var(ylist)/2)
+        if sd == 0:
+            return 0
         d = np.mean(xlist) - np.mean(ylist)
         tstat = d/sd
-        if np.isnan(tstat):
-            tstat = 0
+
         return tstat
 
     roc = 0
@@ -141,6 +142,8 @@ def anova_analysis(test_data):
                     for n in range(par['n_hidden']):
                         if var.count('dend') > 0:
                             for d in range(par['den_per_unit']):
+                                if np.var(test_data[var][time_pts[t],n,d,:]) < 1e-12:
+                                    continue
                                 attend_vals = []
                                 not_attend_vals = []
 
@@ -157,6 +160,8 @@ def anova_analysis(test_data):
                                     anova[var + '_no_attn_pval'][n,d,rf,r,t] = p_not_attend
                                     anova[var + '_no_attn_fval'][n,d,rf,r,t] = f_not_attend
                         else:
+                            if np.var(test_data[var][time_pts[t],n,:]) < 1e-12:
+                                continue
                             attend_vals = []
                             not_attend_vals = []
 
@@ -341,7 +346,9 @@ def get_analysis(test_data={}, filename=None):
 
     # Get ROC, ANOVA, and Tuning results as requested
     if par['roc_vars'] is not None:
+        t1 = time.time()
         result['roc'] = roc_analysis(test_data)
+        print('ROC time ', time.time()-t1)
     if par['anova_vars'] is not None:
         t1 = time.time()
         result['anova'] = anova_analysis(test_data)
