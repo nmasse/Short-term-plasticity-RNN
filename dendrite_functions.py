@@ -193,13 +193,13 @@ def ac_two_groups(x):
 # Process functions (processes each individual dendrite to simulate any internal actions)
 # Accumulator functions (accumulates the dendrite results per neuron)
 
-def dendrite_function0001(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0001(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: The most basic of configurations.
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
@@ -208,13 +208,13 @@ def dendrite_function0001(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0002(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0002(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/6/30
     Notes: Biased and relu'ed.
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
@@ -224,13 +224,13 @@ def dendrite_function0002(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0003(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0003(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/3
     Notes: Biased and relu'ed with contribution from previous state.
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
@@ -240,7 +240,7 @@ def dendrite_function0003(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0004(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0004(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/5
     Notes: Inhibition will gate excitatory inputs. Using ReLu's
@@ -248,7 +248,7 @@ def dendrite_function0004(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     beta = tf.constant(np.float32(1))
     alpha = tf.constant(np.float32(0.5))
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     exc_activity += den_in
@@ -259,13 +259,13 @@ def dendrite_function0004(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0005(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0005(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/5
     Notes:Summing inputs, plus ReLu
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*tf.nn.relu(exc_activity + den_in - inh_activity)
@@ -274,13 +274,13 @@ def dendrite_function0005(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0006(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0006(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/5
     Notes:Summing inputs
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_out = (1-par['alpha_dendrite'])*dend +  par['alpha_dendrite']*(exc_activity + den_in - inh_activity)
@@ -289,14 +289,14 @@ def dendrite_function0006(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
-def dendrite_function0007(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0007(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/7
     Notes: Dendrites are split into groups that are evaluated against
             each other, taking history into account  No bias.
     """
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     rnn_in, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     h_den_in = den_in + rnn_in
@@ -306,7 +306,7 @@ def dendrite_function0007(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     return h_soma_in, h_den_out, exc_activity, inh_activity
 
 
-def dendrite_function0008(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+def dendrite_function0008(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     """
     Creation Date: 2017/7/11
     Notes: Inhibition gates inputs. EXC and INH are multiplied
@@ -315,7 +315,7 @@ def dendrite_function0008(W_in, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     beta = tf.constant(np.float32(1))
     alpha = tf.constant(np.float32(1))
 
-    den_in = in_tensordot(W_in, stim_in) + in_tensordot(W_td, td_in)
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
     _, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
 
     exc_activity += den_in
