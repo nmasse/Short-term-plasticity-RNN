@@ -74,8 +74,8 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 400,
-    'num_test_batches'  : 20,
+    'num_train_batches' : 2,
+    'num_test_batches'  : 2,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
@@ -246,8 +246,8 @@ def generate_masks():
     par['w_rnn_dend_mask'] = np.zeros((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
     par['w_rnn_soma_mask'] = np.zeros((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
 
-    par['w_in_dend_mask'] = np.zeros((par['input_to_hidden_dend_dims']), dtype=np.float32)
-    par['w_in_soma_mask'] = np.zeros((par['input_to_hidden_soma_dims']), dtype=np.float32)
+    par['w_stim_dend_mask'] = np.zeros((par['input_to_hidden_dend_dims']), dtype=np.float32)
+    par['w_stim_soma_mask'] = np.zeros((par['input_to_hidden_soma_dims']), dtype=np.float32)
 
     par['w_td_dend_mask'] = np.zeros((par['td_to_hidden_dend_dims']), dtype=np.float32)
     par['w_td_soma_mask'] = np.zeros((par['td_to_hidden_soma_dims']), dtype=np.float32)
@@ -255,8 +255,8 @@ def generate_masks():
     # input to hidden
     for source in range(par['num_stim_tuned']):
         for target in range(par['n_hidden']):
-            par['w_in_dend_mask'][target,:,source] = connectivity[1,input_type[source],hidden_type[target]]
-            par['w_in_soma_mask'][target,source] = connectivity[0,input_type[source],hidden_type[target]]
+            par['w_stim_dend_mask'][target,:,source] = connectivity[1,input_type[source],hidden_type[target]]
+            par['w_stim_soma_mask'][target,source] = connectivity[0,input_type[source],hidden_type[target]]
 
     # td to hidden
     for source in range(par['n_input'] - par['num_stim_tuned']):
@@ -398,14 +398,14 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
-    par['w_in_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
+    par['w_stim_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
+    par['w_stim_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
 
     par['w_td_dend0'] = initialize(par['td_to_hidden_dend_dims'], par['connection_prob'])
     par['w_td_soma0'] = initialize(par['td_to_hidden_soma_dims'], par['connection_prob'])
 
-    par['w_in_dend0'] *= par['w_in_dend_mask']
-    par['w_in_soma0'] *= par['w_in_soma_mask']
+    par['w_stim_dend0'] *= par['w_stim_dend_mask']
+    par['w_stim_soma0'] *= par['w_stim_soma_mask']
 
     par['w_td_dend0'] *= par['w_td_dend_mask']
     par['w_td_soma0'] *= par['w_td_soma_mask']

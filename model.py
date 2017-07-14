@@ -94,10 +94,10 @@ class Model:
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
                 W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
-                W_in_dend = tf.get_variable('W_in_dend', initializer = np.float32(par['w_in_dend0']), trainable=True)
+                W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
                 W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
 
-            W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
+            W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
             W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
 
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
@@ -131,11 +131,11 @@ class Model:
         # inclusion of dendrites changes the tensor shapes
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
-                W_in_dend = tf.get_variable('W_in_dend')
+                W_stim_dend = tf.get_variable('W_stim_dend')
                 W_td_dend = tf.get_variable('W_td_dend')
                 W_rnn_dend = tf.get_variable('W_rnn_dend')
 
-            W_in_soma = tf.get_variable('W_in_soma')
+            W_stim_soma = tf.get_variable('W_stim_soma')
             W_td_soma = tf.get_variable('W_td_soma')
 
             W_rnn_soma = tf.get_variable('W_rnn_soma')
@@ -189,7 +189,7 @@ class Model:
         if par['use_dendrites']:
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
             h_soma_in, dend_out, exc_activity, inh_activity = \
-                dendrite_function(W_in_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
+                dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
         else:
             dend_out = dend
             h_soma_in = 0
@@ -199,7 +199,7 @@ class Model:
         # the hidden layer.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                      + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
-                     + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(stim_in)) \
+                     + tf.matmul(tf.nn.relu(W_stim_soma), tf.nn.relu(stim_in)) \
                      + tf.matmul(tf.nn.relu(W_td_soma), tf.nn.relu(td_in)) + b_rnn) \
                      + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
@@ -244,12 +244,12 @@ class Model:
                 grad *= par['w_rnn_soma_mask']
                 print('Applied weight mask to w_rnn_soma.')
 
-            elif var.name == "rnn_cell/W_in_soma:0":
-                grad *= par['w_in_soma_mask']
-                print('Applied weight mask to w_in_soma.')
-            elif var.name == "rnn_cell/W_in_dend:0":
-                grad *= par['w_in_dend_mask']
-                print('Applied weight mask to w_in_dend.')
+            elif var.name == "rnn_cell/W_stim_soma:0":
+                grad *= par['w_stim_soma_mask']
+                print('Applied weight mask to w_stim_soma.')
+            elif var.name == "rnn_cell/W_stim_dend:0":
+                grad *= par['w_stim_dend_mask']
+                print('Applied weight mask to w_stim_dend.')
 
             elif var.name == "rnn_cell/W_td_soma:0":
                 grad *= par['w_td_soma_mask']
@@ -473,9 +473,13 @@ def extract_weights():
 
     with tf.variable_scope('rnn_cell', reuse=True):
         if par['use_dendrites']:
-            W_in_dend = tf.get_variable('W_in_dend')
+            W_stim_dend = tf.get_variable('W_stim_dend')
+            W_td_dend = tf.get_variable('W_td_dend')
             W_rnn_dend = tf.get_variable('W_rnn_dend')
-        W_in_soma = tf.get_variable('W_in_soma')
+
+        W_stim_soma = tf.get_variable('W_stim_soma')
+        W_td_soma = tf.get_variable('W_td_soma')
+
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
 
@@ -483,14 +487,18 @@ def extract_weights():
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
-    weights = {'w_in_soma': W_in_soma.eval(),
+    weights = {
+        'w_stim_soma': W_stim_soma.eval(),
+        'w_td_soma': W_td_soma.eval(),
         'w_rnn_soma': W_rnn_soma.eval(),
         'w_out': W_out.eval(),
         'b_rnn': b_rnn.eval(),
-        'b_out': b_out.eval()}
+        'b_out': b_out.eval()
+        }
 
     if par['use_dendrites']:
-        weights['w_in_dend'] = W_in_dend.eval()
+        weights['w_stim_dend'] = W_stim_dend.eval()
+        weights['w_td_dend'] = W_td_dend.eval()
         weights['w_rnn_dend'] = W_rnn_dend.eval()
 
     return weights
