@@ -303,25 +303,8 @@ def main():
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
         # Generate an identifying timestamp and save directory for the model
-        timestamp = "_D" + time.strftime("%y-%m-%d") \
-                    + "_T" + time.strftime("%H-%M-%S")
-        if par['use_dendrites']:
-            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-                        str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
-        else:
-            dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-                        str(par['n_hidden']) + 'nd' + timestamp
+        timestamp, dirpath = create_save_dir()
 
-        # Make new folder for parameters, results, and analysis
-        if not os.path.exists(dirpath):
-            os.makedirs(dirpath)
-
-        # Store a copy of the parameters setup in its default state
-        json_save(par, dirpath + '/parameters.json')
-
-        # Create summary file
-        with open(dirpath + '/model_summary.txt', 'w') as f:
-            f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
 
         # Keep track of the model performance across training
         model_results = {'accuracy': [], 'rule_accuracy' : [], 'loss': [], 'perf_loss': [], \
@@ -330,9 +313,8 @@ def main():
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
-            # Reset any altered task parameters back to their defaults, then
-            # switch the allowed rules if the iteration number crosses a
-            # specified threshold
+            # Reset any altered task parameters back to their defaults, then switch
+            # the allowed rules if the iteration number crosses a specified threshold
             set_task_profile()
             set_rule(i)
 
@@ -396,7 +378,7 @@ def main():
             iteration_time = time.time() - t_start
             N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
-            #model_results['weights'] = extract_weights()
+            model_results['weights'] = extract_weights()
 
             analysis_val = analysis.get_analysis(test_data)
 
@@ -479,7 +461,6 @@ def extract_weights():
 
         W_stim_soma = tf.get_variable('W_stim_soma')
         W_td_soma = tf.get_variable('W_td_soma')
-
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
 
@@ -568,3 +549,28 @@ def append_analysis_vals(model_results, analysis_val):
                     model_results[current_key].append([v])
 
     return model_results
+
+
+def create_save_dir():
+
+    # Generate an identifying timestamp and save directory for the model
+    timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
+    if par['use_dendrites']:
+        dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
+            str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
+    else:
+        dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
+            str(par['n_hidden']) + 'nd' + timestamp
+
+                # Make new folder for parameters, results, and analysis
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+    # Store a copy of the parameters setup in its default state
+    json_save(par, dirpath + '/parameters.json')
+
+    # Create summary file
+    with open(dirpath + '/model_summary.txt', 'w') as f:
+        f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
+
+    return timestamp, dirpath
