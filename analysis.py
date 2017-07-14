@@ -389,6 +389,13 @@ def load_data_dir(data_dir):
                     else:
                         x[var][k].append(v)
 
+    """
+    Variables will be of shape
+    ANOVA, shape = iter num X neuron X (dendrite num) X RF X rule X time
+    ROC, shape = iter num X neuron X (dendrite num) X RF X rule X category (up/down or left/right) time
+    TUNING, shape = iter num X neuron X (dendrite num) X RF X rule X time X num unique samples
+    """
+
     for var in analysis_vars:
         for k,v in x[var].items():
             x[var][k] = np.stack(v,axis=0)
