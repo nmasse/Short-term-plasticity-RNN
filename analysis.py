@@ -6,6 +6,7 @@ import time
 import json
 import pickle
 import model_saver
+import os
 from parameters import *
 
 global iteration
@@ -356,3 +357,40 @@ def get_analysis(test_data={}, filename=None):
     """
 
     return result
+
+def load_data_dir(data_dir):
+
+    analysis_vars = ['anova', 'tuning', 'roc']
+    x = {}
+    for k in analysis_vars:
+        x[k] = {}
+
+    fns = []
+    iter_num = []
+    for file in os.listdir(data_dir):
+        if file.endswith('.json') and file.startswith('iter'):
+            fns.append(file)
+            i0 = file.find('r')
+            i1 = file.find('_')
+            iter_num.append(int(file[i0+1:i1]))
+
+    ind_sorted = np.argsort(iter_num)
+
+    for i in ind_sorted:
+        file = fns[i]
+        if file.endswith('.json') and file.startswith('iter'):
+            print(os.path.join(data_dir, file))
+            fn = os.path.join(data_dir, file)
+            y = model_saver.json_load(fn)
+            for var in analysis_vars:
+                for k,v in y[1][var].items():
+                    if not k in x[var].keys():
+                        x[var][k] = [v]
+                    else:
+                        x[var][k].append(v)
+
+    for var in analysis_vars:
+        for k,v in x[var].items():
+            x[var][k] = np.stack(v,axis=0)
+
+    return x
