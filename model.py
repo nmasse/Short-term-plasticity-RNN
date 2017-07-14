@@ -38,14 +38,15 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, target_data, mask, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, learning_rate):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
-        self.mask = tf.unstack(mask, axis=0)
-        self.learning_rate = learning_rate
+        self.input_data     = tf.unstack(input_data, axis=1)
+        self.td_data        = tf.unstack(td_data, axis=1)
+        self.target_data    = tf.unstack(target_data, axis=1)
+        self.mask           = tf.unstack(mask, axis=0)
+        self.learning_rate  = learning_rate
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -70,7 +71,7 @@ class Model:
         """
 
         # The RNN Cell Loop contains the majority of the model calculations
-        self.rnn_cell_loop(self.input_data, self.hidden_init, self.dendrites_init, self.synapse_x_init, self.synapse_u_init)
+        self.rnn_cell_loop(self.input_data, self.td_data, self.hidden_init, self.dendrites_init, self.synapse_x_init, self.synapse_u_init)
 
         # Describes the output variables and scope
         with tf.variable_scope('output'):
@@ -82,7 +83,7 @@ class Model:
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
 
-    def rnn_cell_loop(self, x_unstacked, h, d, syn_x, syn_u):
+    def rnn_cell_loop(self, x_unstacked, td_unstacked, h, d, syn_x, syn_u):
         """
         Sets up the weights and baises for the hidden layer, then establishes
         the network computation
@@ -94,8 +95,11 @@ class Model:
             if par['use_dendrites']:
                 W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
                 W_in_dend = tf.get_variable('W_in_dend', initializer = np.float32(par['w_in_dend0']), trainable=True)
+                W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
 
             W_in_soma = tf.get_variable('W_in_soma', initializer = np.float32(par['w_in_soma0']), trainable=True)
+            W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
+
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
@@ -108,8 +112,8 @@ class Model:
         self.syn_u_hist = []
 
         # Loops through the neural inputs to the network, indexed in time
-        for rnn_input in x_unstacked:
-            h, d, syn_x, syn_u, e, i = self.rnn_cell(rnn_input, h, d, syn_x, syn_u)
+        for n_in in range(len(x_unstacked)):
+            h, d, syn_x, syn_u, e, i = self.rnn_cell(x_unstacked[n_in], td_unstacked[n_in], h, d, syn_x, syn_u)
             self.hidden_state_hist.append(h)
             self.dendrites_hist.append(d)
             self.dendrites_inputs_exc_hist.append(e)
@@ -118,7 +122,7 @@ class Model:
             self.syn_u_hist.append(syn_u)
 
 
-    def rnn_cell(self, rnn_input, h_soma, dend, syn_x, syn_u):
+    def rnn_cell(self, stim_in, td_in, h_soma, dend, syn_x, syn_u):
         """
         Run the main computation of the recurrent network
         """
@@ -128,10 +132,12 @@ class Model:
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
                 W_in_dend = tf.get_variable('W_in_dend')
+                W_td_dend = tf.get_variable('W_td_dend')
                 W_rnn_dend = tf.get_variable('W_rnn_dend')
-                W_in_dend = tf.get_variable('W_in_dend')
 
             W_in_soma = tf.get_variable('W_in_soma')
+            W_td_soma = tf.get_variable('W_td_soma')
+
             W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
             W_ei = tf.constant(par['EI_matrix'], name='W_ei')
@@ -183,7 +189,7 @@ class Model:
         if par['use_dendrites']:
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
             h_soma_in, dend_out, exc_activity, inh_activity = \
-                dendrite_function(W_in_dend, W_rnn_dend, rnn_input, h_post_syn, dend)
+                dendrite_function(W_in_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
         else:
             dend_out = dend
             h_soma_in = 0
@@ -193,7 +199,8 @@ class Model:
         # the hidden layer.
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                      + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
-                     + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(rnn_input)) + b_rnn) \
+                     + tf.matmul(tf.nn.relu(W_in_soma), tf.nn.relu(stim_in)) \
+                     + tf.matmul(tf.nn.relu(W_td_soma), tf.nn.relu(td_in)) + b_rnn) \
                      + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
 
         # Return the network information
@@ -236,12 +243,21 @@ class Model:
             elif var.name == "rnn_cell/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
                 print('Applied weight mask to w_rnn_soma.')
+
             elif var.name == "rnn_cell/W_in_soma:0":
                 grad *= par['w_in_soma_mask']
                 print('Applied weight mask to w_in_soma.')
             elif var.name == "rnn_cell/W_in_dend:0":
                 grad *= par['w_in_dend_mask']
                 print('Applied weight mask to w_in_dend.')
+
+            elif var.name == "rnn_cell/W_td_soma:0":
+                grad *= par['w_td_soma_mask']
+                print('Applied weight mask to w_td_soma.')
+            elif var.name == "rnn_cell/W_td_dend:0":
+                grad *= par['w_td_dend_mask']
+                print('Applied weight mask to w_td_dend.')
+
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
@@ -266,15 +282,16 @@ def main():
     stim = stimulus.Stimulus()
 
     # Define all placeholders
-    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[par['n_input'], par['num_time_steps'], par['batch_train_size']])
-    y = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
+    mask    = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
+    x_stim  = tf.placeholder(tf.float32, shape=[par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
+    x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
+    y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x, y, mask, learning_rate)
+        model = Model(x_stim, x_td, y, mask, learning_rate)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -324,9 +341,11 @@ def main():
 
                 # Generate batch of par['batch_train_size'] trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'] ]
+                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
                 # Train the model
-                _ = sess.run(model.train_op, {x: trial_info['neural_input'], y: trial_info['desired_output'], \
+                _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
 
                 # Show model progress
@@ -349,6 +368,8 @@ def main():
 
                 # Generate batch of testing trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'] ]
+                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
                 # Run the model
                 _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
@@ -356,7 +377,7 @@ def main():
                 = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                    {x: trial_info['neural_input'], y: trial_info['desired_output'], \
+                    {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], learning_rate: 0})
 
                 # Aggregate the test data for analysis

@@ -249,11 +249,20 @@ def generate_masks():
     par['w_in_dend_mask'] = np.zeros((par['input_to_hidden_dend_dims']), dtype=np.float32)
     par['w_in_soma_mask'] = np.zeros((par['input_to_hidden_soma_dims']), dtype=np.float32)
 
+    par['w_td_dend_mask'] = np.zeros((par['td_to_hidden_dend_dims']), dtype=np.float32)
+    par['w_td_soma_mask'] = np.zeros((par['td_to_hidden_soma_dims']), dtype=np.float32)
+
     # input to hidden
-    for source in range(par['n_input']):
+    for source in range(par['num_stim_tuned']):
         for target in range(par['n_hidden']):
             par['w_in_dend_mask'][target,:,source] = connectivity[1,input_type[source],hidden_type[target]]
             par['w_in_soma_mask'][target,source] = connectivity[0,input_type[source],hidden_type[target]]
+
+    # td to hidden
+    for source in range(par['n_input'] - par['num_stim_tuned']):
+        for target in range(par['n_hidden']):
+            par['w_td_dend_mask'][target,:,source] = connectivity[1,input_type[par['num_stim_tuned'] + source],hidden_type[target]]
+            par['w_td_soma_mask'][target,source] = connectivity[0,input_type[par['num_stim_tuned'] + source],hidden_type[target]]
 
     # hidden to hidden
     for source in range(par['n_hidden']):
@@ -272,6 +281,7 @@ def update_dependencies():
 
     # Number of input neurons
     par['n_input'] = par['num_stim_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned'] + par['num_spatial_cue_tuned']
+
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
@@ -375,11 +385,14 @@ def update_dependencies():
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
     par['d_init'] = 0.1*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
 
-    par['input_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_input']]
-    par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['n_input']]
+    par['input_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['num_stim_tuned']]
+    par['input_to_hidden_soma_dims'] = [par['n_hidden'], par['num_stim_tuned']]
+
+    par['td_to_hidden_dend_dims']     = [par['n_hidden'], par['den_per_unit'], par['n_input'] - par['num_stim_tuned']]
+    par['td_to_hidden_soma_dims']     = [par['n_hidden'], par['n_input'] - par['num_stim_tuned']]
+
     par['hidden_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
     par['hidden_to_hidden_soma_dims'] = [par['n_hidden'], par['n_hidden']]
-
 
     generate_masks()
 
@@ -388,8 +401,14 @@ def update_dependencies():
     par['w_in_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
     par['w_in_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob'])
 
+    par['w_td_dend0'] = initialize(par['td_to_hidden_dend_dims'], par['connection_prob'])
+    par['w_td_soma0'] = initialize(par['td_to_hidden_soma_dims'], par['connection_prob'])
+
     par['w_in_dend0'] *= par['w_in_dend_mask']
     par['w_in_soma0'] *= par['w_in_soma_mask']
+
+    par['w_td_dend0'] *= par['w_td_dend_mask']
+    par['w_td_soma0'] *= par['w_td_soma_mask']
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
