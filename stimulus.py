@@ -15,7 +15,7 @@ class Stimulus:
     def generate_trial(self):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS']:
+        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue']:
             trial_info = self.generate_motion_working_memory_trial()
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
@@ -212,6 +212,10 @@ class Stimulus:
         eft = par['num_fix_tuned']+par['num_motion_tuned']
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
 
+        # rule cue time
+        rule_onset = par['rule_onset_time']//par['dt']
+        rule_offset = par['rule_offset_time']//par['dt']
+
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
@@ -272,17 +276,8 @@ class Stimulus:
             """
             Generate the sample and test stimuli based on the rule
             """
-            # DMS or DMRS
-            if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180']:
-                matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
-                if match == 1: # match trial
-                    test_dir = sample_dir
-                else:
-                    possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
-                    test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
-
             # DMC
-            elif rule == 3: # categorize between two equal size, contiguous zones
+            if par['trial_type'] == 'DMC': # categorize between two equal size, contiguous zones
                 sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
                 if match == 1: # match trial
                     # do not use sample_dir as a match test stimulus
@@ -293,6 +288,15 @@ class Stimulus:
                 else:
                     test_dir = sample_cat*(par['num_motion_dirs']//2) + np.random.randint(par['num_motion_dirs']//2)
                     test_dir = np.int_((test_dir+par['num_motion_dirs']//2)%par['num_motion_dirs'])
+            # DMS or DMRS
+            else:
+                matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
+                if match == 1: # match trial
+                    test_dir = sample_dir
+                else:
+                    possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
+                    test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+
 
             """
             Calculate neural input based on sample, tests, fixation, rule, and probe
@@ -311,7 +315,7 @@ class Stimulus:
 
             # RULE CUE
             if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
-                trial_info['neural_input'][eft:ert, self.rule_onset_time:self.rule_offset_time, t] += np.reshape(self.rule_tuning[:,rule_ind],(-1,1))
+                trial_info['neural_input'][eft:ert, rule_onset:rule_offset, t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
 
             """
             Determine the desired network output response
@@ -457,7 +461,7 @@ class Stimulus:
         """
         motion_tuning = np.zeros((par['num_motion_tuned'], par['num_receptive_fields'], par['num_motion_dirs']))
         fix_tuning = np.zeros((par['num_fix_tuned'], par['num_receptive_fields']))
-        rule_tuning = np.zeros((par['num_rule_tuned'], par['num_receptive_fields']))
+        rule_tuning = np.zeros((par['num_rule_tuned'], par['num_rules']))
 
         # generate list of prefered directions
         # dividing neurons by 2 since two equal groups representing two modalities
@@ -479,8 +483,8 @@ class Stimulus:
                     fix_tuning[n,i] = par['tuning_height']
 
         for n in range(par['num_rule_tuned']):
-            for i in range(par['num_receptive_fields']):
-                if n%par['num_receptive_fields'] == i:
+            for i in range(par['num_rules']):
+                if n%par['num_rules'] == i:
                     rule_tuning[n,i] = par['tuning_height']
 
 
