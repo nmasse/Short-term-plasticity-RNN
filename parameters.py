@@ -229,7 +229,7 @@ def generate_masks():
     hidden_type[par['num_exc_units']+3*n::] = 5
 
 
-    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    connectivity = np.ones((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
     # to soma
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
     connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
