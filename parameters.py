@@ -33,7 +33,7 @@ par = {
     'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
-    'connection_prob'       : 1,         # Usually 1
+    'connection_prob'       : 0.25,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 0.25,
@@ -47,7 +47,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.01,
+    'spike_cost'            : 0.005,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 1500,
+    'num_iterations'        : 500,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -108,7 +108,7 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 1500,
+    'num_iterations'        : 500,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : False,
@@ -254,7 +254,7 @@ def update_dependencies():
 
         return np.max(abs(np.linalg.eigvals(A)))
 
-    par['h_init'] = 0.2*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
@@ -299,7 +299,6 @@ def update_dependencies():
     1 = facilitating
     2 = depressing
     """
-
 
 
     par['synapse_type'] = np.zeros(par['n_hidden'], dtype=np.int8)
