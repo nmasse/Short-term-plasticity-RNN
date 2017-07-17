@@ -156,8 +156,7 @@ class Model:
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for (h, mask)
-                            in zip(self.hidden_state_hist, self.mask)]
+        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
