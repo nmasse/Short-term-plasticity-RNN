@@ -27,13 +27,13 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'use_dendrites'     : True,
-    'df_num'            : '0008',    # Designates which dendrite function to use
+    'df_num'            : '0009',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
     'n_hidden'          : 250,
-    'den_per_unit'      : 10,
+    'den_per_unit'      : 8,
 
     # Timings and rates
     'dt'                : 20,
@@ -74,8 +74,8 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 2,
-    'num_test_batches'  : 2,
+    'num_train_batches' : 500,
+    'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
