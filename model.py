@@ -98,8 +98,8 @@ class Model:
                 W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
                 W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
 
-            W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
-            W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
+            #W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=False)
+            #W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=False)
 
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
@@ -136,8 +136,8 @@ class Model:
                 W_td_dend = tf.get_variable('W_td_dend')
                 W_rnn_dend = tf.get_variable('W_rnn_dend')
 
-            W_stim_soma = tf.get_variable('W_stim_soma')
-            W_td_soma = tf.get_variable('W_td_soma')
+            #W_stim_soma = tf.get_variable('W_stim_soma')
+            #W_td_soma = tf.get_variable('W_td_soma')
 
             W_rnn_soma = tf.get_variable('W_rnn_soma')
             b_rnn = tf.get_variable('b_rnn')
@@ -195,14 +195,17 @@ class Model:
             dend_out = dend
             h_soma_in = 0
 
-        # Apply, in order: alpha decay, dendritic input, soma recurrence,
-        # bias terms, and Gaussian randomness.  This generates the output of
-        # the hidden layer.
+        h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
+                     + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) + b_rnn) \
+                     + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
+
+        """
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                      + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
                      + tf.matmul(tf.nn.relu(W_stim_soma), tf.nn.relu(stim_in)) \
                      + tf.matmul(tf.nn.relu(W_td_soma), tf.nn.relu(td_in)) + b_rnn) \
                      + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
+        """
 
         # Return the network information
         if par['use_dendrites']:
@@ -480,9 +483,9 @@ def extract_weights():
             W_td_dend = tf.get_variable('W_td_dend')
             W_rnn_dend = tf.get_variable('W_rnn_dend')
 
-        W_stim_soma = tf.get_variable('W_stim_soma')
-        W_td_soma = tf.get_variable('W_td_soma')
-        W_rnn_soma = tf.get_variable('W_rnn_soma')
+        #W_stim_soma = tf.get_variable('W_stim_soma')
+        #W_td_soma = tf.get_variable('W_td_soma')
+        #W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
 
     with tf.variable_scope('output', reuse=True):
@@ -490,9 +493,9 @@ def extract_weights():
         b_out = tf.get_variable('b_out')
 
     weights = {
-        'w_stim_soma': W_stim_soma.eval(),
-        'w_td_soma': W_td_soma.eval(),
-        'w_rnn_soma': W_rnn_soma.eval(),
+        #'w_stim_soma': W_stim_soma.eval(),
+        #'w_td_soma': W_td_soma.eval(),
+        #'w_rnn_soma': W_rnn_soma.eval(),
         'w_out': W_out.eval(),
         'b_rnn': b_rnn.eval(),
         'b_out': b_out.eval()

@@ -20,7 +20,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [],   # Default is [], for no preference
+    'processor_affinity'    : [0, 1],   # Default is [], for no preference
     'use_HUD'               : False,
 
     # Network configuration
@@ -74,7 +74,7 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 500,
+    'num_train_batches' : 100,
     'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
@@ -86,7 +86,7 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_pts'          : [1100, 1200],
+    'time_pts'          : [850, 1100, 1200],
     'num_category_rule' : 1,
     'roc_vars'          : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
@@ -136,7 +136,7 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 24 * par['num_rules']
+        par['num_rule_tuned']        = 0 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
@@ -508,6 +508,10 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+    if par['num_rules']*par['num_RFs'] != par['den_per_unit']:
+        print('ERROR: Use den_per_unit = num_rules * num_RFs.')
+        quit()
 
 set_task_profile()
 update_dependencies()

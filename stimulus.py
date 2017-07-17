@@ -85,8 +85,10 @@ class Stimulus:
 
         rule_tuning = np.zeros([par['num_rules'], par['num_rule_tuned']])
         m = par['num_rule_tuned']//par['num_rules']
-        if m == 0:
-            print('ERROR: Use more spatial neurons than RFs.')
+        if par['num_rule_tuned'] == 0:
+            return np.array([0]*par['num_rules'])
+        elif m == 0:
+            print('ERROR: Use more rule neurons than rules.')
             quit()
 
         for r in range(par['num_rules']):
@@ -105,8 +107,10 @@ class Stimulus:
 
         spatial_tuning = np.zeros([par['num_RFs'], par['num_spatial_cue_tuned']])
         m = par['num_spatial_cue_tuned']//par['num_RFs']
-        if m == 0:
-            print('ERROR: Use more spatial neurons than RFs.')
+        if par['num_spatial_cue_tuned'] == 0:
+            return np.array([0]*par['num_RFs'])
+        elif m == 0:
+            print('ERROR: Use more spatially tuned neurons than RFs.')
             quit()
 
         for r in range(par['num_RFs']):
