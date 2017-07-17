@@ -20,7 +20,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'processor_affinity'    : [],   # Default is [], for no preference
     'use_HUD'               : False,
 
     # Network configuration
