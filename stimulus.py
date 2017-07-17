@@ -221,8 +221,8 @@ class Stimulus:
 
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
-                      'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
-                      'test'            :  np.zeros((self.num_trials),dtype=np.float32),
+                      'sample'          :  np.zeros((self.num_trials),dtype=np.int8),
+                      'test'            :  np.zeros((self.num_trials),dtype=np.int8),
                       'rule'            :  np.zeros((self.num_trials),dtype=np.int8),
                       'match'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
@@ -341,9 +341,9 @@ class Stimulus:
 
 
         # debugging: plot the neural input activity
-        """
-        plot_neural_input(trial_info)
-        """
+
+        #self.plot_neural_input(trial_info)
+        #quit
 
         return trial_info
 
@@ -475,7 +475,7 @@ class Stimulus:
                 for r in range(par['num_receptive_fields']):
                     d = np.cos((stim_dirs[i] - pref_dirs[n])/180*np.pi)
                     n_ind = n+r*par['num_motion_tuned']//par['num_receptive_fields']
-                    motion_tuning[n_ind,r,i] = par['tuning_height']*(np.exp(par['kappa']*d)-np.exp(0))/np.exp(par['kappa'])
+                    motion_tuning[n_ind,r,i] = par['tuning_height']*np.exp(par['kappa']*d)/np.exp(par['kappa'])
 
         for n in range(par['num_fix_tuned']):
             for i in range(2):
@@ -514,7 +514,6 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
-        print(trial_info['num_distract'][0])
 
         """
         f = plt.figure(figsize=(9,4))
