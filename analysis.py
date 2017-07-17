@@ -21,7 +21,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20)
+        simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 2)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
@@ -33,7 +33,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h, syn_x, syn_u, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 5)
 
     neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h, \
         syn_x, syn_u, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
