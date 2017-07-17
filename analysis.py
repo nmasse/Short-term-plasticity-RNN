@@ -20,10 +20,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
-    t = time.time()
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
         simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20)
-    print('Behavior time ', time.time()-t)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
@@ -34,15 +32,11 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machhines
     """
-    t = time.time()
     neuronal_decoding, synaptic_decoding = calculate_svms(h, syn_x, syn_u, trial_info['sample'], \
         trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
-    print('Decoding time ', time.time()-t)
 
-    t = time.time()
     neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h, \
         syn_x, syn_u, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
-    print('Tuning time ', time.time()-t)
 
     """
     Save the results
@@ -60,7 +54,11 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'model_performance': model_performance,
         'parameters': par,
         'weights': weights,
-        'trial_time': trial_time}
+        'trial_time': trial_time,
+        'h': h,
+        'rule': trial_info['rule'],
+        'sample': trial_info['sample'],
+        'match': trial_info['match']}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -130,8 +128,8 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
             i = int(np.round(len(ind_rule)*train_pct))
             train_ind = ind_rule[q[:i]]
             test_ind = ind_rule[q[i:]]
-            equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint8)
-            equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint8)
+            equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
+            equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
 
             for c in range(num_conds):
                 u = range(c*trials_per_cond, (c+1)*trials_per_cond)
@@ -142,15 +140,15 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
                 # testing indices for current condition number
                 ind = np.where(conds[test_ind] == c)[0]
                 q = np.random.randint(len(ind), size = trials_per_cond)
-                equal_test_ind[u] =  train_ind[ind[q]]
+                equal_test_ind[u] =  test_ind[ind[q]]
 
             for t in range(num_time_steps):
                 if trial_time[t] <= par['dead_time']:
                     # no need to analyze activity during dead time
                     continue
 
-                score_h[rule,r,t] = calc_svm(lin_clf, h[:,t,:].T, conds, equal_train_ind, equal_test_ind)
-                score_syn_eff[rule,r,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+                score_h[r,rep,t] = calc_svm(lin_clf, h[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+                score_syn_eff[r,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, conds, equal_train_ind, equal_test_ind)
 
     return score_h, score_syn_eff
 
@@ -160,6 +158,8 @@ def calc_svm(lin_clf, y, conds, train_ind, test_ind):
 
     # normalize values between 0 and 1
     # only include feature (i.e neurons or synapses) whose min and max values differ
+
+
     feature_ind = []
     for i in range(y.shape[1]):
         m1 = y[:,i].min()
@@ -283,7 +283,7 @@ def calculate_sample_tuning(h, syn_x, syn_u, sample, rule, match, trial_time):
                 pred_err = h[n,t,ind] - np.dot(sample_dir[ind,:], weights)
                 mse = np.mean(pred_err**2)
                 response_var = np.var(h[n,t,ind])
-                neuronal_pev[n,r,t] = 1 - (mse)/(response_var+1e-9)
+                neuronal_pev[n,r,t] = 1 - mse/(response_var+1e-9)
                 neuronal_pref_dir[n,r,t] = np.arctan2(weights[2,0],weights[1,0])
 
                 # Synaptic sample tuning
@@ -292,7 +292,7 @@ def calculate_sample_tuning(h, syn_x, syn_u, sample, rule, match, trial_time):
                 pred_err = syn_efficacy[n,t,ind] - np.dot(sample_dir[ind,:], weights)
                 mse = np.mean(pred_err**2)
                 response_var = np.var(syn_efficacy[n,t,ind])
-                synaptic_pev[n,r,t] = 1 - (mse)/(response_var+1e-9)
+                synaptic_pev[n,r,t] = 1 - mse/(response_var+1e-9)
                 synaptic_pref_dir[n,r,t] = np.arctan2(weights[2,0],weights[1,0])
 
     return neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev
@@ -379,11 +379,10 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
 
     return h, syn_x, syn_u
 
-def downsample_activity(h, syn_x, syn_u, target_dt = 10):
+def downsample_activity(h, syn_x, syn_u, target_dt = 20):
 
     # downsample activity
-    target_dt = 10 # desired resolution
-    df = 10//par['dt']
+    df = target_dt//par['dt']
     if df > 1:
         rng = range(0,h.shape[1], df)
         h = h[:, rng, :]
