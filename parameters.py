@@ -11,7 +11,7 @@ Independent parameters
 """
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : 'C:/Users/nicol/Projects/RNN STP Analysis/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : False,
@@ -47,7 +47,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.015,
+    'spike_cost'            : 0.01,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -73,6 +73,8 @@ par = {
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
+    'rule_onset_time'       : 1900,
+    'rule_offset_time'      : 2100,
     'variable_delay_max'    : 500,
     'mask_duration'         : 80,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.15,
@@ -96,7 +98,8 @@ analysis_par = {
     'batch_train_size'      : 1024,
     'var_delay'             : False,
     'dt'                    : 5,
-    'learning_rate'         : 0
+    'learning_rate'         : 0,
+    'catch_trial_pct'       : 0,
 }
 
 """
@@ -110,7 +113,8 @@ revert_analysis_par = {
     'batch_train_size'      : 128,
     'var_delay'             : False,
     'dt'                    : 20,
-    'learning_rate'         : 5e-3
+    'learning_rate'         : 5e-3,
+    'catch_trial_pct'       : 0.15,
 }
 
 
@@ -126,6 +130,7 @@ def update_parameters(updates):
     for key, val in updates.items():
         par[key] = val
 
+    update_trial_params()
     update_dependencies()
 
 def update_trial_params():
@@ -133,6 +138,11 @@ def update_trial_params():
     """
     Update all the trial parameters given trial_type
     """
+
+    if par['trial_type'] == 'DMS':
+        par['num_rules'] = 1
+        par['num_rule_tuned'] = 0
+
     if par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45
 
@@ -147,7 +157,7 @@ def update_trial_params():
         par['num_receptive_fields'] = 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 20
-        par['num_rule_tuned'] = 8
+        par['num_rule_tuned'] = 12
         analysis_par['probe_trial_pct'] = 0.5
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
@@ -160,11 +170,16 @@ def update_trial_params():
         if par['trial_type'] == 'ABBA':
             par['repeat_pct'] = 0.5
 
-
-
-    elif par['trial_type'] == 'DMS+DMRS':
+    elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
         par['rotation_match'] = [0, 90]
         par['num_rules'] = 2
+        par['num_rule_tuned'] = 12
+        if par['trial_type'] == 'DMS+DMRS':
+            par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 700
+        else:
+            par['rule_onset_time'] = par['dead_time']
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']
 
     elif par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         pass
