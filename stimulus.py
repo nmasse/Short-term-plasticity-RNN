@@ -83,7 +83,7 @@ class Stimulus:
                       'match'           :  np.zeros((self.num_trials,2),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials,2),dtype=np.int8),
                       'probe'           :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['input_sd'], size=(par['n_input'], trial_length, self.num_trials))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
 
 
 
@@ -227,7 +227,7 @@ class Stimulus:
                       'match'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'probe'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['input_sd'], size=(par['n_input'], trial_length, self.num_trials))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
 
 
         # set to mask equal to zero during the dead time
@@ -386,7 +386,7 @@ class Stimulus:
                       'num_test_stim'   :  np.zeros((self.num_trials),dtype=np.int8),
                       'repeat_test_stim':  np.zeros((self.num_trials),dtype=np.int8),
                       'test_stim_code'  :  np.zeros((self.num_trials),dtype=np.int32),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['input_sd'], size=(par['n_input'], trial_length, self.num_trials))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
 
 
         # set to mask equal to zero during the dead time
