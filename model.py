@@ -97,8 +97,9 @@ class Model:
                 W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
                 W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
 
-            W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
-            W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
+            if par['use_stim_soma']:
+                W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
+                W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
 
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
@@ -132,15 +133,19 @@ class Model:
         with tf.variable_scope('rnn_cell', reuse=True):
             if par['use_dendrites']:
                 W_stim_dend = tf.get_variable('W_stim_dend')
-                W_td_dend = tf.get_variable('W_td_dend')
-                W_rnn_dend = tf.get_variable('W_rnn_dend')
+                W_td_dend   = tf.get_variable('W_td_dend')
+                W_rnn_dend  = tf.get_variable('W_rnn_dend')
 
-            W_stim_soma = tf.get_variable('W_stim_soma')
-            W_td_soma = tf.get_variable('W_td_soma')
+            if par['use_stim_soma']:
+                W_stim_soma = tf.get_variable('W_stim_soma')
+                W_td_soma   = tf.get_variable('W_td_soma')
+            else:
+                W_stim_soma = np.zeros([par['n_hidden'], par['num_stim_tuned']], dtype=np.float32)
+                W_td_soma   = np.zeros([par['n_hidden'], par['n_input'] - par['num_stim_tuned']], dtype=np.float32)
 
-            W_rnn_soma = tf.get_variable('W_rnn_soma')
-            b_rnn = tf.get_variable('b_rnn')
-            W_ei = tf.constant(par['EI_matrix'], name='W_ei')
+            W_rnn_soma  = tf.get_variable('W_rnn_soma')
+            b_rnn       = tf.get_variable('b_rnn')
+            W_ei        = tf.constant(par['EI_matrix'], name='W_ei')
 
         # If using an excitatory-inhibitory network, ensures that E neurons
         # have only positive outgoing weights, and that I neurons have only
@@ -469,8 +474,10 @@ def extract_weights():
             W_td_dend = tf.get_variable('W_td_dend')
             W_rnn_dend = tf.get_variable('W_rnn_dend')
 
-        W_stim_soma = tf.get_variable('W_stim_soma')
-        W_td_soma = tf.get_variable('W_td_soma')
+        if par['use_stim_soma']:
+            W_stim_soma = tf.get_variable('W_stim_soma')
+            W_td_soma = tf.get_variable('W_td_soma')
+
         W_rnn_soma = tf.get_variable('W_rnn_soma')
         b_rnn = tf.get_variable('b_rnn')
 
@@ -479,8 +486,6 @@ def extract_weights():
         b_out = tf.get_variable('b_out')
 
     weights = {
-        'w_stim_soma': W_stim_soma.eval(),
-        'w_td_soma': W_td_soma.eval(),
         'w_rnn_soma': W_rnn_soma.eval(),
         'w_out': W_out.eval(),
         'b_rnn': b_rnn.eval(),
@@ -491,6 +496,10 @@ def extract_weights():
         weights['w_stim_dend'] = W_stim_dend.eval()
         weights['w_td_dend'] = W_td_dend.eval()
         weights['w_rnn_dend'] = W_rnn_dend.eval()
+
+    if par['use_stim_soma']:
+        weights['w_stim_soma'] = W_stim_soma.eval()
+        weights['w_td_soma'] = W_td_soma.eval()
 
     return weights
 

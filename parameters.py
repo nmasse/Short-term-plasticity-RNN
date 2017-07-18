@@ -27,6 +27,7 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'use_dendrites'     : True,
+    'use_stim_soma'     : False,
     'df_num'            : '0009',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
@@ -271,6 +272,32 @@ def generate_masks():
             par['w_rnn_soma_mask'][target,source] = connectivity[0,hidden_type[source],hidden_type[target]]
 
 
+def spectral_radius(A):
+    """
+    Compute the spectral radius of each dendritic dimension of a weight array,
+    and normalize using square room of the sum of squares of those radii.
+    """
+    if A.ndim == 2:
+        return np.max(abs(np.linalg.eigvals(A)))
+    elif A.ndim == 3:
+        # Assumes the second axis is the target (for dendritic setup)
+        r = 0
+        for n in range(np.shape(A)[1]):
+            r = r + np.max(abs(np.linalg.eigvals(np.squeeze(A[:,n,:]))))
+
+        return r / np.shape(A)[1]
+
+
+def set_template(trial_locations):
+    # Set up dendrite inhibition template for df0009
+    o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
+    o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
+    template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
+    for n in range(par['batch_train_size']):
+        template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
+    par['dendrite_template'] = np.transpose(template, [0,2,1])
+
+
 def update_dependencies():
     """
     Updates all parameter dependencies
@@ -366,21 +393,6 @@ def update_dependencies():
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
-
-    def spectral_radius(A):
-        """
-        Compute the spectral radius of each dendritic dimension of a weight array,
-        and normalize using square room of the sum of squares of those radii.
-        """
-        if A.ndim == 2:
-            return np.max(abs(np.linalg.eigvals(A)))
-        elif A.ndim == 3:
-            # Assumes the second axis is the target (for dendritic setup)
-            r = 0
-            for n in range(np.shape(A)[1]):
-                r = r + np.max(abs(np.linalg.eigvals(np.squeeze(A[:,n,:]))))
-
-            return r / np.shape(A)[1]
 
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
     par['d_init'] = 0.1*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
@@ -509,14 +521,7 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-def set_template(trial_locations):
-    # Set up dendrite inhibition template for df0009
-    o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
-    o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
-    template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
-    for n in range(par['batch_train_size']):
-        template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
-    par['dendrite_template'] = np.transpose(template, [0,2,1])
+    set_template(np.zeros((par['batch_train_size'], 1), dtype=np.uint8))
 
 set_task_profile()
 update_dependencies()

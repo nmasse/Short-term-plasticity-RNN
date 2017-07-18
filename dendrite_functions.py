@@ -348,4 +348,4 @@ def dendrite_function0009(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
 
     h_soma_in = ac_simple_sum(h_den_out)
 
-    return h_soma_in, h_den_out, exc_activity, inh_activity
+    return h_soma_in, h_den_out, exc_activity, tf.convert_to_tensor(par['dendrite_template'])
