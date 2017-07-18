@@ -10,33 +10,45 @@ import pickle
 
 def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights):
 
+    print('before stack mean h ', np.mean(h))
+
     """
     Converts neuroanl and synaptic values, stored in lists, into 3D arrays
+    Creating new variable since h, syn_x, and syn_u are class members of model.py,
+    and will get mofiied by functions within analysis.py
     """
-    syn_x = np.stack(syn_x, axis=1)
-    syn_u = np.stack(syn_u, axis=1)
-    h = np.stack(h, axis=1)
+    syn_x_stacked = np.stack(syn_x, axis=1)
+    syn_u_stacked = np.stack(syn_u, axis=1)
+    h_stacked= np.stack(h, axis=1)
+
+    print('mean h ', np.mean(h))
 
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 2)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 2)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
     """
-    h, syn_x, syn_u, trial_time = downsample_activity(h, syn_x, syn_u, target_dt = 20)
+    h, syn_x, syn_u, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 5)
+
+    print('downsampled mean h ', np.mean(h))
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machhines
     """
-    neuronal_decoding, synaptic_decoding = calculate_svms(h, syn_x, syn_u, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 5)
+    neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 2)
 
-    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h, \
-        syn_x, syn_u, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
+    print('mean h ', np.mean(h))
+
+    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h_stacked, \
+        syn_x_stacked, syn_u_stacked, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
+
+    print('mean h ', np.mean(h))
 
     """
     Save the results
@@ -375,7 +387,7 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
     h = np.maximum(0, h*(1-par['alpha_neuron'])
                    + par['alpha_neuron']*(np.dot(np.maximum(0,weights['w_in']), np.maximum(0, rnn_input))
                    + np.dot(W_rnn_effective, h_post) + weights['b_rnn'])
-                   + np.random.normal(0, par['noise_sd'],size=(par['n_hidden'], h.shape[1])))
+                   + np.random.normal(0, par['noise_rnn'],size=(par['n_hidden'], h.shape[1])))
 
     return h, syn_x, syn_u
 
