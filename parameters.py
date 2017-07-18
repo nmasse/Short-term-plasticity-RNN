@@ -297,7 +297,7 @@ def set_template(trial_rules, trial_locations):
     for n in range(par['batch_train_size']):
         template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
         #template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
-    par['dendrite_template'] = np.transpose(template, [0,2,1])
+    return np.transpose(template, [0,2,1])
 
 
 def update_dependencies():

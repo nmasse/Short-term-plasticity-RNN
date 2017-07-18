@@ -38,7 +38,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, template, learning_rate):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -47,6 +47,7 @@ class Model:
         self.target_data    = tf.unstack(target_data, axis=1)
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
+        self.template       = template
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -114,7 +115,7 @@ class Model:
 
         # Loops through the neural inputs to the network, indexed in time
         for n_in in range(len(x_unstacked)):
-            h, d, syn_x, syn_u, e, i = self.rnn_cell(x_unstacked[n_in], td_unstacked[n_in], h, d, syn_x, syn_u)
+            h, d, syn_x, syn_u, e, i = self.rnn_cell(x_unstacked[n_in], td_unstacked[n_in], h, d, syn_x, syn_u, self.template)
             self.hidden_state_hist.append(h)
             self.dendrites_hist.append(d)
             self.dendrites_inputs_exc_hist.append(e)
@@ -123,7 +124,7 @@ class Model:
             self.syn_u_hist.append(syn_u)
 
 
-    def rnn_cell(self, stim_in, td_in, h_soma, dend, syn_x, syn_u):
+    def rnn_cell(self, stim_in, td_in, h_soma, dend, syn_x, syn_u, template):
         """
         Run the main computation of the recurrent network
         """
@@ -193,8 +194,12 @@ class Model:
         # in the parameters file.
         if par['use_dendrites']:
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
-            h_soma_in, dend_out, exc_activity, inh_activity = \
-                dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
+            if par['df_num'] == '0009':
+                h_soma_in, dend_out, exc_activity, inh_activity = \
+                    dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend, template)
+            else:
+                h_soma_in, dend_out, exc_activity, inh_activity = \
+                    dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
         else:
             dend_out = dend
             h_soma_in = 0
@@ -291,12 +296,13 @@ def main():
     x_stim  = tf.placeholder(tf.float32, shape=[par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
     x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
     y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
+    dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x_stim, x_td, y, mask, learning_rate)
+        model = Model(x_stim, x_td, y, mask, dendrite_template, learning_rate)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -334,12 +340,11 @@ def main():
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
                 # Allow for special dendrite functions
-                if par['df_num'] == '0009':
-                    set_template(trial_info['rule_index'], trial_info['location_index'])
+                template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Train the model
                 _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], learning_rate: par['learning_rate']})
+                    mask: trial_info['train_mask'], dendrite_template: template, learning_rate: par['learning_rate']})
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
@@ -365,8 +370,7 @@ def main():
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
                 # Allow for special dendrite functions
-                if par['df_num'] == '0009':
-                    set_template(trial_info['rule_index'], trial_info['location_index'])
+                template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Run the model
                 _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
@@ -375,7 +379,7 @@ def main():
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], learning_rate: 0})
+                    mask: trial_info['train_mask'], dendrite_template: template, learning_rate: 0})
 
                 # Aggregate the test data for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
