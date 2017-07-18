@@ -335,7 +335,7 @@ def main():
 
                 # Allow for special dendrite functions
                 if par['df_num'] == '0009':
-                    set_template(trial_info['location_index'])
+                    set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Train the model
                 _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
@@ -366,7 +366,7 @@ def main():
 
                 # Allow for special dendrite functions
                 if par['df_num'] == '0009':
-                    set_template(trial_info['location_index'])
+                    set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Run the model
                 _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
@@ -576,10 +576,10 @@ def create_save_dir():
     timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
     if par['use_dendrites']:
         dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-            str(par['n_hidden']) + '_df' + par['df_num']+ timestamp
+            str(par['n_hidden']) + '_df' + par['df_num'] + timestamp + par['save_notes']
     else:
         dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-            str(par['n_hidden']) + 'nd' + timestamp
+            str(par['n_hidden']) + 'nd' + timestamp + par['save_notes']
 
                 # Make new folder for parameters, results, and analysis
     if not os.path.exists(dirpath):

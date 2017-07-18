@@ -20,7 +20,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'processor_affinity'    : [2, 3],   # Default is [], for no preference
     'use_HUD'               : False,
 
     # Network configuration
@@ -81,7 +81,8 @@ par = {
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
 
-    # Pickle save paths
+    # Save paths and other info
+    'save_notes'        : ''
     'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
@@ -288,13 +289,14 @@ def spectral_radius(A):
         return r / np.shape(A)[1]
 
 
-def set_template(trial_locations):
+def set_template(trial_rules, trial_locations):
     # Set up dendrite inhibition template for df0009
     o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
     o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
     template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
     for n in range(par['batch_train_size']):
-        template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
+        template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
+        #template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
     par['dendrite_template'] = np.transpose(template, [0,2,1])
 
 
@@ -521,7 +523,7 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-    set_template(np.zeros((par['batch_train_size'], 1), dtype=np.uint8))
+    set_template(np.zeros((par['batch_train_size'], 1), dtype=np.uint8), np.zeros((par['batch_train_size'], 1), dtype=np.uint8))
 
 set_task_profile()
 update_dependencies()
