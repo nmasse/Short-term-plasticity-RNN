@@ -8,6 +8,7 @@ os.system('cls' if os.name == 'nt' else 'clear')
 ### Informal plotting code
 
 data    = analysis.load_data_dir('./savedir/model_att_h50_df0009_D17-07-18_T16-12-11_50_n_500_batch_low_noise')
+#weights = model_saver.json_load('./savedir/model_att_h30_df0009_D17-07-18_T16-28-36_works_now/model_results.json')['weights']['w_rnn_soma']
 
 anova   = data['anova']
 roc     = data['roc']
