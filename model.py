@@ -318,6 +318,8 @@ def main():
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
+            print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
+
             # Reset any altered task parameters back to their defaults, then switch
             # the allowed rules if the iteration number crosses a specified threshold
             set_task_profile()
@@ -338,7 +340,7 @@ def main():
                 o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
                 template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
                 for n in range(par['batch_train_size']):
-                    template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
+                    template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
                 trial_info['dendrite_template'] = np.transpose(template, [0,2,1])
 
                 # Train the model
@@ -445,21 +447,21 @@ def print_data(dirpath, model_results, analysis):
     print('\nRule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
     if not analysis['anova'] == []:
-        anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+        anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         print('\nAnova P < 0.001:')
         print('----------------')
         for i in range(0, len(anova_print), 2):
-            print(anova_print[i] + "\t| " + anova_print[i+1])
+            print(anova_print[i] + "  | " + anova_print[i+1])
         if len(anova_print)%2 != 0:
-            print(anova_print[-1] + "\t|")
+            print(anova_print[-1] + "  |")
     if not analysis['roc'] == []:
-        roc_print = [k[:-5] + ':{:8.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
+        roc_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
         print('\n98th prctile t-stat:')
         print('--------------------')
         for i in range(0, len(roc_print), 2):
-            print(roc_print[i] + "\t| " + roc_print[i+1])
+            print(roc_print[i] + "  | " + roc_print[i+1])
         if len(roc_print)%2 != 0:
-            print(roc_print[-1] + "\t|")
+            print(roc_print[-1] + "  |")
     print("\n")
 
 
