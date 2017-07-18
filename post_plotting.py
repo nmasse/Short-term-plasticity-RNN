@@ -7,7 +7,7 @@ os.system('cls' if os.name == 'nt' else 'clear')
 
 ### Informal plotting code
 
-data    = analysis.load_data_dir('./savedir/model_att_h50_df0009_D17-07-17_T15-38-03')
+data    = analysis.load_data_dir('./savedir/model_att_h50_df0009_D17-07-18_T16-12-11_50_n_500_batch_low_noise')
 
 anova   = data['anova']
 roc     = data['roc']
@@ -22,7 +22,7 @@ roc_groups      = ['_attn', '_no_attn']
 tuning_groups   = ['_attn', '_no_attn']
 
 def view_all():
-    i = 7
+    i = 15
     n = 186
     d1 = 2
     d2 = 11
@@ -49,7 +49,7 @@ def view_all():
                 axarr[r*2+t, rf].imshow(all_neurons[i,:,rf,r,t,:], aspect='auto', interpolation='none')
                 axarr[r*2+t, rf].set_title('rf = {}, r = {}, t ={}'.format(rf, r, t), fontsize=6)
 
-    axarr[3,0].set_xlabel("Signal Index          Both")
+    axarr[3,0].set_xlabel("Signal Index          Excitatory")
     axarr[3,0].set_ylabel("Dendrites * Neurons")
     plt.show()
 
@@ -81,5 +81,29 @@ def view_roc():
     axarr[5,0].set_ylabel("Dendrites * Neurons")
     plt.show()
 
+def view_dendrite():
+    # ROC = iter num X neuron X (dendrite num) X RF X rule X category (up/down or left/right) time
+    i = 15
+    rf = 0
+    r = 0
+    c = 0
+    t = 1
+
+    for d in range(4):
+        # for rf in range(4):
+            # for r in range(2):
+                # for c in range(2):
+            d1 = data['roc']['dend_exc_hist_attn'][i, :, d, d, 0, 0, t]
+            d2 = data['roc']['dend_exc_hist_attn'][i, :, d+4, d, 1, 1, t]
+
+            plt.scatter(d1, d2)
+            plt.title("15dendrites_"+str(d)+"_"+str(d+1))
+            plt.savefig('./analysis/15dendrites'+str(d)+"_"+str(d+1)+"_rf_"+str(rf)+"_r_"+str(r)+"_c_"+str(c)+'.jpg')
+            plt.clf()
+
+
+
+
 #view_roc()
-view_all()
+# view_all()
+view_dendrite()
