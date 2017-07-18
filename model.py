@@ -325,8 +325,11 @@ def main():
 
                 # Generate batch of par['batch_train_size'] trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
-                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'] ]
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
+
+                if par['df_num'] == '0009':
+                    set_template(trial_info['location_index'])
 
                 # Train the model
                 _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
@@ -352,8 +355,11 @@ def main():
 
                 # Generate batch of testing trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
-                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'] ]
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
+
+                if par['df_num'] == '0009':
+                    set_template(trial_info['location_index'])
 
                 # Run the model
                 _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
