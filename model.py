@@ -313,6 +313,8 @@ def main():
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
+            print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
+
             # Reset any altered task parameters back to their defaults, then switch
             # the allowed rules if the iteration number crosses a specified threshold
             set_task_profile()
