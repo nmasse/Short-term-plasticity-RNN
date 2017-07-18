@@ -142,7 +142,7 @@ class Model:
         h = tf.nn.relu(h*(1-par['alpha_neuron'])
                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_sd'], dtype=tf.float32))
+                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u
 
@@ -219,6 +219,7 @@ def main():
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
+
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session() as sess:
 
@@ -260,8 +261,8 @@ def main():
 
                 """
                 Run the model
-                If learning rate > 0, then also run the optimizer,
-                 if learning rate = 0, then skip optimizer
+                If learning rate > 0, then also run the optimizer;
+                if learning rate = 0, then skip optimizer
                 """
                 if par['learning_rate']>0:
                     _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
