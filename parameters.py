@@ -75,14 +75,14 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 100,
+    'num_train_batches' : 500,
     'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
 
     # Save paths and other info
-    'save_notes'        : ''
+    'save_notes'        : '_larger_batch_w_rules',
     'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
