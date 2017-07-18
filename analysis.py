@@ -85,11 +85,11 @@ def roc_analysis(test_data):
                             if var.count('dend') > 0:
                                 for d in range(par['den_per_unit']):
                                     roc[var + '_attn'][n,d,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
-                                        n%par['n_hidden'], n//par['n_hidden'],ind0_attn], test_data[var][time_pts[t], \
-                                        n%par['n_hidden'], n//par['n_hidden'],ind1_attn], fast_calc = True)
+                                        n, d, ind0_attn], test_data[var][time_pts[t], \
+                                        n, d,ind1_attn], fast_calc = True)
                                     roc[var + '_no_attn'][n,d,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
-                                        n%par['n_hidden'], n//par['n_hidden'],ind0_no_attn], test_data[var][time_pts[t], \
-                                        n%par['n_hidden'], n//par['n_hidden'],ind1_no_attn], fast_calc = True)
+                                        n, d,ind0_no_attn], test_data[var][time_pts[t], \
+                                        n, d,ind1_no_attn], fast_calc = True)
                             else:
                                 roc[var + '_attn'][n,rf,rule,cat,t] = calculate_roc(test_data[var][time_pts[t], \
                                     n,ind0_attn], test_data[var][time_pts[t], n,ind1_attn], fast_calc = True)
