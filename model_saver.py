@@ -84,8 +84,8 @@ def json_load(savedir="save.json", toplevel=True, a=None):
                     sh = x[i][2]
                     st = np.fromstring(b, dtype=t)
                     sh = re.findall('\d+', sh)
-                    for i in range(len(sh)):
-                        sh[i] = int(sh[i])
+                    for j in range(len(sh)):
+                        sh[j] = int(sh[j])
                     x[i] = np.reshape(st, sh)
                 elif x[i][0] == "range":
                     x[i] = range(*x[i][1:3])
