@@ -421,7 +421,7 @@ def print_data(dirpath, model_results, analysis):
     print('\nRule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
     if not analysis['anova'] == []:
-        anova_print = [k[:-5] + ':{:8.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
+        anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         print('\nAnova P < 0.001:')
         print('----------------')
         for i in range(0, len(anova_print), 2):
@@ -429,7 +429,7 @@ def print_data(dirpath, model_results, analysis):
         if len(anova_print)%2 != 0:
             print(anova_print[-1] + "\t|")
     if not analysis['roc'] == []:
-        roc_print = [k[:-5] + ':{:8.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
+        roc_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
         print('\n98th prctile t-stat:')
         print('--------------------')
         for i in range(0, len(roc_print), 2):
