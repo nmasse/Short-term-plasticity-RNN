@@ -328,6 +328,7 @@ def main():
                 trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
+                # Allow for special dendrite functions
                 if par['df_num'] == '0009':
                     set_template(trial_info['location_index'])
 
@@ -358,6 +359,7 @@ def main():
                 trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
 
+                # Allow for special dendrite functions
                 if par['df_num'] == '0009':
                     set_template(trial_info['location_index'])
 
