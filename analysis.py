@@ -336,15 +336,15 @@ def get_analysis(test_data={}, filename=None):
     if par['roc_vars'] is not None:
         t1 = time.time()
         result['roc'] = roc_analysis(test_data)
-        print('ROC time ', time.time()-t1)
+        print('ROC time\t', np.round(time.time()-t1,4))
     if par['anova_vars'] is not None:
         t1 = time.time()
         result['anova'] = anova_analysis(test_data)
-        print('ANOVA time ', time.time()-t1)
+        print('ANOVA time\t', np.round(time.time()-t1,4))
     if par['tuning_vars'] is not None:
         t1 = time.time()
         result['tuning'] = tuning_analysis(test_data)
-        print('TUNING time ', time.time()-t1)
+        print('TUNING time\t', np.round(time.time()-t1,4))
 
     #plot(test_data)
 
