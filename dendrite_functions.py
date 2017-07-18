@@ -326,3 +326,26 @@ def dendrite_function0008(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
     h_soma_in = ac_simple_sum(h_den_out)
 
     return h_soma_in, h_den_out, exc_activity, inh_activity
+
+
+def dendrite_function0009(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend):
+    """
+    Creation Date: 2017/7/17
+    Notes: Forced index-based gating, modeled after 0008.  Requires a certain
+    number of dendrites to function.
+    """
+
+    beta  = tf.constant(np.float32(1))
+    alpha = tf.constant(np.float32(1))
+
+    den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
+    _, exc_activity, _ = rin_basicEI(W_rnn, h_soma)
+
+    exc_activity += den_in
+
+    h_den_out = (1-par['alpha_dendrite'])*dend + \
+    par['alpha_dendrite']*tf.nn.relu(exc_activity - alpha)*tf.nn.relu(beta - par['dendrite_template'])
+
+    h_soma_in = ac_simple_sum(h_den_out)
+
+    return h_soma_in, h_den_out, exc_activity, inh_activity

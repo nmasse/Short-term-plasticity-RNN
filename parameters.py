@@ -32,8 +32,8 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 250,
-    'den_per_unit'      : 10,
+    'n_hidden'          : 30,
+    'den_per_unit'      : 8,
 
     # Timings and rates
     'dt'                : 20,
@@ -74,8 +74,8 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 2,
-    'num_test_batches'  : 2,
+    'num_train_batches' : 100,
+    'num_test_batches'  : 20,
     'num_iterations'    : 10000,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
@@ -136,7 +136,7 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 24 * par['num_rules']
+        par['num_rule_tuned']        = 0 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
@@ -508,6 +508,15 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+def set_template(trial_locations):
+    # Set up dendrite inhibition template for df0009
+    o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
+    o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
+    template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
+    for n in range(par['batch_train_size']):
+        template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
+    par['dendrite_template'] = np.transpose(template, [0,2,1])
 
 set_task_profile()
 update_dependencies()
