@@ -33,13 +33,13 @@ par = {
     'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
-    'connection_prob'       : 0.25,         # Usually 1
+    'connection_prob'       : 1,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 0.25,
-    'input_mean'            : 0,
-    'input_sd'              : 0.1,
-    'noise_sd'              : 0.5,
+    'input_mean'            : 0.2,
+    'noise_in_sd'           : 0.05,
+    'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 500,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -97,7 +97,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 5,
+    'dt'                    : 20,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -108,7 +108,7 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 500,
+    'num_iterations'        : 1000,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : False,
@@ -222,7 +222,8 @@ def update_dependencies():
     par['alpha_neuron'] = par['dt']/par['membrane_time_constant']
     # The standard deviation of the Gaussian noise added to each RNN neuron
     # at each time step
-    par['noise_sd'] = np.sqrt(2*par['alpha_neuron'])*par['noise_sd']
+    par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
+    par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
     def initialize(dims, connection_prob):
