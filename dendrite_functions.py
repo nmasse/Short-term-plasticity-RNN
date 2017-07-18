@@ -338,16 +338,12 @@ def dendrite_function0009(W_stim, W_td, W_rnn, stim_in, td_in, h_soma, dend, tem
     alpha = tf.constant(np.float32(1))
 
     den_in = in_tensordot(W_stim, stim_in) + in_tensordot(W_td, td_in)
-    activity, exc_activity, inh_activity = rin_basicEI(W_rnn, h_soma)
+    _, exc_activity, _ = rin_basicEI(W_rnn, h_soma)
 
     exc_activity += den_in
 
-    inh_activity = 1 + tf.nn.relu(inh_activity)
-    inh_activity = tf.truediv(inh_activity, inh_activity)
-    inh_activity *= template
-
     h_den_out = (1-par['alpha_dendrite'])*dend + \
-    par['alpha_dendrite']*tf.nn.relu(exc_activity - alpha)*tf.nn.relu(beta - inh_activity)
+    par['alpha_dendrite']*tf.nn.relu(exc_activity - alpha)*tf.nn.relu(beta - template)
 
     h_soma_in = ac_simple_sum(h_den_out)
 

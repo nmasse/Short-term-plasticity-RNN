@@ -32,7 +32,7 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 250,
+    'n_hidden'          : 8,
     'den_per_unit'      : 8,
 
     # Timings and rates
