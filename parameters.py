@@ -440,8 +440,8 @@ def update_dependencies():
             par['w_rnn_dend0'][i,:,i] = 0
 
     else:
-        par['w_rnn_dend0'] = np.zeros([*par['hidden_to_hidden_dend_dims']], dtype=np.float32)
-        par['w_rnn_soma0'] = np.eye([*par['hidden_to_hidden_soma_dims']], dtype=np.float32)
+        par['w_rnn_dend0'] = np.zeros(par['hidden_to_hidden_dend_dims'], dtype=np.float32)
+        par['w_rnn_soma0'] = np.eye(par['hidden_to_hidden_soma_dims'], dtype=np.float32)
 
         for i in range(par['n_hidden']):
             par['w_rnn_dend0'][i,:,i] = 1
