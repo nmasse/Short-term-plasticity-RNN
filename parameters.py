@@ -20,7 +20,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'processor_affinity'    : [2, 3],   # Default is [], for no preference
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -139,7 +139,7 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 0 * par['num_rules']
+        par['num_rule_tuned']        = 24 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
