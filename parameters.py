@@ -16,25 +16,24 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'mnist',    # dms, att, mnist
+    'stimulus_type'         : 'att',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [],   # Default is [], for no preference
-    'use_HUD'               : False,
+    'processor_affinity'    : [0, 1],   # Default is [], for no preference
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'use_dendrites'     : True,
     'use_stim_soma'     : False,
-    'df_num'            : '0009',    # Designates which dendrite function to use
+    'df_num'            : '0008',    # Designates which dendrite function to use
     'var_delay'         : False,
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 300,
-    'den_per_unit'      : 3,
+    'n_hidden'          : 50,
+    'den_per_unit'      : 8,
 
     # Timings and rates
     'dt'                : 20,
@@ -61,6 +60,7 @@ par = {
 
     # Cost parameters
     'spike_cost'        : 1e-3,
+    'dend_cost'         : 1e-2,
     'wiring_cost'       : 5e-7,
 
     # Synaptic plasticity specs
@@ -82,15 +82,16 @@ par = {
     'switch_rule_iteration'         : 10,
 
     # Save paths and other info
-    'save_notes'        : '_RF_plus_rule_template',
+    'save_notes'        : '_with_dend_cost',
     'save_fn'           : 'model_data.json',
+    'use_checkpoints'   : False,
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
     'time_pts'          : [850, 1200],
     'num_category_rule' : 1,
-    'roc_vars'          : None,
+    'roc_vars'          : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }

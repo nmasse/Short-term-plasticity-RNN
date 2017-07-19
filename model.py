@@ -234,10 +234,15 @@ class Model:
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) \
                     for (h, mask) in zip(self.hidden_state_hist, self.mask)]
 
+        # L1 penalty term on dendrite activity to encourage sparseness
+        dend_loss = [par['dend_cost']*tf.reduce_mean(tf.abs(d), axis=0) \
+                    for (d, mask) in zip(self.dendrites_hist, self.mask)]
+
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-        self.loss = self.perf_loss + self.spike_loss
+        self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -319,7 +324,7 @@ def main():
 
         # Keep track of the model performance across training
         model_results = {'accuracy': [], 'rule_accuracy' : [], 'loss': [], 'perf_loss': [], \
-                         'spike_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
+                         'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
@@ -373,9 +378,9 @@ def main():
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Run the model
-                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['y'][j], \
-                state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
-                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
+                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['dend_loss'][j], \
+                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
+                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.dend_loss, \
                     model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
@@ -408,7 +413,8 @@ def main():
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
             json_save(model_results, dirpath + '/model_results.json')
-
+            if par['use_checkpoints']:
+                saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
 
     print('\nModel execution complete.\n')
 
@@ -427,6 +433,7 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.2f}'.format(model_results['time'][-1]) \
             + '\t{:0.4f}'.format(model_results['perf_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
+            + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + '\n')
@@ -434,9 +441,9 @@ def print_data(dirpath, model_results, analysis):
     # output model performance to screen
     print('\nIteration Summary:')
     print('------------------')
-    print('Trial: {:13.0f} | Time: {:15.2f} s |'.format(model_results['trial'][-1], model_results['time'][-1]))
-    print('Perf. Loss: {:8.4f} | Mean Activity: {:8.4f} | Accuracy: {:8.4f}'.format( \
-        model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
+    print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format(model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
+    print('Perf. Loss: {:8.4f} | Dend. Loss: {:8.4f} | Mean Activity: {:8.4f}'.format( \
+        model_results['perf_loss'][-1], model_results['dend_loss'][-1], model_results['mean_hidden'][-1]))
     print('\nRule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
     if par['anova_vars'] is not None:
@@ -463,6 +470,7 @@ def append_model_performance(model_results, test_data, trial_num, iteration_time
     model_results['loss'].append(np.mean(test_data['loss']))
     model_results['spike_loss'].append(np.mean(test_data['spike_loss']))
     model_results['perf_loss'].append(np.mean(test_data['perf_loss']))
+    model_results['dend_loss'].append(np.mean(test_data['dend_loss']))
     model_results['mean_hidden'].append(np.mean(test_data['mean_hidden']))
     model_results['trial'].append(trial_num)
     model_results['time'].append(iteration_time)
@@ -535,6 +543,7 @@ def initialize_test_data():
         'loss'          : np.zeros((par['num_test_batches']), dtype=np.float32),
         'perf_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
         'spike_loss'    : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'dend_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
         'mean_hidden'   : np.zeros((par['num_test_batches']), dtype=np.float32),
         'accuracy'      : np.zeros((par['num_test_batches']), dtype=np.float32),
 
