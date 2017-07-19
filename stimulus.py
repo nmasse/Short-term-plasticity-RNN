@@ -54,7 +54,7 @@ class Stimulus:
         """
 
         if par['stimulus_type'] == 'mnist':
-            stim_tuning = np.array(self.mnist_images)
+            stim_tuning = np.array(self.mnist_images)/255
 
         elif par['stimulus_type'] == 'att':
             stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']], dtype=np.float32)
