@@ -472,7 +472,7 @@ def print_startup_info():
         print('Input-soma connection:\t', par['use_stim_soma'])
         print('Synaptic configuration:\t', par['synapse_config'], '\n')
 
-        print("="*70)
+        print("="*75)
         print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
         print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']) + '\t| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
         print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']) + '\t| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
@@ -481,7 +481,7 @@ def print_startup_info():
         print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)) + '\t| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
         print('Batch size'.ljust(22) + ': ' + str(par['batch_train_size']) + '\t| ' + 'Num. train batches'.ljust(22) + ': ' + str(par['num_train_batches']))
         print('Switch iteration'.ljust(22) + ': ' + str(par['switch_rule_iteration']) + '\t| ' + 'Num. test batches'.ljust(22) + ': ' + str(par['num_test_batches']))
-        print("="*70 + '\n')
+        print("="*75 + '\n')
 
 
 def append_model_performance(model_results, test_data, trial_num, iteration_time):
