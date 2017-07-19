@@ -37,8 +37,8 @@ par = {
 
     # Variance values
     'clip_max_grad_val'     : 0.25,
-    'input_mean'            : 0.2,
-    'noise_in_sd'           : 0.05,
+    'input_mean'            : 0.0,
+    'noise_in_sd'           : 0.0,
     'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
@@ -47,7 +47,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.005,
+    'spike_cost'            : 0.01,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 1500,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -97,7 +97,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 20,
+    'dt'                    : 5,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -108,7 +108,7 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 1500,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : False,
