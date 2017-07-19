@@ -230,7 +230,7 @@ class Model:
         if par['loss_function'] == 'MSE':
             perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-                
+
         elif par['loss_function'] == 'cross_entropy':
             perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
@@ -473,7 +473,7 @@ def print_startup_info():
         print('Synaptic configuration:\t', par['synapse_config'], '\n')
 
         print("="*70)
-        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + "PLACEHOLDER")
+        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
         print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']) + '\t| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
         print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']) + '\t| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
         print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']) + '\t| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))

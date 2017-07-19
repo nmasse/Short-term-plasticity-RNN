@@ -85,10 +85,10 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
                     pass
                 elif rule == 1:
                     sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
-                        = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                        = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)/255
                 elif rule == 2:
                     sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
-                        = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+                        = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)/255
                 else:
                     print("ERROR: Bad MNIST rule.")
                     quit()
