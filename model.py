@@ -439,7 +439,7 @@ def print_data(dirpath, model_results, analysis):
         model_results['perf_loss'][-1], model_results['mean_hidden'][-1], model_results['accuracy'][-1]))
     print('\nRule accuracies:', np.round(model_results['rule_accuracy'][-1], 2))
 
-    if not analysis['anova'] == []:
+    if par['anova_vars'] is not None:
         anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         print('\nAnova P < 0.001:')
         print('----------------')
@@ -447,7 +447,7 @@ def print_data(dirpath, model_results, analysis):
             print(anova_print[i] + "\t| " + anova_print[i+1])
         if len(anova_print)%2 != 0:
             print(anova_print[-1] + "\t|")
-    if not analysis['roc'] == []:
+    if par['roc_vars'] is not None:
         roc_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
         print('\n98th prctile t-stat:')
         print('--------------------')

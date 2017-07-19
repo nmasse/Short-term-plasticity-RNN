@@ -16,11 +16,11 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',    # dms, att, mnist
+    'stimulus_type'         : 'mnist',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'processor_affinity'    : [],   # Default is [], for no preference
     'use_HUD'               : False,
 
     # Network configuration
@@ -33,8 +33,8 @@ par = {
     'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
-    'n_hidden'          : 30,
-    'den_per_unit'      : 8,
+    'n_hidden'          : 300,
+    'den_per_unit'      : 3,
 
     # Timings and rates
     'dt'                : 20,
@@ -82,15 +82,15 @@ par = {
     'switch_rule_iteration'         : 10,
 
     # Save paths and other info
-    'save_notes'        : '_larger_batch_w_rules',
+    'save_notes'        : '_RF_plus_rule_template',
     'save_fn'           : 'model_data.json',
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_pts'          : [1100, 1200],
+    'time_pts'          : [850, 1200],
     'num_category_rule' : 1,
-    'roc_vars'          : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
@@ -108,8 +108,8 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['num_RFs']               = 4
-        par['allowed_fields']        = [0,1,2,3]
+        par['num_RFs']               = 1
+        par['allowed_fields']        = [0]
 
         par['num_rules']             = 3
         par['allowed_rules']         = [0]          # 0 is regular, 1 is horizontal flilp, 2 is vertical flip
@@ -118,8 +118,8 @@ def set_task_profile():
 
         par['num_stim_tuned']        = 784 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 40 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 40 * par['num_RFs']
+        par['num_rule_tuned']        = 0 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 0 * par['num_RFs']
         par['n_output']              = 11
 
         par['num_samples']           = 60000    # Number of available samples
@@ -147,7 +147,7 @@ def set_task_profile():
 
     elif par['stimulus_type'] == 'dms':
 
-        print("DMS not currently working.")
+        print("DMS not currently implemented.")
         quit()
 
     else:
