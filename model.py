@@ -227,8 +227,13 @@ class Model:
         """
 
         # Calculate performance loss
-        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
-                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        if par['loss_function'] == 'MSE':
+            perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
+                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+                
+        elif par['loss_function'] == 'cross_entropy':
+            perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) \

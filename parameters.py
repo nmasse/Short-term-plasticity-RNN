@@ -58,10 +58,11 @@ par = {
     'probe_trial_pct'   : 0,
     'probe_time'        : 25,
 
-    # Cost parameters
-    'spike_cost'        : 1e-3,
-    'dend_cost'         : 1e-2,
+    # Cost parameters/function
+    'spike_cost'        : 2e-3,
+    'dend_cost'         : 0e-2,
     'wiring_cost'       : 5e-7,
+    'loss_function'     : 'MSE',
 
     # Synaptic plasticity specs
     'tau_fast'          : 200,
