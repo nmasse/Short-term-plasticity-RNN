@@ -476,6 +476,8 @@ def print_startup_info():
         print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
         print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']) + '\t| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
         print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']) + '\t| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
+        print('Num. hidden neurons'.ljust(22) + ': ' + str(par['n_hidden']) + '\t| ' + 'Time step'.ljust(22) + ': ' + str(par['dt']) + ' ms')
+
         print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']) + '\t| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))
         print('Spike cost'.ljust(22) + ': ' + str(par['spike_cost']) + '\t| ' + 'Dendrite cost'.ljust(22) + ': ' + str(par['dend_cost']))
         print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)) + '\t| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
