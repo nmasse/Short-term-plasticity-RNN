@@ -289,9 +289,7 @@ def main():
     parameter setup and task scenario.
     """
 
-    print('Using dendrites:\t', par['use_dendrites'])
-    print('Using EI network:\t', par['EI'])
-    print('Synaptic configuration:\t', par['synapse_config'], "\n")
+    print_startup_info()
 
     # Create the stimulus class to generate trial paramaters and input activity
     stim = stimulus.Stimulus()
@@ -320,7 +318,6 @@ def main():
 
         # Generate an identifying timestamp and save directory for the model
         timestamp, dirpath = create_save_dir()
-
 
         # Keep track of the model performance across training
         model_results = {'accuracy': [], 'rule_accuracy' : [], 'loss': [], 'perf_loss': [], \
@@ -463,6 +460,23 @@ def print_data(dirpath, model_results, analysis):
         if len(roc_print)%2 != 0:
             print(roc_print[-1] + "\t|")
     print("\n")
+
+def print_startup_info():
+        print('Using dendrites:\t', par['use_dendrites'])
+        print('Using EI network:\t', par['EI'])
+        print('Input-soma connection:\t', par['use_stim_soma'])
+        print('Synaptic configuration:\t', par['synapse_config'], '\n')
+
+        print("="*70)
+        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + "PLACEHOLDER")
+        print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']) + '\t| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
+        print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']) + '\t| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
+        print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']) + '\t| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))
+        print('Spike cost'.ljust(22) + ': ' + str(par['spike_cost']) + '\t| ' + 'Dendrite cost'.ljust(22) + ': ' + str(par['dend_cost']))
+        print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)) + '\t| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
+        print('Batch size'.ljust(22) + ': ' + str(par['batch_train_size']) + '\t| ' + 'Num. train batches'.ljust(22) + ': ' + str(par['num_train_batches']))
+        print('Switch iteration'.ljust(22) + ': ' + str(par['switch_rule_iteration']) + '\t| ' + 'Num. test batches'.ljust(22) + ': ' + str(par['num_test_batches']))
+        print("="*70 + '\n')
 
 
 def append_model_performance(model_results, test_data, trial_num, iteration_time):
