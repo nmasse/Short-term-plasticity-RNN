@@ -429,8 +429,12 @@ def set_rule(iteration):
 
 def print_data(dirpath, model_results, analysis):
 
+    rule_accuracies = ''
+    for a in range(len(model_results['rule_accuracy'][-1])):
+        rule_accuracies += ('\t{0:4f}'.format(model_results['rule_accuracy'][-1][a]))
+
     with open(dirpath + '/model_summary.txt', 'a') as f:
-        # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy
+        # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy | Rule Accuracy
         f.write('{:7d}'.format(model_results['trial'][-1]) \
             + '\t{:0.2f}'.format(model_results['time'][-1]) \
             + '\t{:0.4f}'.format(model_results['perf_loss'][-1]) \
@@ -438,7 +442,7 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
-            + '\n')
+            + rule_accuracies + '\n')
 
     # output model performance to screen
     print('\nIteration Summary:')
@@ -624,6 +628,6 @@ def create_save_dir():
 
     # Create summary file
     with open(dirpath + '/model_summary.txt', 'w') as f:
-        f.write('Trial\tTime\tPerf loss\tSpike loss\tMean activity\tTest Accuracy\n')
+        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tMean activity\tAccuracy\tRule Accuracies\n')
 
     return timestamp, dirpath
