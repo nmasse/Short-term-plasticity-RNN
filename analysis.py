@@ -19,7 +19,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     syn_x_stacked = np.stack(syn_x, axis=1)
     syn_u_stacked = np.stack(syn_u, axis=1)
-    h_stacked= np.stack(h, axis=1)
+    h_stacked = np.stack(h, axis=1)
 
     print('mean h ', np.mean(h))
 
@@ -27,12 +27,12 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 2)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 5)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
     """
-    h, syn_x, syn_u, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 5)
+    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 20)
 
     print('downsampled mean h ', np.mean(h))
 
@@ -41,7 +41,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 2)
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 5)
 
     print('mean h ', np.mean(h))
 
