@@ -10,7 +10,7 @@ Time	Event	Data	Var
 400	input	fix
 400	mask	on
 
-900	input	stim
+900	input	sample
 900	mask	off
 1000	mask	on
 

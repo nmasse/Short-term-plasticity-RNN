@@ -5,6 +5,7 @@ Overhauling the parameters setup
 
 import numpy as np
 import tensorflow as tf
+import itertools
 
 print("\n--> Loading parameters...")
 
@@ -16,11 +17,11 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',    # dms, att, mnist
+    'stimulus_type'         : 'dms',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'processor_affinity'    : [2, 3],   # Default is [], for no preference
+    'processor_affinity'    : [0, 1],   # Default is [], for no preference
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -28,8 +29,6 @@ par = {
     'use_dendrites'     : True,
     'use_stim_soma'     : False,
     'df_num'            : '0008',    # Designates which dendrite function to use
-    'var_delay'         : False,
-    'catch_trials'      : False,     # Note that turning on var_delay implies catch_trials
 
     # hidden layer shape
     'n_hidden'          : 50,
@@ -41,12 +40,13 @@ par = {
     'membrane_time_constant'    : 50,
     'dendrite_time_constant'    : 200,
     'connection_prob'   : 0.5,         # Usually 1
+    'mask_connectivity' : 1.0,
 
     # Variance values
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
-    'input_sd'          : 0.1,
-    'noise_sd'          : 0.5,
+    'input_sd'          : 0.1/10,
+    'noise_sd'          : 0.5/10,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -60,9 +60,9 @@ par = {
 
     # Cost parameters/function
     'spike_cost'        : 2e-3,
-    'dend_cost'         : 0e-2,
+    'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
-    'loss_function'     : 'MSE',
+    'loss_function'     : 'cross_entropy',
 
     # Synaptic plasticity specs
     'tau_fast'          : 200,
@@ -75,15 +75,15 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 100,
-    'num_train_batches' : 500,
+    'batch_train_size'  : 10,
+    'num_train_batches' : 100,
     'num_test_batches'  : 20,
-    'num_iterations'    : 10000,
+    'num_iterations'    : 6,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 10,
+    'switch_rule_iteration'         : 5,
 
     # Save paths and other info
-    'save_notes'        : '_with_dend_cost',
+    'save_notes'        : '_c025',
     'save_fn'           : 'model_data.json',
     'use_checkpoints'   : False,
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
@@ -92,7 +92,7 @@ par = {
     # Analysis
     'time_pts'          : [850, 1200],
     'num_category_rule' : 1,
-    'roc_vars'          : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
 }
@@ -109,6 +109,8 @@ def set_task_profile():
 
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
+
+        par['var_delay']             = False
 
         par['num_RFs']               = 1
         par['allowed_fields']        = [0]
@@ -130,17 +132,19 @@ def set_task_profile():
     elif par['stimulus_type'] == 'att':
         par['profile_path'] = './profiles/attention.txt'
 
+        par['var_delay']             = False
+
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
 
-        par['num_rules']             = 2             # the number of possible judgements
+        par['num_rules']             = 1             # the number of possible judgements
         par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
 
         par['permutation_id']        = 0
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 24 * par['num_rules']
+        par['num_rule_tuned']        = 0 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
@@ -148,9 +152,26 @@ def set_task_profile():
         par['num_unique_samples']    = 12
 
     elif par['stimulus_type'] == 'dms':
+        par['profile_path'] = './profiles/dms.txt'
 
-        print("DMS not currently implemented.")
-        quit()
+        par['var_delay']             = False
+
+        par['num_RFs']               = 4             # contributes to 'possible_rules'
+        par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
+
+        par['num_rules']             = 1             # the number of possible judgements
+        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
+
+        par['permutation_id']        = 0
+
+        par['num_stim_tuned']        = 36 * par['num_RFs']
+        par['num_fix_tuned']         = 0
+        par['num_rule_tuned']        = 0 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
+        par['n_output']              = 3
+
+        par['num_samples']           = 12     # Number of motion directions
+        par['num_unique_samples']    = 12
 
     else:
         print("ERROR: Bad stimulus type.")
@@ -233,7 +254,7 @@ def generate_masks():
     hidden_type[par['num_exc_units']+3*n::] = 5
 
 
-    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    connectivity = np.ones((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
     # to soma
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
     connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
@@ -275,6 +296,32 @@ def generate_masks():
             par['w_rnn_soma_mask'][target,source] = connectivity[0,hidden_type[source],hidden_type[target]]
 
 
+def reduce_connectivity():
+    # Clamp masks randomly
+    r_nh    = range(par['n_hidden'])
+    r_dpu   = range(par['den_per_unit'])
+    r_nst   = range(par['num_stim_tuned'])
+    r_ninst = range(par['n_input']-par['num_stim_tuned'])
+
+    for i, j, k in itertools.product(r_nh, r_dpu, r_nst):
+        if np.random.rand() > par['mask_connectivity']:
+            par['w_stim_dend_mask'][i,j,k] = 0
+        if np.random.rand() > par['mask_connectivity'] and j == 0:
+            par['w_stim_soma_mask'][i,k] = 0
+
+    for i, j, k in itertools.product(r_nh, r_dpu, r_ninst):
+        if np.random.rand() > par['mask_connectivity']:
+            par['w_td_dend_mask'][i,j,k] = 0
+        if np.random.rand() > par['mask_connectivity'] and j == 0:
+            par['w_td_soma_mask'][i,k] = 0
+
+    for i, j, k in itertools.product(r_nh, r_dpu, r_nh):
+        if np.random.rand() > par['mask_connectivity']:
+            par['w_rnn_dend_mask'][i,j,k] = 0
+        if np.random.rand() > par['mask_connectivity'] and j == 0:
+            par['w_rnn_soma_mask'][i,k] = 0
+
+
 def spectral_radius(A):
     """
     Compute the spectral radius of each dendritic dimension of a weight array,
@@ -293,13 +340,16 @@ def spectral_radius(A):
 
 def set_template(trial_rules, trial_locations):
     # Set up dendrite inhibition template for df0009
-    o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
-    o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
-    template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
-    for n in range(par['batch_train_size']):
-        template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
-        #template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
-    return np.transpose(template, [0,2,1])
+    if par['df_num'] == '0009':
+        o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
+        o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
+        template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
+        for n in range(par['batch_train_size']):
+            template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
+            #template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
+        return np.transpose(template, [0,2,1])
+    else:
+        return np.zeros([par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
 
 
 def update_dependencies():
@@ -410,8 +460,11 @@ def update_dependencies():
     par['hidden_to_hidden_dend_dims'] = [par['n_hidden'], par['den_per_unit'], par['n_hidden']]
     par['hidden_to_hidden_soma_dims'] = [par['n_hidden'], par['n_hidden']]
 
+    # Generate random masks
     generate_masks()
 
+    if par['mask_connectivity'] < 1:
+        reduce_connectivity()
 
     # Initialize input weights
     par['w_stim_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob'])
@@ -524,8 +577,6 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
-
-    set_template(np.zeros((par['batch_train_size'], 1), dtype=np.uint8), np.zeros((par['batch_train_size'], 1), dtype=np.uint8))
 
 set_task_profile()
 update_dependencies()

@@ -56,7 +56,7 @@ class Stimulus:
         if par['stimulus_type'] == 'mnist':
             stim_tuning = np.array(self.mnist_images)/255
 
-        elif par['stimulus_type'] == 'att':
+        elif par['stimulus_type'] in ['att', 'dms']:
             stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']], dtype=np.float32)
 
             pref_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/(par['num_stim_tuned']//par['num_RFs'])))
@@ -134,7 +134,7 @@ class Stimulus:
         num_events = len(events)
 
         # Checks for a reasonable time step, and then sets it up if reasonable
-        if par['dt'] >= par['trial_length']:
+        if par['dt'] > par['trial_length']:
             print("ERROR:  Time step is longer than entire trial time.")
             quit()
         else:
@@ -148,7 +148,6 @@ class Stimulus:
         # information for each.
         input_events = []
         mask_events = []
-        output_events = []
 
         for i in range(num_events):
             if events[i][1] == 'input':
@@ -164,9 +163,6 @@ class Stimulus:
         if par['var_delay']:
             # Staggers the starting times of indicated events, and triggers catch trials for a proportion of those
             input_schedule, output_schedule, mask_schedule = self.time_adjust(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
-        elif par['catch_trials']:
-            # Applies catch trials to a proportion of the indicated events
-            input_schedule, output_schedule, mask_schedule = self.catch_trials(input_events, input_schedule, output_schedule, mask_schedule, N, steps)
         else:
             # Apply neither variable start times for tests nor catch trials
             pass
@@ -277,46 +273,6 @@ class Stimulus:
                             output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
 
         return input_schedule, output_schedule, mask_schedule
-
-
-    def catch_trials(self, input_events, input_schedule, output_schedule, mask_schedule, N, steps):
-        """
-        Uses np.random.rand to match against a catch rate to block requisite parts
-        of the input, output, and mask schedules.  These catch trials have no
-        test, and the output behaves accordingly.
-        """
-
-        # Sets up a pair of timing arrays to be used in blocking out variable scopes
-        timings_on = []
-        timings_off = []
-
-        for i in range(len(input_events)):
-            if len(input_events[i]) > 3:
-                timings_on.append(input_events[i][0])
-                if len(input_events) > i + 1:
-                    timings_off.append(input_events[i+1][0])
-
-        if len(timings_on) != len(timings_off):
-            timings_off.append(steps)
-
-        for s in range(len(timings_on)):
-            for n in range(N):
-                # If there IS a catch
-                if np.random.rand <= par['catch_rate']:
-                    for d in range(timings_off[s]-timings_on[s]):
-                        for i in range(par['n_input']):
-                            input_schedule[i,timings_on[s]+d,n] = input_schedule[i,timings_on[s]-1,n]
-                        for o in range(par['n_output']):
-                            output_schedule[o,timings_on[s]+d,n] = output_schedule[o,timings_on[s]-1,n]
-                        for m in range(timings_on[s],timings_off[s]):
-                            mask_schedule[m,n] = mask_schedule[m-1,n]
-                # If there is NOT a catch
-                else:
-                    # The input, output, and mask schedules stay the same
-                    pass
-
-        return input_schedule, output_schedule, mask_schedule
-
 
     def add_noise(self, m):
         """
