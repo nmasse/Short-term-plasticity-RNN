@@ -5,9 +5,9 @@
 import numpy as np
 from parameters import *
 
-############################
-### Adjustment functions ###
-############################
+###############################
+### Task-specific functions ###
+###############################
 
 def stimulus_permutation(m):
     # Randomly permutes the inputs based on a set of seeded permutations
@@ -19,6 +19,70 @@ def stimulus_permutation(m):
 
     return output
 
+def mnist_inversions(rule, sample_input_n, f, neurons_per_field):
+    if rule == 1:
+        sample_input_n[f*neurons_per_field:(f+1)*neurons_per_field] \
+            = np.reshape(np.fliplr(np.reshape(sample_input_n[f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+    elif rule == 2:
+        sample_input_n[f*neurons_per_field:(f+1)*neurons_per_field] \
+            = np.reshape(np.flipud(np.reshape(sample_input_n[f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
+    else:
+        print("ERROR:  Bad MNIST rule.")
+        quit()
+
+    return sample_input_n
+
+
+def handle_att(rule, target, sample_output_n):
+    unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
+                    3*par['num_samples']//4 , par['num_samples']]
+
+    if rule == 0:
+        if unit_circle[0] <= target < unit_circle[2]:
+            sample_output_n[1] = 1
+        elif unit_circle[2] <= target < unit_circle[4]:
+            sample_output_n[2] = 1
+
+    elif rule == 1:
+        if unit_circle[1] <= target < unit_circle[3]:
+            sample_output_n[1] = 1
+        elif (unit_circle[3] <= target < unit_circle[4]) \
+        or (unit_circle[0] <= target < unit_circle[1]):
+            sample_output_n[2] = 1
+
+    return sample_output_n
+
+
+def handle_dms_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input_n):
+    if np.random.rand() < par['match_rate']:
+        match = True
+        for f in active_fields:
+            if f == location:
+                test_input_n[f*neurons_per_field:(f+1)*neurons_per_field] = \
+                    stimulus_permutation(stim_tuning[target])
+            else:
+                test_input_n[f*neurons_per_field:(f+1)*neurons_per_field] = \
+                    stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
+    else:
+        match = False
+        for f in active_fields:
+            if f == location:
+                test_input_n[f*neurons_per_field:(f+1)*neurons_per_field] = \
+                    stimulus_permutation(stim_tuning[np.random.choice(np.setdiff1d(np.arange(0, par['num_samples']), target))])
+            else:
+                test_input_n[f*neurons_per_field:(f+1)*neurons_per_field] = \
+                    stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
+
+    return test_input_n, match
+
+
+def handle_dms(match, test_output_n):
+    if match:
+        test_output_n[1] = 1
+    elif not match:
+        test_output_n[2] = 1
+
+    return test_output_n
 
 #################################
 ### Trial generator functions ###
@@ -29,10 +93,12 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
     # Pre-allocate inputs, outputs, rules, and samples
     fix_input       = np.zeros((N, par['n_input']), dtype=np.float32)
     sample_input    = np.zeros((N, par['n_input']), dtype=np.float32)
+    test_input      = np.zeros((N, par['n_input']), dtype=np.float32)
 
     fix_output      = np.zeros((N, par['n_output']), dtype=np.float32)
     fix_output[:,0] = 1
     sample_output   = np.zeros((N, par['n_output']), dtype=np.float32)
+    test_output     = np.zeros((N, par['n_output']), dtype=np.float32)
 
     location_index  = np.zeros((N, 1), dtype=np.uint8)
     rule_index      = np.zeros((N, 1), dtype=np.uint8)
@@ -49,11 +115,8 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
         print("ERROR: Please use an multiple of RFs * neurons per RF.")
         quit()
 
-    # Attention task helper:
-    unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
-                    3*par['num_samples']//4 , par['num_samples']]
-
     for n in range(N):
+
         # Generate fixation, spatial and rule cues
         fix         = 0
         location    = np.random.choice(par['allowed_fields'])
@@ -83,15 +146,9 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
             if par['stimulus_type'] == 'mnist':
                 if rule == 0:
                     pass
-                elif rule == 1:
-                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
-                        = np.reshape(np.fliplr(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
-                elif rule == 2:
-                    sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] \
-                        = np.reshape(np.flipud(np.reshape(sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field], [28,28])), 784)
                 else:
-                    print("ERROR: Bad MNIST rule.")
-                    quit()
+                    sample_input[n] = mnist_inversions(rule, sample_input[n], f, neurons_per_field)
+
         # If MNIST task, match indices to translate to output
         if par['stimulus_type'] == 'mnist':
             for f in range(par['num_RFs']):
@@ -104,35 +161,31 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
 
         # Generate sample period outputs from the loop based on task-specific logic
         if par['stimulus_type'] == 'att':
-            if rule == 0:
-                if unit_circle[0] <= target < unit_circle[2]:
-                    sample_output[n,1] = 1
-                elif unit_circle[2] <= target < unit_circle[4]:
-                    sample_output[n,2] = 1
-                else:
-                    print("Error in trial generator.")
-                    quit()
-            elif rule == 1:
-                if unit_circle[1] <= target < unit_circle[3]:
-                    sample_output[n, 1] = 1
-                elif (unit_circle[3] <= target < unit_circle[4]) \
-                or (unit_circle[0] <= target < unit_circle[1]):
-                    sample_output[n, 2] = 1
-                else:
-                    print("Error in trial generator.")
-                    quit()
+            sample_output[n] = handle_att(rule, target, sample_output[n])
         elif par['stimulus_type'] == 'mnist':
             sample_output[n, target+1] = 1
+        elif par['stimulus_type'] == 'dms':
+            sample_output[:,0] = 1
         else:
             print("ERROR: Bad stimulus type in trial generator.")
 
+        # Generate test input based on sample characteristics
+        if par['stimulus_type'] == 'dms':
+            test_input[n], match = handle_dms_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
+
+        # Generate test period outputs from the loop based on task-specific logic
+        if par['stimulus_type'] == 'dms':
+            test_output[n] = handle_dms(match, test_output[n])
+
     # Assemble input and output dictionaries
-    inputs = {'fix' : fix_input,
-              'stim': sample_input
+    inputs = {'fix'   : fix_input,
+              'sample': sample_input,
+              'test'  : test_input
              }
 
-    outputs = {'fix' : fix_output,
-               'stim': sample_output
+    outputs = {'fix'   : fix_output,
+               'sample': sample_output,
+               'test'  : test_output
               }
 
     trial_setup = {'inputs'                 : inputs,

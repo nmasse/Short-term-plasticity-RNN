@@ -1,5 +1,5 @@
-Name:	MNIST Permutations
-Date:	7/6/2017
+Name:	Multi-task Judgement
+Date:	6/28/2017
 Author:	Nicolas Masse
 
 
@@ -12,6 +12,6 @@ Time	Event	Data	Var
 
 900	input	sample
 900	mask	off
-1000	mask	on
+950	mask	on
 
-1400	finish
+2900	finish
