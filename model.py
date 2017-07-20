@@ -423,8 +423,11 @@ def main():
 
 def set_rule(iteration):
 
-    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    #par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    stimulus_types = ['att', 'dms']
+    par['stimulus_type'] = stimulus_types[(iteration//par['switch_rule_iteration'])%par['num_rules']]
     print('Allowed task rule ', par['allowed_rules'])
+    print('Stimulus type ', par['stimulus_type'])
 
 
 def print_data(dirpath, model_results, analysis):
