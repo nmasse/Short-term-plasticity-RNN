@@ -18,6 +18,7 @@ global par
 par = {
     # Setup parameters
     'stimulus_type'         : 'dms',    # dms, att, mnist
+    'allowed_stimulus_types': ['dms','att']    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
