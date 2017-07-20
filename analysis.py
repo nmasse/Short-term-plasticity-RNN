@@ -235,8 +235,8 @@ def get_perf(test_data):
     (in another words, when y[0,:,:] is not 0)
     """
 
-    rule_accuracy   = np.zeros([par['num_rules']])
-    rule_counters   = np.zeros([par['num_rules']])
+    rule_accuracy   = np.zeros([par['num_rules'], 3])
+    rule_counters   = np.zeros([par['num_rules'], 3])
     accuracy        = np.zeros([par['num_test_batches'], par['batch_train_size']])
 
     # Put axes in order [batch x trial x time steps x outputs]
@@ -269,12 +269,20 @@ def get_perf(test_data):
             # used for this trial.  The accuracy is then added to the proper
             # rule accuracy.
             rule = test_data['rule_index'][b*par['batch_train_size']+n,0]
-            rule_accuracy[rule] += accuracy[b,n]
-            rule_counters[rule] += 1
+            if par['stimulus_type'] == 'mnist':
+                rule_accuracy[rule, 0] += accuracy[b,n]
+                rule_counters[rule, 0] += 1
+            elif par['stimulus_type'] == 'att':
+                rule_accuracy[rule, 1] += accuracy[b,n]
+                rule_counters[rule, 1] += 1
+            elif par['stimulus_type'] == 'dms':
+                rule_accuracy[rule, 2] += accuracy[b,n]
+                rule_counters[rule, 2] += 1
 
     # Normalize the rule accuracies by the number of occurences of that rule
-    for r in range(par['num_rules']):
-        rule_accuracy[r] = rule_accuracy[r]/rule_counters[r]
+    for i in range(3):
+        for r in range(par['num_rules']):
+            rule_accuracy[r,i] = rule_accuracy[r,i]/rule_counters[r,i]
 
     return np.mean(accuracy), rule_accuracy
 
