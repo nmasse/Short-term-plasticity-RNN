@@ -1,0 +1,17 @@
+Name:	Multi-task Judgement
+Date:	6/28/2017
+Author:	Nicolas Masse
+
+
+List of Events
+Time	Event	Data	Var
+
+0	start
+400	input	fix
+400	mask	on
+
+900	input	sample
+900	mask	off
+950	mask	on
+
+2900	finish

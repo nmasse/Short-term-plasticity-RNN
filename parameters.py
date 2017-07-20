@@ -26,6 +26,7 @@ par = {
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
+    'var_delay'         : False,
     'use_dendrites'     : True,
     'use_stim_soma'     : False,
     'df_num'            : '0008',    # Designates which dendrite function to use
@@ -110,8 +111,6 @@ def set_task_profile():
     if par['stimulus_type'] == 'mnist':
         par['profile_path'] = './profiles/mnist.txt'
 
-        par['var_delay']             = False
-
         par['num_RFs']               = 1
         par['allowed_fields']        = [0]
 
@@ -130,9 +129,7 @@ def set_task_profile():
         par['num_unique_samples']    = 10
 
     elif par['stimulus_type'] == 'att':
-        par['profile_path'] = './profiles/attention.txt'
-
-        par['var_delay']             = False
+        par['profile_path'] = './profiles/attention_multitask.txt'
 
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
@@ -152,9 +149,7 @@ def set_task_profile():
         par['num_unique_samples']    = 12
 
     elif par['stimulus_type'] == 'dms':
-        par['profile_path'] = './profiles/dms.txt'
-
-        par['var_delay']             = False
+        par['profile_path'] = './profiles/dms_multitask.txt'
 
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1

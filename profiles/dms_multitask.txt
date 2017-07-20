@@ -1,0 +1,20 @@
+Name:	Delayed Match to Sample
+Date:	6/21/2017
+Author:	Gregory Grant
+
+List of Events
+Time	Event	Data	Var
+
+0	start
+400	input	fix
+400	mask	on
+
+900	input	sample
+
+1400	input	fix
+
+2400	input	test	x
+2400	mask	off
+2450	mask	on
+
+2900	finish
