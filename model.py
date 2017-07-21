@@ -223,10 +223,10 @@ def main():
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session() as sess:
 
-        with tf.device("/gpu:0"):
-            model = Model(x, y, mask)
-            init = tf.global_variables_initializer()
-            sess.run(init)
+        #with tf.device("/gpu:0"):
+        model = Model(x, y, mask)
+        init = tf.global_variables_initializer()
+        sess.run(init)
         t_start = time.time()
 
         saver = tf.train.Saver()
