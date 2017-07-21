@@ -17,8 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'dms',    # dms, att, mnist
-    'allowed_stimulus_types': ['dms','att']    # dms, att, mnist
+    'stimulus_type'         : 'att',    # dms, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -48,13 +47,13 @@ par = {
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
-    'noise_sd'          : 0.5/10,
+    'internal_sd'       : 0.5/10,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
     'kappa'             : 1,        # concentration scaling factor for von Mises
-    'catch_rate'        : 0.2,
-    'match_rate'        : 0.5,      # tends a little higher than chosen rate
+    'catch_rate'        : 0.2,      # catch rate when using variable delay
+    'match_rate'        : 0.5,      # number of matching tests in certain tasks
 
     # Probe specs
     'probe_trial_pct'   : 0,
@@ -85,7 +84,7 @@ par = {
     'switch_rule_iteration'         : 5,
 
     # Save paths and other info
-    'save_notes'        : '_c025',
+    'save_notes'        : '',
     'save_fn'           : 'model_data.json',
     'use_checkpoints'   : False,
     'ckpt_save_fn'      : 'model_' + str(0) + '.ckpt',
@@ -135,34 +134,34 @@ def set_task_profile():
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
 
-        par['num_rules']             = 1             # the number of possible judgements
+        par['num_rules']             = 2             # the number of possible judgements
         par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
 
         par['permutation_id']        = 0
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 0 * par['num_rules']
+        par['num_rule_tuned']        = 24 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
         par['num_unique_samples']    = 12
 
-    elif par['stimulus_type'] == 'dms':
-        par['profile_path'] = './profiles/dms_multitask.txt'
+    elif par['stimulus_type'] == 'multitask':
+        par['profile_path'] = './profiles/multitask.txt'
 
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
 
-        par['num_rules']             = 1             # the number of possible judgements
-        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
+        par['num_rules']             = 5             # Possible tasks and rules in those tasks
+        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1, etc.
 
         par['permutation_id']        = 0
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 0 * par['num_rules']
+        par['num_rule_tuned']        = 24 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 
@@ -414,7 +413,7 @@ def update_dependencies():
     par['alpha_neuron'] = par['dt']/par['membrane_time_constant']
     # The standard deviation of the Gaussian noise added to each RNN neuron
     # at each time step
-    par['noise_sd'] = np.sqrt(2*par['alpha_neuron'])*par['noise_sd']
+    par['noise_sd'] = np.sqrt(2*par['alpha_neuron'])*par['internal_sd']
 
     # Dendrite time constant for dendritic branches
     par['alpha_dendrite'] = par['dt']/par['dendrite_time_constant']

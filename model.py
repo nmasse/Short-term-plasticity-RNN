@@ -423,20 +423,15 @@ def main():
 
 def set_rule(iteration):
 
-    #par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
-    stimulus_types = ['att', 'dms']
-    par['stimulus_type'] = stimulus_types[(iteration//par['switch_rule_iteration'])%par['num_rules']]
-    print('Allowed task rule ', par['allowed_rules'])
-    print('Stimulus type ', par['stimulus_type'])
+    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    print('Allowed task rule(s):', par['allowed_rules'])
 
 
 def print_data(dirpath, model_results, analysis):
 
-    """
     rule_accuracies = ''
     for a in range(len(model_results['rule_accuracy'][-1])):
-        rule_accuracies += ('\t{0:4f}'.format(model_results['rule_accuracy'][-1][:,a]))
-    """
+        rule_accuracies += ('\t{0:4f}'.format(model_results['rule_accuracy'][-1][a]))
 
     with open(dirpath + '/model_summary.txt', 'a') as f:
         # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy | Rule Accuracy
@@ -446,7 +441,8 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
-            + '\t{:0.4f}'.format(model_results['accuracy'][-1]) + '\n')
+            + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
+            + rule_accuracies + '\n')
 
     # output model performance to screen
     print('\nIteration Summary:')
@@ -454,9 +450,7 @@ def print_data(dirpath, model_results, analysis):
     print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format(model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
     print('Perf. Loss: {:8.4f} | Dend. Loss: {:8.4f} | Mean Activity: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['dend_loss'][-1], model_results['mean_hidden'][-1]))
-    print('\nMNIST Accuracies:\t', np.round(model_results['rule_accuracy'][-1][:,0], 2))
-    print('Att. Accuracies:\t', np.round(model_results['rule_accuracy'][-1][:,1], 2))
-    print('DMS Accuracies:\t\t', np.round(model_results['rule_accuracy'][-1][:,2], 2))
+    print('\nRule Accuracies:\t', np.round(model_results['rule_accuracy'][-1], 2))
 
     if par['anova_vars'] is not None:
         anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
@@ -625,7 +619,7 @@ def create_save_dir():
         dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
             str(par['n_hidden']) + 'nd' + timestamp + par['save_notes']
 
-                # Make new folder for parameters, results, and analysis
+    # Make new folder for parameters, results, and analysis
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
 

@@ -53,7 +53,7 @@ def handle_att(rule, target, sample_output_n):
     return sample_output_n
 
 
-def handle_dms_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input_n):
+def handle_multitask_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input_n):
     if np.random.rand() < par['match_rate']:
         match = True
         for f in active_fields:
@@ -76,7 +76,7 @@ def handle_dms_test(location, target, f, active_fields, neurons_per_field, stim_
     return test_input_n, match
 
 
-def handle_dms(match, test_output_n):
+def handle_multitask(match, test_output_n):
     if match:
         test_output_n[1] = 1
     elif not match:
@@ -164,18 +164,18 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
             sample_output[n] = handle_att(rule, target, sample_output[n])
         elif par['stimulus_type'] == 'mnist':
             sample_output[n, target+1] = 1
-        elif par['stimulus_type'] == 'dms':
+        elif par['stimulus_type'] == 'multitask':
             sample_output[:,0] = 1
         else:
             print("ERROR: Bad stimulus type in trial generator.")
 
         # Generate test input based on sample characteristics
-        if par['stimulus_type'] == 'dms':
-            test_input[n], match = handle_dms_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
+        if par['stimulus_type'] == 'multitask':
+            test_input[n], match = handle_multitask_test(location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
 
         # Generate test period outputs from the loop based on task-specific logic
-        if par['stimulus_type'] == 'dms':
-            test_output[n] = handle_dms(match, test_output[n])
+        if par['stimulus_type'] == 'multitask':
+            test_output[n] = handle_multitask(match, test_output[n])
 
     # Assemble input and output dictionaries
     inputs = {'fix'   : fix_input,
