@@ -252,9 +252,9 @@ class Stimulus:
             Generate trial paramaters, which can vary given the rule
             """
             if par['num_rules'] == 1:
-                match_rotation = np.round(par['num_motion_dirs']*par['rotation_match']/360)
+                match_rotation = int(par['num_motion_dirs']*par['rotation_match']/360)
             else:
-                match_rotation = np.round(par['num_motion_dirs']*par['rotation_match'][rule]/360)
+                match_rotation = int(par['num_motion_dirs']*par['rotation_match'][rule]/360)
 
             """
             Determine the delay time for this trial
@@ -292,7 +292,7 @@ class Stimulus:
             else:
                 matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
                 if match == 1: # match trial
-                    test_dir = sample_dir
+                    test_dir = matching_dir
                 else:
                     possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
                     test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
