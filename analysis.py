@@ -10,8 +10,6 @@ import pickle
 
 def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights):
 
-    print('before stack mean h ', np.mean(h))
-
     """
     Converts neuroanl and synaptic values, stored in lists, into 3D arrays
     Creating new variable since h, syn_x, and syn_u are class members of model.py,
@@ -21,34 +19,32 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     syn_u_stacked = np.stack(syn_u, axis=1)
     h_stacked = np.stack(h, axis=1)
 
-    print('mean h ', np.mean(h))
-
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 5)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 100)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
     """
-    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 20)
+    #h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 10)
 
-    print('downsampled mean h ', np.mean(h))
+
+    """
+    Calculate neuronal and synaptic sample motion tuning
+    """
+    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h_stacked, \
+        syn_x_stacked, syn_u_stacked, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
+
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 5)
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
 
-    print('mean h ', np.mean(h))
-
-    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h_stacked, \
-        syn_x_stacked, syn_u_stacked, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
-
-    print('mean h ', np.mean(h))
 
     """
     Save the results
@@ -66,11 +62,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'model_performance': model_performance,
         'parameters': par,
         'weights': weights,
-        'trial_time': trial_time,
-        'h': h,
-        'rule': trial_info['rule'],
-        'sample': trial_info['sample'],
-        'match': trial_info['match']}
+        'trial_time': trial_time}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -171,7 +163,7 @@ def calc_svm(lin_clf, y, conds, train_ind, test_ind):
     # normalize values between 0 and 1
     # only include feature (i.e neurons or synapses) whose min and max values differ
 
-
+    """
     feature_ind = []
     for i in range(y.shape[1]):
         m1 = y[:,i].min()
@@ -182,6 +174,7 @@ def calc_svm(lin_clf, y, conds, train_ind, test_ind):
             feature_ind.append(i)
 
     y = y[:, feature_ind]
+    """
 
     lin_clf.fit(y[train_ind,:], conds[train_ind])
     dec = lin_clf.predict(y[test_ind,:])
@@ -292,7 +285,7 @@ def calculate_sample_tuning(h, syn_x, syn_u, sample, rule, match, trial_time):
                 # Neuronal sample tuning
                 weights = np.linalg.lstsq(sample_dir[ind,:], h[n,t,ind])
                 weights = np.reshape(weights[0],(3,1))
-                pred_err = h[n,t,ind] - np.dot(sample_dir[ind,:], weights)
+                pred_err = h[n,t,ind] - np.dot(sample_dir[ind,:], weights).T
                 mse = np.mean(pred_err**2)
                 response_var = np.var(h[n,t,ind])
                 neuronal_pev[n,r,t] = 1 - mse/(response_var+1e-9)
@@ -301,7 +294,7 @@ def calculate_sample_tuning(h, syn_x, syn_u, sample, rule, match, trial_time):
                 # Synaptic sample tuning
                 weights = np.linalg.lstsq(sample_dir[ind,:], syn_efficacy[n,t,ind])
                 weights = np.reshape(weights[0],(3,1))
-                pred_err = syn_efficacy[n,t,ind] - np.dot(sample_dir[ind,:], weights)
+                pred_err = syn_efficacy[n,t,ind] - np.dot(sample_dir[ind,:], weights).T
                 mse = np.mean(pred_err**2)
                 response_var = np.var(syn_efficacy[n,t,ind])
                 synaptic_pev[n,r,t] = 1 - mse/(response_var+1e-9)
