@@ -30,7 +30,7 @@ par = {
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 20,
+    'dt'                    : 10,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 1500,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -97,7 +97,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 5,
+    'dt'                    : 10,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -108,11 +108,11 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 1500,
+    'num_iterations'        : 1000,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : False,
-    'dt'                    : 20,
+    'dt'                    : 10,
     'learning_rate'         : 5e-3,
     'catch_trial_pct'       : 0.15,
 }
