@@ -56,7 +56,7 @@ class Stimulus:
         if par['stimulus_type'] == 'mnist':
             stim_tuning = np.array(self.mnist_images)/255
 
-        elif par['stimulus_type'] in ['att', 'dms']:
+        elif par['stimulus_type'] in ['att', 'dms', 'multitask']:
             stim_tuning     = np.zeros([par['num_samples'], par['num_stim_tuned']//par['num_RFs']], dtype=np.float32)
 
             pref_dirs       = np.float32(np.arange(0, 2*np.pi, 2*np.pi/(par['num_stim_tuned']//par['num_RFs'])))
@@ -131,8 +131,6 @@ class Stimulus:
             - Output schedule, or what the desired output is at each time step
         """
 
-        num_events = len(events)
-
         # Checks for a reasonable time step, and then sets it up if reasonable
         if par['dt'] > par['trial_length']:
             print("ERROR:  Time step is longer than entire trial time.")
@@ -140,25 +138,52 @@ class Stimulus:
         else:
             steps = par['trial_length']//par['dt']
 
-        # Converts times to time step values in the event list
-        for i in range(num_events):
-            events[i][0] = events[i][0]//par['dt']
+        input_events = [0] * len(events)
+        mask_events = [0] * len(events)
+        for e in range(len(events)):
+            num_events = len(events[e])
 
-        # Sets up individual event lists, then picks out relevant
-        # information for each.
-        input_events = []
-        mask_events = []
+            # Converts times to time step values in the event list
+            for i in range(num_events):
+                events[e][i][0] = events[e][i][0]//par['dt']
 
-        for i in range(num_events):
-            if events[i][1] == 'input':
-                input_events.append(events[i])
-            if events[i][1] == 'mask':
-                mask_events.append(events[i])
+            # Sets up individual event lists, then picks out relevant
+            # information for each.
+            input_events[e] = []
+            mask_events[e] = []
 
-        input_schedule = self.scheduler(steps, input_events, trial_setup['inputs'], np.zeros((N, par['n_input']), dtype=np.float32))
-        output_schedule = self.scheduler(steps, input_events, trial_setup['outputs'], np.zeros((N, par['n_output']), dtype=np.float32))
-        mask_schedule = self.scheduler(steps, mask_events, {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_off else [1]*N, flag="mask")
-        # Note that off means mask = 0 (block signal), on means mask = 1 (pass signal)
+            for i in range(num_events):
+                if events[e][i][1] == 'input':
+                    input_events[e].append(events[e][i])
+                if events[e][i][1] == 'mask':
+                    mask_events[e].append(events[e][i])
+
+        if par['rules_map'] == None:
+            input_schedule = self.scheduler(steps, input_events[0], trial_setup['inputs'], np.zeros((N, par['n_input']), dtype=np.float32))
+            output_schedule = self.scheduler(steps, input_events[0], trial_setup['outputs'], np.zeros((N, par['n_output']), dtype=np.float32))
+            mask_schedule = self.scheduler(steps, mask_events[0], {'off':[0]*N,'on':[1]*N}, [0]*N if mask_starts_off else [1]*N, flag="mask")
+
+        else:
+            input_schedule = np.zeros([par['n_input'], steps, N])
+            output_schedule = np.zeros([par['n_output'], steps, N])
+            mask_schedule = np.zeros([steps, N])
+            for n in range(N):
+
+                in_sch = {'fix'     : trial_setup['inputs']['fix'][n],
+                          'sample'  : trial_setup['inputs']['sample'][n],
+                          'test'    : trial_setup['inputs']['test'][n]
+                          }
+
+                out_sch = {'fix'     : trial_setup['outputs']['fix'][n],
+                          'sample'  : trial_setup['outputs']['sample'][n],
+                          'test'    : trial_setup['outputs']['test'][n]
+                          }
+
+                event_index = par['rules_map'][np.squeeze(trial_setup['rule_index'][n])]
+
+                input_schedule[:,:,n] = self.scheduler(steps, input_events[event_index], in_sch, np.zeros((par['n_input']), dtype=np.float32), flag="singlet")
+                output_schedule[:,:,n] = self.scheduler(steps, input_events[event_index], out_sch, np.zeros((par['n_output']), dtype=np.float32), flag="singlet")
+                mask_schedule[:,n] = self.scheduler(steps, mask_events[event_index], {'off':0,'on':1}, 0 if mask_starts_off else 1, flag="mask")
 
         if par['var_delay']:
             # Staggers the starting times of indicated events, and triggers catch trials for a proportion of those
@@ -193,7 +218,10 @@ class Stimulus:
         # Edits the last portion of the schedule
         schedule[step_val:steps] = [value]*(steps-step_val)
 
-        if flag != "mask":
+        if flag == "singlet":
+            # Stacks the schedule properly if only calculating a singlet trial
+            schedule = np.transpose(np.stack(schedule, axis=0))
+        elif flag != "mask":
             # Transposes the schedule into the proper output orientation
             # Mask does not require this step -- it already is correctly shaped.
             schedule = np.transpose(schedule, (2,0,1))

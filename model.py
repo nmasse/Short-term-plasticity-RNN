@@ -476,18 +476,18 @@ def print_startup_info():
         print('Input-soma connection:\t', par['use_stim_soma'])
         print('Synaptic configuration:\t', par['synapse_config'], '\n')
 
-        print("="*75)
-        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'] + '\t| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
-        print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']) + '\t| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
-        print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']) + '\t| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
-        print('Num. hidden neurons'.ljust(22) + ': ' + str(par['n_hidden']) + '\t| ' + 'Time step'.ljust(22) + ': ' + str(par['dt']) + ' ms')
+        print("="*77)
+        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'].ljust(10) + '| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
+        print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']).ljust(10) + '| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
+        print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']).ljust(10) + '| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
+        print('Num. hidden neurons'.ljust(22) + ': ' + str(par['n_hidden']).ljust(10) + '| ' + 'Time step'.ljust(22) + ': ' + str(par['dt']) + ' ms')
 
-        print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']) + '\t| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))
-        print('Spike cost'.ljust(22) + ': ' + str(par['spike_cost']) + '\t| ' + 'Dendrite cost'.ljust(22) + ': ' + str(par['dend_cost']))
-        print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)) + '\t| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
-        print('Batch size'.ljust(22) + ': ' + str(par['batch_train_size']) + '\t| ' + 'Num. train batches'.ljust(22) + ': ' + str(par['num_train_batches']))
-        print('Switch iteration'.ljust(22) + ': ' + str(par['switch_rule_iteration']) + '\t| ' + 'Num. test batches'.ljust(22) + ': ' + str(par['num_test_batches']))
-        print("="*75 + '\n')
+        print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']).ljust(10) + '| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))
+        print('Spike cost'.ljust(22) + ': ' + str(par['spike_cost']).ljust(10) + '| ' + 'Dendrite cost'.ljust(22) + ': ' + str(par['dend_cost']))
+        print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)).ljust(10) + '| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
+        print('Batch size'.ljust(22) + ': ' + str(par['batch_train_size']).ljust(10) + '| ' + 'Num. train batches'.ljust(22) + ': ' + str(par['num_train_batches']))
+        print('Switch iteration'.ljust(22) + ': ' + str(par['switch_rule_iteration']).ljust(10) + '| ' + 'Num. test batches'.ljust(22) + ': ' + str(par['num_test_batches']))
+        print("="*77 + '\n')
 
 
 def append_model_performance(model_results, test_data, trial_num, iteration_time):

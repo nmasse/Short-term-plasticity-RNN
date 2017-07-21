@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',    # dms, att, mnist
+    'stimulus_type'         : 'multitask',    # multitask, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -63,7 +63,7 @@ par = {
     'spike_cost'        : 2e-3,
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
-    'loss_function'     : 'cross_entropy',
+    'loss_function'     : 'MSE',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
     'tau_fast'          : 200,
@@ -76,10 +76,10 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 10,
+    'batch_train_size'  : 100,
     'num_train_batches' : 100,
     'num_test_batches'  : 20,
-    'num_iterations'    : 6,
+    'num_iterations'    : 2,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 5,
 
@@ -109,7 +109,8 @@ def set_task_profile():
     """
 
     if par['stimulus_type'] == 'mnist':
-        par['profile_path'] = './profiles/mnist.txt'
+        par['profile_path'] = ['./profiles/mnist.txt']
+        par['rules_map'] = None
 
         par['num_RFs']               = 1
         par['allowed_fields']        = [0]
@@ -129,7 +130,8 @@ def set_task_profile():
         par['num_unique_samples']    = 10
 
     elif par['stimulus_type'] == 'att':
-        par['profile_path'] = './profiles/attention_multitask.txt'
+        par['profile_path'] = ['./profiles/attention.txt']
+        par['rules_map'] = None
 
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
@@ -149,13 +151,14 @@ def set_task_profile():
         par['num_unique_samples']    = 12
 
     elif par['stimulus_type'] == 'multitask':
-        par['profile_path'] = './profiles/multitask.txt'
+        par['profile_path'] = ['./profiles/attention_multitask.txt', './profiles/motion_multitask.txt']
+        par['rules_map'] = [0] * 2 + [1] * 5             # Maps rules to profiles
 
         par['num_RFs']               = 4             # contributes to 'possible_rules'
         par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
 
-        par['num_rules']             = 5             # Possible tasks and rules in those tasks
-        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1, etc.
+        par['num_rules']             = 7             # Possible tasks and rules in those tasks
+        par['allowed_rules']         = [0,1,2,3]           # Can be 0 OR 1 OR 0, 1, etc.
 
         par['permutation_id']        = 0
 
@@ -182,44 +185,25 @@ def initialize(dims, connection_prob):
     return n
 
 
-
-def get_profile(profile_path):
-    """
-    Gets profile information from the profile file
-    """
-
-    with open(profile_path) as neurons:
-        raw_content = neurons.read().split("\n")
-
-    text = list(filter(None, raw_content))
-
-    for line in range(len(text)):
-        text[line] = text[line].split("\t")
-
-    name_of_stimulus = text[0][1]
-    date_stimulus_created = text[1][1]
-    author_of_stimulus_profile = text[2][1]
-
-    return name_of_stimulus, date_stimulus_created, author_of_stimulus_profile
-
-
-def get_events(profile_path):
+def get_events(paths):
     """
     Gets event information from the profile file
     """
 
-    with open(profile_path) as event_list:
-        raw_content = event_list.read().split("\n")
+    content = [0] * len(paths)
+    for i in range(len(paths)):
+        with open(paths[i]) as event_list:
+            raw_content = event_list.read().split("\n")
 
-    text = list(filter(None, raw_content))
+        text = list(filter(None, raw_content))
 
-    for line in range(len(text)):
-        if text[line][0] == "0":
-            content = text[line:]
+        for line in range(len(text)):
+            if text[line][0] == "0":
+                content[i] = text[line:]
 
-    for line in range(len(content)):
-        content[line] = content[line].split("\t")
-        content[line][0] = int(content[line][0])
+        for line in range(len(content[i])):
+            content[i][line] = content[i][line].split("\t")
+            content[i][line][0] = int(content[i][line][0])
 
     return content
 
@@ -427,14 +411,12 @@ def update_dependencies():
     np.random.seed(None)
     par['permutations'] = np.squeeze(p)
 
-    # General event profile info
-    par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
     par['events'] = get_events(par['profile_path'])
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
-    par['trial_length'] = par['events'][-1][0]
+    par['trial_length'] = par['events'][0][-1][0]
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 
