@@ -7,8 +7,8 @@ os.system('cls' if os.name == 'nt' else 'clear')
 
 ### Informal plotting code
 
-data    = analysis.load_data_dir('./savedir/model_att_h50_df0009_D17-07-18_T16-12-11_50_n_500_batch_low_noise')
-#weights = model_saver.json_load('./savedir/model_att_h30_df0009_D17-07-18_T16-28-36_works_now/model_results.json')['weights']['w_rnn_soma']
+data    = analysis.load_data_dir('./savedir/model_att_h50_df0008_D17-07-19_T11-44-57_with_dend_cost')
+#weights = model_saver.json_load('./savedir/model_.../model_results.json')['weights']['w_rnn_soma']
 
 anova   = data['anova']
 roc     = data['roc']
@@ -84,7 +84,7 @@ def view_roc():
 
 def view_dendrite():
     # ROC = iter num X neuron X (dendrite num) X RF X rule X category (up/down or left/right) time
-    i = 15
+    i = 2
     rf = 0
     r = 0
     c = 0
@@ -99,7 +99,7 @@ def view_dendrite():
 
             plt.scatter(d1, d2)
             plt.title("15dendrites_"+str(d)+"_"+str(d+1))
-            plt.savefig('./analysis/15dendrites'+str(d)+"_"+str(d+1)+"_rf_"+str(rf)+"_r_"+str(r)+"_c_"+str(c)+'.jpg')
+            plt.savefig('./analysis/15dendrites'+str(d)+"_"+str(d+1)+"_rf_"+str(rf)+"_r_"+str(r)+"_c_"+str(c)+'.png')
             plt.clf()
 
 
