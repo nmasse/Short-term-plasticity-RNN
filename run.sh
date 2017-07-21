@@ -10,4 +10,5 @@
 #SBATCH --exclusive
 
 module load python/3.5.2
+module load cuda/8.0
 python run_all_models.py
