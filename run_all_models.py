@@ -2,7 +2,7 @@ import numpy as np
 from parameters import *
 import model
 
-task_list = ['DMS', 'DMRS45', 'DMRS90', 'DMRS180', 'DMC', 'DMS+DMRS', 'ABCA', 'ABBA', 'dualDMS']
+task_list = ['DMS']
 models_per_task = 25
 
 for task in task_list:
