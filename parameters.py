@@ -38,7 +38,7 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 0.25,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.0,
+    'noise_in_sd'           : 0.01,
     'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
