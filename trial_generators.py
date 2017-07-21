@@ -108,8 +108,6 @@ def handle_multitask_test(rule, location, target, f, active_fields, npf, stim_tu
         if rule == 2:
             for f in active_fields:
                 if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[(target + unit_circle[1])%par['num_samples']])
-
                     test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice(np.setdiff1d(np.arange(par['num_samples']), target + unit_circle[1]%par['num_samples']))])
                 else:
                     test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
