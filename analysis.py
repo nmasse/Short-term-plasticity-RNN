@@ -28,7 +28,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
     """
-    #h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 10)
+    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 10)
 
 
     """
@@ -384,7 +384,7 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
 
     return h, syn_x, syn_u
 
-def downsample_activity(h, syn_x, syn_u, target_dt = 20):
+def downsample_activity(h, syn_x, syn_u, target_dt = 10):
 
     # downsample activity
     df = target_dt//par['dt']
@@ -393,6 +393,9 @@ def downsample_activity(h, syn_x, syn_u, target_dt = 20):
         h = h[:, rng, :]
         syn_x = syn_x[:, rng, :]
         syn_u = syn_u[:, rng, :]
+    else:
+        print('Cannot sample at higher temproal resolution!!!')
+        quit()
 
     trial_time = np.arange(0,h.shape[1]*target_dt, target_dt)
 
