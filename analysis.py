@@ -393,7 +393,7 @@ def downsample_activity(h, syn_x, syn_u, target_dt = 10):
         h = h[:, rng, :]
         syn_x = syn_x[:, rng, :]
         syn_u = syn_u[:, rng, :]
-    elseif df < 1:
+    elif df < 1:
         print('Cannot sample at higher temproal resolution!!!')
         quit()
 
