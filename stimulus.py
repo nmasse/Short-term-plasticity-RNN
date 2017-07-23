@@ -359,7 +359,7 @@ class Stimulus:
         """
 
         trial_length = par['num_time_steps']
-        ABBA_delay = self.ABBA_delay//par['dt']
+        ABBA_delay = par['ABBA_delay']//par['dt']
 
         # end of trial epochs
         eodead = par['dead_time']//par['dt']
@@ -378,7 +378,7 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
                       'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
-                      'test'            :  -1*np.ones((self.num_trials,self.max_num_tests),dtype=np.float32),
+                      'test'            :  -1*np.ones((self.num_trials,par['max_num_tests']),dtype=np.float32),
                       'rule'            :  4*np.ones((self.num_trials),dtype=np.int8),
                       'match'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
@@ -406,13 +406,13 @@ class Stimulus:
             """
             stim_dirs = []
             test_stim_code = 0
-            while len(stim_dirs) < self.max_num_tests:
-                if np.random.rand() < self.match_test_prob:
+            while len(stim_dirs) < par['max_num_tests']:
+                if np.random.rand() < par['match_test_prob']:
                     stim_dirs.append(sample_dir)
                     test_stim_code += sample_dir*(10**len(stim_dirs)-1)
                     break
                 else:
-                    if len(stim_dirs) > 0  and np.random.rand() < self.repeat_pct:
+                    if len(stim_dirs) > 0  and np.random.rand() < par['repeat_pct']:
                         #repeat last stimulus
                         stim_dirs.append(stim_dirs[-1])
                         trial_info['repeat_test_stim'][t] = 1
