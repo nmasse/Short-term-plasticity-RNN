@@ -240,8 +240,8 @@ def modul_analysis(weights):
     com = np.zeros(community)
     for x in len(weights[:,1]):
         for i in community:
-            if part[x] = i:
-                com[i]+=1
+            if part[x] == i:
+                com[i] += 1
 
     mean = np.mean(com)
     std = np.std(com)
