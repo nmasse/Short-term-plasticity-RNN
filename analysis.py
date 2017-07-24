@@ -237,7 +237,18 @@ def modul_analysis(weights):
     mod = com.modularity(part,gr)
     community = len(set(part.values()))
 
-    modularity = {'mod' : mod, 'community' : community}
+    com = np.zeros(community)
+    for x in len(weights[:,1]):
+        for i in community:
+            if part[x] = i:
+                com[i]+=1
+
+    mean = np.mean(com)
+    std = np.std(com)
+    maximum = np.max(com)
+    minimum = np.min(com)
+
+    modularity = {'mod' : mod, 'community' : community, 'mean' : mean, 'std' : std, 'max' : maximum, 'min' : minimum}
 
     return modularity
 
