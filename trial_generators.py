@@ -57,98 +57,39 @@ def handle_multitask_test(rule, location, target, f, active_fields, npf, stim_tu
     unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
                     3*par['num_samples']//4 , par['num_samples']]
 
-    if np.random.rand() < par['match_rate']:
-        match = True
-        if rule == 2:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[(target + unit_circle[1])%par['num_samples']])
+    match = np.random.rand() < par['match_rate']
+
+    for f in active_fields:
+        if f == location:
+            if rule in [2,3,4]:
+                unit = (target + (rule-3)*unit_circle[1])%par['num_samples']
+                if match:
+                    index = unit
                 else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 3:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[target])
+                    index = np.random.choice(np.setdiff1d(np.arange(par['num_samples']), unit))
+
+            elif rule in [5, 6]:
+                if rule == 5:
+                    set1 = np.random.randint(unit_circle[0], unit_circle[2])
+                    set2 = np.random.randint(unit_circle[2], unit_circle[4])
                 else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 4:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[(target - unit_circle[1])%par['num_samples']])
+                    set1 = np.random.randint(unit_circle[1], unit_circle[3])
+                    set2 = np.random.choice(np.concatenate([np.arange(unit_circle[3], unit_circle[4]), np.arange(unit_circle[0], unit_circle[1])]))
+
+                if unit_circle[0 + (rule-5)] <= target < unit_circle[2 + (rule-5)]:
+                    if match:
+                        index = set1
+                    else:
+                        index = set2
                 else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 5:
-            if unit_circle[0] <= target < unit_circle[2]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[0], unit_circle[2])])
+                    if match:
+                        index = set2
                     else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-            elif unit_circle[1] <= target < unit_circle[3]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[2], unit_circle[4])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 6:
-            if unit_circle[1] <= target < unit_circle[3]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[1], unit_circle[3])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-            elif (unit_circle[3] <= target < unit_circle[4]) or (unit_circle[0] <= target < unit_circle[1]):
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice([np.random.randint(unit_circle[3], unit_circle[4]), np.random.randint(unit_circle[0], unit_circle[1])])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-    else:
-        match = False
-        if rule == 2:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice(np.setdiff1d(np.arange(par['num_samples']), target + unit_circle[1]%par['num_samples']))])
-                else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 3:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice(np.setdiff1d(np.arange(0, par['num_samples']), target))])
-                else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 4:
-            for f in active_fields:
-                if f == location:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice(np.setdiff1d(np.arange(par['num_samples']), target - unit_circle[1]%par['num_samples']))])
-                else:
-                    test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 5:
-            if unit_circle[0] <= target < unit_circle[2]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[2], unit_circle[4])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-            elif unit_circle[1] <= target < unit_circle[3]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[0], unit_circle[2])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-        elif rule == 6:
-            if unit_circle[1] <= target < unit_circle[3]:
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.choice([np.random.randint(unit_circle[3], unit_circle[4]), np.random.randint(unit_circle[0], unit_circle[1])])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
-            elif (unit_circle[3] <= target < unit_circle[4]) or (unit_circle[0] <= target < unit_circle[1]):
-                for f in active_fields:
-                    if f == location:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(unit_circle[1], unit_circle[3])])
-                    else:
-                        test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
+                        index = set1
+
+            test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[index])
+        else:
+            test_input_n[f*npf:(f+1)*npf] = stimulus_permutation(stim_tuning[np.random.randint(0, par['num_samples'])])
 
     return test_input_n, match
 
