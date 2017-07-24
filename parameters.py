@@ -32,7 +32,7 @@ par = {
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 50,
+    'n_hidden'          : 20,
     'den_per_unit'      : 28,
 
     # Timings and rates
@@ -76,7 +76,7 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 100,
+    'batch_train_size'  : 10,
     'num_train_batches' : 100,
     'num_test_batches'  : 20,
     'num_iterations'    : 2,
@@ -95,7 +95,8 @@ par = {
     'num_category_rule' : 1,
     'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
-    'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist']
+    'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'modul_vars'        : True
 }
 
 ##############################
