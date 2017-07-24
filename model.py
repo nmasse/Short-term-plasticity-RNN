@@ -476,6 +476,9 @@ def print_data(dirpath, model_results, analysis):
         print('-----------')
         print('Modularity value'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['mod']))
         print('Number of communities'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['community']))
+        print('Community size'.ljust(22) + ': {:5.3f} +/- {:5.3f} '.format(model_results['modularity'][-1]['mean'], model_results['modularity'][-1]['std']))
+        print(''.ljust(22) + ': Max {:5.3f}, min {:5.3f} '.format(model_results['modularity'][-1]['max'], model_results['modularity'][-1]['min']))
+
     if par['anova_vars'] is not None:
         anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         print('\nAnova P < 0.001:')
