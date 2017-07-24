@@ -13,8 +13,8 @@ Time	Event	Data	Var
 
 1400	input	fix
 
-2400	input	test	x
-2400	mask	off
-2450	mask	on
+1900	input	test	x
+1900	mask	off
+1950	mask	on
 
-2900	finish
+2400	finish

@@ -14,4 +14,4 @@ Time	Event	Data	Var
 900	mask	off
 950	mask	on
 
-2900	finish
+2400	finish

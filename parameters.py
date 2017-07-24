@@ -39,7 +39,7 @@ par = {
     'dt'                : 20,
     'learning_rate'     : 5e-3,
     'membrane_time_constant'    : 50,
-    'dendrite_time_constant'    : 200,
+    'dendrite_time_constant'    : 300,
     'connection_prob'   : 0.5,         # Usually 1
     'mask_connectivity' : 1.0,
 
@@ -166,7 +166,7 @@ def set_task_profile():
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 0 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
+        par['num_spatial_cue_tuned'] = 0 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
