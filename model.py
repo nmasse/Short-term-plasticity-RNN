@@ -447,7 +447,7 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
             + '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
-            + rule_accuracies + '\n')S
+            + rule_accuracies + '\n')
 
     # output model performance to screen
     print('\nIteration Summary:')

@@ -228,7 +228,7 @@ def generate_masks():
     # for hidden nuerons, EXC will have ID=2, PV will have ID=3, VIP will have ID=4, SOM will have ID=5
     # 50% of INH neurons will be PV, 25% for VIP, SOM
     n = par['num_inh_units']//4
-    hidden_type = 2*np.ones((par['n_input']), dtype = np.uint8)
+    hidden_type = 2*np.ones((par['n_hidden']), dtype = np.uint8)
     hidden_type[par['num_exc_units']:par['num_exc_units']+2*n] = 3
     hidden_type[par['num_exc_units']+2*n:par['num_exc_units']+2*3] = 4
     hidden_type[par['num_exc_units']+3*n::] = 5
