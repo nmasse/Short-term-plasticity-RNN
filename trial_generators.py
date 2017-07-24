@@ -61,22 +61,22 @@ def handle_multitask_test(rule, location, target, f, active_fields, npf, stim_tu
 
     for f in active_fields:
         if f == location:
-            if rule in [2,3,4]:
-                unit = (target + (rule-3)*unit_circle[1])%par['num_samples']
+            if rule in [4,5,6]:
+                unit = (target + (rule-5)*unit_circle[1])%par['num_samples']
                 if match:
                     index = unit
                 else:
                     index = np.random.choice(np.setdiff1d(np.arange(par['num_samples']), unit))
 
-            elif rule in [5, 6]:
-                if rule == 5:
+            elif rule in [2,3]:
+                if rule == 2:
                     set1 = np.random.randint(unit_circle[0], unit_circle[2])
                     set2 = np.random.randint(unit_circle[2], unit_circle[4])
                 else:
                     set1 = np.random.randint(unit_circle[1], unit_circle[3])
                     set2 = np.random.choice(np.concatenate([np.arange(unit_circle[3], unit_circle[4]), np.arange(unit_circle[0], unit_circle[1])]))
 
-                if unit_circle[0 + (rule-5)] <= target < unit_circle[2 + (rule-5)]:
+                if unit_circle[0 + (rule-2)] <= target < unit_circle[2 + (rule-2)]:
                     if match:
                         index = set1
                     else:
@@ -183,7 +183,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
         elif par['stimulus_type'] == 'mnist':
             sample_output[n, target+1] = 1
         elif par['stimulus_type'] == 'multitask':
-            if rule in [0, 1]:
+            if rule in [0,1]:
                 sample_output[n] = handle_att(rule, target, sample_output[n])
             elif rule in [2,3,4,5,6]:
                 sample_output[n,0] = 1
@@ -192,14 +192,14 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
 
         # Generate test input based on sample characteristics
         if par['stimulus_type'] == 'multitask':
-            if rule in [0, 1]:
+            if rule in [0,1]:
                 pass
             elif rule in [2,3,4,5,6]:
                 test_input[n], match = handle_multitask_test(rule, location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
 
         # Generate test period outputs from the loop based on task-specific logic
         if par['stimulus_type'] == 'multitask':
-            if rule in [0, 1]:
+            if rule in [0,1]:
                 pass
             elif rule in [2,3,4,5,6]:
                 test_output[n] = handle_multitask(match, test_output[n])

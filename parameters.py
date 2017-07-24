@@ -32,8 +32,8 @@ par = {
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 20,
-    'den_per_unit'      : 28,
+    'n_hidden'          : 250,
+    'den_per_unit'      : 14,
 
     # Timings and rates
     'dt'                : 20,
@@ -63,7 +63,7 @@ par = {
     'spike_cost'        : 2e-3,
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
-    'loss_function'     : 'MSE',    # cross_entropy or MSE
+    'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
     'tau_fast'          : 200,
@@ -76,10 +76,10 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 10,
-    'num_train_batches' : 100,
+    'batch_train_size'  : 100,
+    'num_train_batches' : 500,
     'num_test_batches'  : 20,
-    'num_iterations'    : 2,
+    'num_iterations'    : 50,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 5,
 
@@ -155,17 +155,17 @@ def set_task_profile():
         par['profile_path'] = ['./profiles/attention_multitask.txt', './profiles/motion_multitask.txt']
         par['rules_map'] = [0] * 2 + [1] * 5             # Maps rules to profiles
 
-        par['num_RFs']               = 4             # contributes to 'possible_rules'
-        par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
+        par['num_RFs']               = 2             # contributes to 'possible_rules'
+        par['allowed_fields']        = [0,1]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 7             # Possible tasks and rules in those tasks
-        par['allowed_rules']         = [0,1,2,3]           # Can be 0 OR 1 OR 0, 1, etc.
+        par['allowed_rules']         = [0,1,2,3,4,5,6]  # Can be 0 OR 1 OR 0, 1, etc.
 
         par['permutation_id']        = 0
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 24 * par['num_rules']
+        par['num_rule_tuned']        = 0 * par['num_rules']
         par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
         par['n_output']              = 3
 

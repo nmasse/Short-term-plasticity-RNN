@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-import community as com
+import resources.community as com
 
 from parameters import *
 from model_saver import *
@@ -328,7 +328,7 @@ def main():
         timestamp, dirpath = create_save_dir()
 
         # Keep track of the model performance across training
-        model_results = {'accuracy': [], 'rule_accuracy' : [], 'loss': [], 'perf_loss': [], \
+        model_results = {'accuracy': [], 'rule_accuracy' : [], 'modularity': [], 'loss': [], 'perf_loss': [], \
                          'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Loop through the desired number of iterations
@@ -408,7 +408,7 @@ def main():
             N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             model_results['weights'] = extract_weights()
-            
+
             analysis_val = analysis.get_analysis(test_data, model_results['weights'])
 
             model_results = append_analysis_vals(model_results, analysis_val)
@@ -426,7 +426,7 @@ def main():
 
 def set_rule(iteration):
 
-    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'] + 2)%par['num_rules']]
     print('Allowed task rule(s):', par['allowed_rules'])
 
 
@@ -444,8 +444,10 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
+            + '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
+            + '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
-            + rule_accuracies + '\n')
+            + rule_accuracies + '\n')S
 
     # output model performance to screen
     print('\nIteration Summary:')
@@ -453,8 +455,20 @@ def print_data(dirpath, model_results, analysis):
     print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format(model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
     print('Perf. Loss: {:8.4f} | Dend. Loss: {:8.4f} | Mean Activity: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['dend_loss'][-1], model_results['mean_hidden'][-1]))
-    print('\nRule Accuracies:\t', np.round(model_results['rule_accuracy'][-1], 2))
 
+    if par['stimulus_type'] == 'multitask':
+        print('')
+        print('Attention Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][0:2], 2)))
+        print('DMC Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][2:4], 2)))
+        print('DMRS Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][4:], 2)))
+    else:
+        print('\nRule Accuracies:\t', np.round(model_results['rule_accuracy'][-1], 2))
+
+    if par['modul_vars']:
+        print('\nModularity:')
+        print('-----------')
+        print('Modularity value'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['mod']))
+        print('Number of communities'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['community']))
     if par['anova_vars'] is not None:
         anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
         print('\nAnova P < 0.001:')
@@ -600,6 +614,8 @@ def append_analysis_vals(model_results, analysis_val):
             model_results['accuracy'].append(analysis_val['accuracy'])
         elif k == 'rule_accuracy':
             model_results['rule_accuracy'].append(analysis_val['rule_accuracy'])
+        elif k == 'modularity':
+            model_results['modularity'].append(analysis_val['modularity'])
         elif not analysis_val[k] == []:
             for k1,v in analysis_val[k].items():
                 current_key = k + '_' + k1
@@ -631,6 +647,6 @@ def create_save_dir():
 
     # Create summary file
     with open(dirpath + '/model_summary.txt', 'w') as f:
-        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tMean activity\tAccuracy\tRule Accuracies\n')
+        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tMean activity\tModularity\tCommunities\tAccuracy\tRule Accuracies\n')
 
     return timestamp, dirpath
