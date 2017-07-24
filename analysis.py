@@ -238,8 +238,8 @@ def modul_analysis(weights):
     community = len(set(part.values()))
 
     com_sizes = np.zeros(community)
-    for x in len(weights[:,1]):
-        for i in community:
+    for x in range(len(weights[:,1])):
+        for i in range(community):
             if part[x] == i:
                 com_sizes[i] += 1
 
