@@ -234,9 +234,12 @@ def modul_analysis(weights):
     gr = nx.Graph()
     gr = nx.from_numpy_matrix(np.maximum(weights,0))
     part = com.best_partition(gr)
-    modularity = com.modularity(part,gr)
+    mod = com.modularity(part,gr)
+    community = len(set(part.values()))
 
-    print(modularity)
+    modularity = {'mod' : mod, 'community' : community}
+
+    return modularity
 
 def get_perf(test_data):
     """
