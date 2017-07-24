@@ -313,7 +313,7 @@ def plot(test_data):
     iteration = iteration + 1
 
 
-def get_analysis(test_data={}, filename=None):
+def get_analysis(test_data, weights, filename=None):
     """
     Depending on parameters, returns analysis results for ROC, ANOVA, etc.
     """
