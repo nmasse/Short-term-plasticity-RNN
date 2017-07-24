@@ -7,6 +7,9 @@ print("\nRunning model...\n")
 
 import tensorflow as tf
 import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+import community as com
 
 from parameters import *
 from model_saver import *
@@ -405,7 +408,7 @@ def main():
             N = par['batch_train_size']*par['num_train_batches']
             model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
             model_results['weights'] = extract_weights()
-
+            
             analysis_val = analysis.get_analysis(test_data, model_results['weights'])
 
             model_results = append_analysis_vals(model_results, analysis_val)

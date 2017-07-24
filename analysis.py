@@ -7,6 +7,8 @@ import json
 import pickle
 import model_saver
 import os
+import resources.community as com
+import networkx as nx
 from parameters import *
 
 global iteration
@@ -14,7 +16,7 @@ iteration = 0
 
 # Receiver operating characteristic (ROC) curve
 # Translated to python from Nick's Matlab code
-# returns a value from 0 to 1, with 0.5 representing complete overlap
+# returns a value from 0 to 1, with 0.5 representing complete overla
 def calculate_roc(xlist, ylist, fast_calc = False):
 
     if fast_calc:
@@ -227,6 +229,14 @@ def tuning_analysis(test_data):
 
     return tuning
 
+# Calculate modularity
+def modul_analysis(weights):
+    gr = nx.Graph()
+    gr = nx.from_numpy_matrix(np.maximum(weights,0))
+    part = com.best_partition(gr)
+    modularity = com.modularity(part,gr)
+
+    print(modularity)
 
 def get_perf(test_data):
     """
@@ -326,7 +336,7 @@ def get_analysis(test_data, weights, filename=None):
         time_stamps = np.array(data['params']['time_stamps'])
 
     # Get analysis results
-    result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : [], \
+    result = {'roc': [], 'anova': [], 'tuning': [], 'accuracy' : [], 'modularity' : [], \
               'rule_accuracy' : []}
 
     # Analyze the network output and get the accuracy values
@@ -345,6 +355,10 @@ def get_analysis(test_data, weights, filename=None):
         t1 = time.time()
         result['tuning'] = tuning_analysis(test_data)
         print('TUNING time\t', np.round(time.time()-t1,4))
+    if par['modul_vars'] is not None:
+        t1 = time.time()
+        result['modularity'] = modul_analysis(weights['w_rnn_soma'])
+        print('MODULARITY time\t', np.round(time.time()-t1,4))
 
     #plot(test_data)
 
@@ -360,7 +374,7 @@ def get_analysis(test_data, weights, filename=None):
 
 def load_data_dir(data_dir):
 
-    analysis_vars = ['anova', 'tuning', 'roc']
+    analysis_vars = ['anova', 'tuning', 'roc', 'modularity']
     x = {}
     for k in analysis_vars:
         x[k] = {}
@@ -394,6 +408,7 @@ def load_data_dir(data_dir):
     ANOVA, shape = iter num X neuron X (dendrite num) X RF X rule X time
     ROC, shape = iter num X neuron X (dendrite num) X RF X rule X category (up/down or left/right) time
     TUNING, shape = iter num X neuron X (dendrite num) X RF X rule X time X num unique samples
+    MODULARITY, shape = iter num X neuron X (dendrite num) X RF X rule X time X num unique samples
     """
 
     for var in analysis_vars:
