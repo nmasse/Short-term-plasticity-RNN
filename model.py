@@ -425,16 +425,15 @@ def main():
 
 
 def set_rule(iteration):
-
     #par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
-    if iteration//par['switch_rule_iteration'] == 0:
-        if par['allowed_rules'] == [0]:
-            par['allowed_rules'] = [2]
-        elif par['allowed_rules'] == [2]:
-            par['allowed_rules'] = [4]
-        else:
-            par['allowed_rules'] = [0]
+    #par['allowed_rules'] = [(iteration%3)*2]
 
+    if iteration%2 == 1:
+    	n = (iteration//2)%2 + 2
+    else:
+    	n = (iteration//2)%2
+
+    par['allowed_rules'] = [n]
     print('Allowed task rule(s):', par['allowed_rules'])
 
 
