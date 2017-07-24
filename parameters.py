@@ -29,11 +29,11 @@ par = {
     'var_delay'         : False,
     'use_dendrites'     : True,
     'use_stim_soma'     : False,
-    'df_num'            : '0008',    # Designates which dendrite function to use
+    'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
     'n_hidden'          : 50,
-    'den_per_unit'      : 8,
+    'den_per_unit'      : 28,
 
     # Timings and rates
     'dt'                : 20,
