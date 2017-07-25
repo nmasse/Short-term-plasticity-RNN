@@ -36,14 +36,14 @@ par = {
     'den_per_unit'      : 7,
 
     # Timings and rates
-    'dt'                : 20,
-    'learning_rate'     : 5e-3,
+    'dt'                        : 20,
+    'learning_rate'             : 5e-3,
     'membrane_time_constant'    : 50,
     'dendrite_time_constant'    : 300,
-    'connection_prob_in'   : 0.25,         # Usually 1
-    'connection_prob_rnn'  : 0.1,
-    'connection_prob_out'  : 0.25,
-    'mask_connectivity' : 1.0,
+    'connection_prob_in'        : 0.15,
+    'connection_prob_rnn'       : 0.05,
+    'connection_prob_out'       : 0.5,
+    'mask_connectivity'         : 1.0,
 
     # Variance values
     'clip_max_grad_val' : 0.25,
@@ -236,10 +236,10 @@ def generate_masks():
     hidden_type[par['num_exc_units']+3*n::] = 5
 
 
-    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    connectivity = np.ones((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
     # to soma
-    #connectivity[0, :, :] = 0
-
+    connectivity[0, :, :] = 0
+    """
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
     connectivity[0, 2, 2:4] = 1 # EXC will project to EXC,PV
     connectivity[0, 3, 2:4] = 1 # PV will project to EXC,PV
@@ -251,7 +251,7 @@ def generate_masks():
     connectivity[1, 2, 2:4] = 1 # EXC will project to EXC,PV
     connectivity[1, 4, 5] = 1 # VIP will project to SOM
     connectivity[1, 5, 2:4] = 1 # SOM will project to EXC,PV
-
+    """
 
     par['w_rnn_dend_mask'] = np.zeros((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
     par['w_rnn_soma_mask'] = np.zeros((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
