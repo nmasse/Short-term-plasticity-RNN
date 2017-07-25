@@ -91,7 +91,7 @@ par = {
     'ckpt_load_fn'      : 'model_' + str(0) + '.ckpt',
 
     # Analysis
-    'time_pts'          : [850, 1200],
+    'time_pts'          : [850, 1200, 1850, 2000],
     'num_category_rule' : 1,
     'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
