@@ -53,7 +53,7 @@ def handle_att(rule, target, sample_output_n):
     return sample_output_n
 
 
-def handle_multitask_test(rule, location, target, f, active_fields, npf, stim_tuning, test_input_n):
+def handle_multitask_test(rule, location, target, active_fields, npf, stim_tuning, test_input_n):
     unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
                     3*par['num_samples']//4 , par['num_samples']]
 
@@ -195,7 +195,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
             if rule in [0,1]:
                 pass
             elif rule in [2,3,4,5,6]:
-                test_input[n], match = handle_multitask_test(rule, location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
+                test_input[n], match = handle_multitask_test(rule, location, target, active_fields, neurons_per_field, stim_tuning, test_input[n])
 
         # Generate test period outputs from the loop based on task-specific logic
         if par['stimulus_type'] == 'multitask':

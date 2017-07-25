@@ -1,14 +1,15 @@
 import analysis
 import numpy as np
 import matplotlib.pyplot as plt
+import itertools
 
 import os
 os.system('cls' if os.name == 'nt' else 'clear')
 
 ### Informal plotting code
 
-data    = analysis.load_data_dir('./savedir/model_att_h50_df0008_D17-07-19_T11-44-57_with_dend_cost')
-#weights = model_saver.json_load('./savedir/model_.../model_results.json')['weights']['w_rnn_soma']
+data    = analysis.load_data_dir('./savedir/model_multitask_h250_df0009_D17-07-24_T17-00-57')
+#weights = model_saver.json_load('./savedir/model_multitask_h250_df0009_D17-07-24_T17-00-57/model_results.json')['weights']['w_rnn_soma']
 
 anova   = data['anova']
 roc     = data['roc']
@@ -23,7 +24,7 @@ roc_groups      = ['_attn', '_no_attn']
 tuning_groups   = ['_attn', '_no_attn']
 
 def view_all():
-    i = 15
+    i = 6
     n = 186
     d1 = 2
     d2 = 11
@@ -37,20 +38,18 @@ def view_all():
     # TUNING = iter num X neuron X (dendrite num) X RF X rule X time X num unique samples
 
     neurons = []
-    for n in range(50):
+    for n in range(250):
         neurons.append(np.squeeze(data['tuning']['dend_hist_attn'][:,n,:,:,:,:,:]))
         # Results: i, d, rf, r, t, sig
 
     all_neurons = np.concatenate(neurons, axis=1)
 
     f, axarr = plt.subplots(4, 4, sharex=True, sharey=True)
-    for r in range(2):
-        for t in range(2):
-            for rf in range(4):
-                axarr[r*2+t, rf].imshow(all_neurons[i,:,rf,r,t,:], aspect='auto', interpolation='none')
-                axarr[r*2+t, rf].set_title('rf = {}, r = {}, t ={}'.format(rf, r, t), fontsize=6)
+    for r, t, rf in itertools.product(range(4), range(2), range(2)):
+        axarr[r, rf*2+t].imshow(all_neurons[i,:,rf,r,t,:], aspect='auto', interpolation='none')
+        axarr[r, rf*2+t].set_title('rf = {}, r = {}, t ={}'.format(rf, r, t), fontsize=6)
 
-    axarr[3,0].set_xlabel("Signal Index          Excitatory")
+    axarr[3,0].set_xlabel("Signal Index          Both")
     axarr[3,0].set_ylabel("Dendrites * Neurons")
     plt.show()
 
@@ -106,5 +105,5 @@ def view_dendrite():
 
 
 #view_roc()
-# view_all()
-view_dendrite()
+view_all()
+#view_dendrite()

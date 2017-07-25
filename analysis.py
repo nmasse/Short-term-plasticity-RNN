@@ -410,11 +410,12 @@ def load_data_dir(data_dir):
             fn = os.path.join(data_dir, file)
             y = model_saver.json_load(fn)
             for var in analysis_vars:
-                for k,v in y[1][var].items():
-                    if not k in x[var].keys():
-                        x[var][k] = [v]
-                    else:
-                        x[var][k].append(v)
+                if y[1][var] != []:
+                    for k,v in y[1][var].items():
+                        if not k in x[var].keys():
+                            x[var][k] = [v]
+                        else:
+                            x[var][k].append(v)
 
     """
     Variables will be of shape
