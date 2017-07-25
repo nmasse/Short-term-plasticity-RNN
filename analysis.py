@@ -9,6 +9,7 @@ import model_saver
 import os
 import resources.community as com
 import networkx as nx
+import itertools
 from parameters import *
 
 global iteration
@@ -140,46 +141,44 @@ def anova_analysis(test_data):
                 m = len(trial_index_attend)
                 trial_index_not_attend.append(np.where(bool_no_attn_rule*bool_sample)[0][:m])
 
-            for var in par['anova_vars']:
-                for t in range(len(par['time_pts'])):
-                    for n in range(par['n_hidden']):
-                        if var.count('dend') > 0:
-                            for d in range(par['den_per_unit']):
-                                if np.var(test_data[var][time_pts[t],n,d,:]) < 1e-12:
-                                    continue
-                                attend_vals = []
-                                not_attend_vals = []
+            for var, t, n in itertools.product(par['anova_vars'], range(len(par['time_pts'])), range(par['n_hidden'])):
+                if var.count('dend') > 0:
+                    for d in range(par['den_per_unit']):
+                        if np.var(test_data[var][time_pts[t],n,d,:]) < 1e-12:
+                            continue
+                        attend_vals = []
+                        not_attend_vals = []
 
-                                for trial_list in trial_index_attend:
-                                    attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
-                                for trial_list in trial_index_not_attend:
-                                    not_attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
+                        for trial_list in trial_index_attend:
+                            attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
+                        for trial_list in trial_index_not_attend:
+                            not_attend_vals.append(test_data[var][time_pts[t],n,d,trial_list])
 
-                                f_attend, p_attend = stats.f_oneway(*attend_vals)
-                                f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
-                                if not np.isnan(p_attend):
-                                    anova[var + '_attn_pval'][n,d,rf,r,t] = p_attend
-                                    anova[var + '_attn_fval'][n,d,rf,r,t] = f_attend
-                                    anova[var + '_no_attn_pval'][n,d,rf,r,t] = p_not_attend
-                                    anova[var + '_no_attn_fval'][n,d,rf,r,t] = f_not_attend
-                        else:
-                            if np.var(test_data[var][time_pts[t],n,:]) < 1e-12:
-                                continue
-                            attend_vals = []
-                            not_attend_vals = []
+                        f_attend, p_attend = stats.f_oneway(*attend_vals)
+                        f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
+                        if not np.isnan(p_attend):
+                            anova[var + '_attn_pval'][n,d,rf,r,t] = p_attend
+                            anova[var + '_attn_fval'][n,d,rf,r,t] = f_attend
+                            anova[var + '_no_attn_pval'][n,d,rf,r,t] = p_not_attend
+                            anova[var + '_no_attn_fval'][n,d,rf,r,t] = f_not_attend
+                else:
+                    if np.var(test_data[var][time_pts[t],n,:]) < 1e-12:
+                        continue
+                    attend_vals = []
+                    not_attend_vals = []
 
-                            for trial_list in trial_index_attend:
-                                attend_vals.append(test_data[var][time_pts[t],n,trial_list])
-                            for trial_list in trial_index_not_attend:
-                                not_attend_vals.append(test_data[var][time_pts[t],n,trial_list])
+                    for trial_list in trial_index_attend:
+                        attend_vals.append(test_data[var][time_pts[t],n,trial_list])
+                    for trial_list in trial_index_not_attend:
+                        not_attend_vals.append(test_data[var][time_pts[t],n,trial_list])
 
-                            f_attend, p_attend = stats.f_oneway(*attend_vals)
-                            f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
-                            if not np.isnan(p_attend):
-                                anova[var + '_attn_pval'][n,rf,r,t] = p_attend
-                                anova[var + '_attn_fval'][n,rf,r,t] = f_attend
-                                anova[var + '_no_attn_pval'][n,rf,r,t] = p_not_attend
-                                anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
+                    f_attend, p_attend = stats.f_oneway(*attend_vals)
+                    f_not_attend, p_not_attend = stats.f_oneway(*not_attend_vals)
+                    if not np.isnan(p_attend):
+                        anova[var + '_attn_pval'][n,rf,r,t] = p_attend
+                        anova[var + '_attn_fval'][n,rf,r,t] = f_attend
+                        anova[var + '_no_attn_pval'][n,rf,r,t] = p_not_attend
+                        anova[var + '_no_attn_fval'][n,rf,r,t] = f_not_attend
 
     return anova
 
