@@ -32,16 +32,16 @@ par = {
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 50,
+    'n_hidden'          : 250,
     'den_per_unit'      : 7,
 
     # Timings and rates
     'dt'                        : 20,
     'learning_rate'             : 5e-3,
     'membrane_time_constant'    : 50,
-    'dendrite_time_constant'    : 300,
-    'connection_prob_in'        : 0.15,
-    'connection_prob_rnn'       : 0.05,
+    'dendrite_time_constant'    : 100,
+    'connection_prob_in'        : 0.25,
+    'connection_prob_rnn'       : 0.1,
     'connection_prob_out'       : 0.5,
     'mask_connectivity'         : 1.0,
 
@@ -98,7 +98,10 @@ par = {
     'roc_vars'          : None,
     'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
-    'modul_vars'        : True
+    'modul_vars'        : True,
+
+    # Meta weights
+    'num_mw'            : 10
 }
 
 ##############################
@@ -502,7 +505,7 @@ def update_dependencies():
         par['w_rnn_soma0'] /= (2*spectral_radius(par['w_rnn_soma0']))
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob_out'])
+    par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob_out'])
 
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
@@ -558,6 +561,29 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+    ######################################
+    ### Setting up meta weight matrices ##
+    ######################################
+
+    par['w_stim_dend0_u'] = np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_stim_dend0_g'] = np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_stim_soma0_u'] = np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+    par['w_stim_soma0_g'] = np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+
+    par['w_td_dend0_u'] = np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_td_dend0_g'] = np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_td_soma0_u'] = np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+    par['w_td_soma0_g'] = np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+
+    par['w_rnn_dend0_u'] = np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_rnn_dend0_g'] = np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
+    par['w_rnn_soma0_u'] = np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+    par['w_rnn_soma0_g'] = np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
+
+    par['w_out_u'] = np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32)
+    par['w_out_g'] = np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32)
+
 
 set_task_profile()
 update_dependencies()

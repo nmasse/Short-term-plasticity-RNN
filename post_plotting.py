@@ -8,7 +8,7 @@ os.system('cls' if os.name == 'nt' else 'clear')
 
 ### Informal plotting code
 
-data    = analysis.load_data_dir('./savedir/model_multitask_h250_df0009_D17-07-24_T17-00-57')
+data    = analysis.load_data_dir('./savedir/model_multitask_h250_df0009_D17-07-25_T13-14-32')
 #weights = model_saver.json_load('./savedir/model_multitask_h250_df0009_D17-07-24_T17-00-57/model_results.json')['weights']['w_rnn_soma']
 
 anova   = data['anova']
@@ -24,7 +24,7 @@ roc_groups      = ['_attn', '_no_attn']
 tuning_groups   = ['_attn', '_no_attn']
 
 def view_all():
-    i = 6
+    i = 0
     n = 186
     d1 = 2
     d2 = 11
@@ -39,14 +39,15 @@ def view_all():
 
     neurons = []
     for n in range(250):
+        print()
         neurons.append(np.squeeze(data['tuning']['dend_hist_attn'][:,n,:,:,:,:,:]))
         # Results: i, d, rf, r, t, sig
 
     all_neurons = np.concatenate(neurons, axis=1)
-
+        
     f, axarr = plt.subplots(4, 4, sharex=True, sharey=True)
-    for r, t, rf in itertools.product(range(4), range(2), range(2)):
-        axarr[r, rf*2+t].imshow(all_neurons[i,:,rf,r,t,:], aspect='auto', interpolation='none')
+    for r, t, rf in itertools.product(range(4), range(2), range(1)):
+        axarr[r, rf*2+t].imshow(all_neurons[i,:,t,:], aspect='auto', interpolation='none')
         axarr[r, rf*2+t].set_title('rf = {}, r = {}, t ={}'.format(rf, r, t), fontsize=6)
 
     axarr[3,0].set_xlabel("Signal Index          Both")
