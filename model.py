@@ -365,36 +365,36 @@ def main():
                     # Evaluate the weight matrices to yield metaweights
                     # to be put back into the system
                     metatime = time.time()
-                    metaweights_dict = {}
+                    metaweight_vals = []
                     with tf.variable_scope('rnn_cell', reuse=True):
                         if par['use_dendrites']:
-                            metaweights_dict['W_stim_dend'] = tf.get_variable('W_stim_dend')
-                            metaweights_dict['W_td_dend']   = tf.get_variable('W_td_dend')
-                            metaweights_dict['W_rnn_dend']  = tf.get_variable('W_rnn_dend')
+                            metaweight_vals.append(tf.get_variable('W_stim_dend'))
+                            metaweight_vals.append(tf.get_variable('W_td_dend'))
+                            metaweight_vals.append(tf.get_variable('W_rnn_dend'))
 
                         if par['use_stim_soma']:
-                            metaweights_dict['W_stim_soma'] = tf.get_variable('W_stim_soma')
-                            metaweights_dict['W_td_soma']   = tf.get_variable('W_td_soma')
+                            metaweight_vals.append(tf.get_variable('W_stim_soma'))
+                            metaweight_vals.append(tf.get_variable('W_td_soma'))
 
-                        metaweights_dict['W_rnn_soma']  = tf.get_variable('W_rnn_soma')
+                        metaweight_vals.append(tf.get_variable('W_rnn_soma'))
                     with tf.variable_scope('output', reuse=True):
-                        metaweights_dict['W_out'] = tf.get_variable('W_out')
-                    print('Making dict:', time.time() - metatime)
+                        metaweight_vals.append(tf.get_variable('W_out'))
 
-                    var_set = [0]*len(metaweights_dict)
-                    name_set = ['']*len(metaweights_dict)
-                    for (name, var), wmn in zip(metaweights_dict.items(), range(len(metaweights_dict))):
-                        to_update = var.eval()
-                        ops[wmn] = var.assign(mw.adjust(to_update))
+                    to_update = sess.run(metaweight_vals)
+                    print(np.sum(to_update[0]))
+
+                    ops = []
+                    for i in range(len(metaweight_vals)):
+                        ops.append(metaweight_vals[i].assign(mw.adjust(to_update[i])))
 
                     sess.run(ops)
                     print('Time: ', time.time() - metatime)
                     print('')
 
                 # Show model progress
-                progress = (j+1)/par['num_train_batches']
-                bar = int(np.round(progress*20))
-                print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+                #progress = (j+1)/par['num_train_batches']
+                #bar = int(np.round(progress*20))
+                #print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
 

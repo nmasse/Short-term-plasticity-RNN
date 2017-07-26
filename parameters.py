@@ -32,7 +32,7 @@ par = {
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 50,
+    'n_hidden'          : 250,
     'den_per_unit'      : 7,
 
     # Timings and rates
