@@ -381,11 +381,10 @@ def main():
                         metaweight_vals.append(tf.get_variable('W_out'))
 
                     to_update = sess.run(metaweight_vals)
-                    print(np.sum(to_update[0]))
 
-                    ops = []
-                    for i in range(len(metaweight_vals)):
-                        ops.append(metaweight_vals[i].assign(mw.adjust(to_update[i])))
+                    ops = [0]*len(to_update)
+                    for i in itertools.product(range(len(to_update))):
+                        ops[i] = metaweight_vals[i].assign(mw.adjust(to_update[i]))
 
                     sess.run(ops)
                     print('Time: ', time.time() - metatime)
