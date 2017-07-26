@@ -101,7 +101,8 @@ par = {
     'modul_vars'        : True,
 
     # Meta weights
-    'num_mw'            : 10
+    'num_mw'            : 10,
+    'use_metaweights'   : False
 }
 
 ##############################

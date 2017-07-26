@@ -14,6 +14,7 @@ import resources.community as com
 from parameters import *
 from model_saver import *
 import dendrite_functions as df
+import metaweight as mw
 import stimulus
 import analysis
 
@@ -105,7 +106,7 @@ class Model:
                 W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
                 W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
 
-            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=False)
+            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
         # Sets up the histories for the computation
@@ -243,8 +244,12 @@ class Model:
                     for (h, mask) in zip(self.hidden_state_hist, self.mask)]
 
         # L1 penalty term on dendrite activity to encourage sparseness
-        dend_loss = [par['dend_cost']*tf.reduce_mean(tf.abs(d), axis=0) \
-                    for (d, mask) in zip(self.dendrites_hist, self.mask)]
+        if par['use_dendrites']:
+            dend_loss = [par['dend_cost']*tf.reduce_mean(tf.abs(d), axis=0) \
+                        for (d, mask) in zip(self.dendrites_hist, self.mask)]
+        else:
+            dend_loss = tf.constant(0, dtype=tf.float32)
+
 
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
@@ -355,6 +360,39 @@ def main():
                 # Train the model
                 _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], dendrite_template: template, learning_rate: par['learning_rate']})
+
+                if par['use_metaweights']:
+                    # Evaluate the weight matrices to yield metaweights
+                    # to be put back into the system
+                    metatime = time.time()
+                    metaweights_dict = {}
+                    with tf.variable_scope('rnn_cell', reuse=True):
+                        if par['use_dendrites']:
+                            metaweights_dict['W_stim_dend'] = tf.get_variable('W_stim_dend')
+                            metaweights_dict['W_td_dend']   = tf.get_variable('W_td_dend')
+                            metaweights_dict['W_rnn_dend']  = tf.get_variable('W_rnn_dend')
+
+                        if par['use_stim_soma']:
+                            metaweights_dict['W_stim_soma'] = tf.get_variable('W_stim_soma')
+                            metaweights_dict['W_td_soma']   = tf.get_variable('W_td_soma')
+
+                        metaweights_dict['W_rnn_soma']  = tf.get_variable('W_rnn_soma')
+                    with tf.variable_scope('output', resuse=True):
+                        metaweights_dict['W_out'] = tf.get_varaible('W_out')
+
+                    for name, var in metaweights_dict.items():
+                        t1 = time.time()
+                        to_update = var.eval()
+                        print('t1', time.time()-t1)
+                        t2 = time.time()
+                        op = var.assign(mw.adjust(to_update))
+                        print('t2', time.time()-t2)
+                        t3 = time.time()
+                        sess.run(op)
+                        print('t3', time.time()-t3)
+
+                        print('all', time.time() - metatime)
+                        print('')
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']

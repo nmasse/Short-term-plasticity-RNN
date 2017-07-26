@@ -1,8 +1,8 @@
 import numpy as np
 from parameters import *
 
-def main():
-    pass
+def adjust(x):
+    return 5*x
 
 u = np.zeros(par['num_mw'])
 
@@ -11,7 +11,7 @@ u = np.zeros(par['num_mw'])
 def omega(u, weight, C, g, alpha):
 
 	for i in range(len(u)):
-		if i = 0:
+		if i == 0:
 			u[i] = weight
 		else:
 			u[i] = 1/C[i] * (g[i]*(u[i+1]-u[i]) - g[i-1]*(u[i]-u[i-1])) * alpha
