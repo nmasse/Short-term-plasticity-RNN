@@ -106,7 +106,7 @@ class Model:
                 W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
                 W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
 
-            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
+            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=False)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
         # Sets up the histories for the computation
@@ -377,22 +377,19 @@ def main():
                             metaweights_dict['W_td_soma']   = tf.get_variable('W_td_soma')
 
                         metaweights_dict['W_rnn_soma']  = tf.get_variable('W_rnn_soma')
-                    with tf.variable_scope('output', resuse=True):
-                        metaweights_dict['W_out'] = tf.get_varaible('W_out')
+                    with tf.variable_scope('output', reuse=True):
+                        metaweights_dict['W_out'] = tf.get_variable('W_out')
+                    print('Making dict:', time.time() - metatime)
 
-                    for name, var in metaweights_dict.items():
-                        t1 = time.time()
+                    var_set = [0]*len(metaweights_dict)
+                    name_set = ['']*len(metaweights_dict)
+                    for (name, var), wmn in zip(metaweights_dict.items(), range(len(metaweights_dict))):
                         to_update = var.eval()
-                        print('t1', time.time()-t1)
-                        t2 = time.time()
-                        op = var.assign(mw.adjust(to_update))
-                        print('t2', time.time()-t2)
-                        t3 = time.time()
-                        sess.run(op)
-                        print('t3', time.time()-t3)
+                        ops[wmn] = var.assign(mw.adjust(to_update))
 
-                        print('all', time.time() - metatime)
-                        print('')
+                    sess.run(ops)
+                    print('Time: ', time.time() - metatime)
+                    print('')
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']

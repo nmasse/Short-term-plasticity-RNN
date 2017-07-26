@@ -32,7 +32,7 @@ par = {
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 250,
+    'n_hidden'          : 50,
     'den_per_unit'      : 7,
 
     # Timings and rates
@@ -96,13 +96,13 @@ par = {
     'time_pts'          : [850, 1200, 1850, 2000],
     'num_category_rule' : 1,
     'roc_vars'          : None,
-    'anova_vars'        : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
-    'tuning_vars'       : ['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'anova_vars'        : None, #['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
+    'tuning_vars'       : None, #['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'modul_vars'        : True,
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False
+    'use_metaweights'   : True
 }
 
 ##############################

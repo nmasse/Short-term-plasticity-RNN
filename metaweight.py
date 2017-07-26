@@ -2,7 +2,7 @@ import numpy as np
 from parameters import *
 
 def adjust(x):
-    return 5*x
+    return 1.5*x
 
 u = np.zeros(par['num_mw'])
 
