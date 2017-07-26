@@ -364,7 +364,6 @@ def main():
                 if par['use_metaweights']:
                     # Evaluate the weight matrices to yield metaweights
                     # to be put back into the system
-                    metatime = time.time()
                     metaweight_vals = []
                     with tf.variable_scope('rnn_cell', reuse=True):
                         if par['use_dendrites']:
@@ -380,20 +379,12 @@ def main():
                     with tf.variable_scope('output', reuse=True):
                         metaweight_vals.append(tf.get_variable('W_out'))
 
-                    to_update = sess.run(metaweight_vals)
-
-                    ops = [0]*len(to_update)
-                    for i in itertools.product(range(len(to_update))):
-                        ops[i] = metaweight_vals[i].assign(mw.adjust(to_update[i]))
-
-                    sess.run(ops)
-                    print('Time: ', time.time() - metatime)
-                    print('')
+                    sess.run(list(map((lambda u, v: u.assign(mw.adjust(v))), metaweight_vals, sess.run(metaweight_vals))))
 
                 # Show model progress
-                #progress = (j+1)/par['num_train_batches']
-                #bar = int(np.round(progress*20))
-                #print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+                progress = (j+1)/par['num_train_batches']
+                bar = int(np.round(progress*20))
+                print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
 
