@@ -563,29 +563,6 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-    ######################################
-    ### Setting up meta weight matrices ##
-    ######################################
-
-    par['w_stim_dend0_u'] = np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_stim_dend0_g'] = np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_stim_soma0_u'] = np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-    par['w_stim_soma0_g'] = np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-
-    par['w_td_dend0_u'] = np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_td_dend0_g'] = np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_td_soma0_u'] = np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-    par['w_td_soma0_g'] = np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-
-    par['w_rnn_dend0_u'] = np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_rnn_dend0_g'] = np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32)
-    par['w_rnn_soma0_u'] = np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-    par['w_rnn_soma0_g'] = np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32)
-
-    par['w_out_u'] = np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32)
-    par['w_out_g'] = np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32)
-
-
 set_task_profile()
 update_dependencies()
 print("--> Parameters successfully loaded.\n")

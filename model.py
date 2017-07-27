@@ -304,7 +304,7 @@ def main():
 
     print_startup_info()
 
-    # Create the stimulus class to generate trial paramaters and input activity
+    # Create the stimulus class to generate trial parameters and input activity
     stim = stimulus.Stimulus()
 
     # Define all placeholders
@@ -336,6 +336,32 @@ def main():
         model_results = {'accuracy': [], 'rule_accuracy' : [], 'modularity': [], 'loss': [], 'perf_loss': [], \
                          'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
+        # Assemble the list of metaweights metaweights to use
+        if par['use_metaweights']:
+            metaweight_vals = []
+            metaweight_names = []
+            with tf.variable_scope('rnn_cell', reuse=True):
+                if par['use_dendrites']:
+                    metaweight_vals.append(tf.get_variable('W_stim_dend'))
+                    metaweight_vals.append(tf.get_variable('W_td_dend'))
+                    metaweight_vals.append(tf.get_variable('W_rnn_dend'))
+                    metaweight_names.append('W_stim_dend')
+                    metaweight_names.append('W_td_dend')
+                    metaweight_names.append('W_rnn_dend')
+
+                if par['use_stim_soma']:
+                    metaweight_vals.append(tf.get_variable('W_stim_soma'))
+                    metaweight_vals.append(tf.get_variable('W_td_soma'))
+                    metaweight_names.append('W_stim_soma')
+                    metaweight_names.append('W_td_soma')
+
+                metaweight_vals.append(tf.get_variable('W_rnn_soma'))
+                metaweight_names.append('W_rnn_soma')
+
+            with tf.variable_scope('output', reuse=True):
+                metaweight_vals.append(tf.get_variable('W_out'))
+                metaweight_names.append('W_out')
+
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
@@ -363,30 +389,14 @@ def main():
 
                 if par['use_metaweights']:
                     # Evaluate the weight matrices to yield metaweights
-                    # to be put back into the system
-                    metaweight_vals = []
-                    with tf.variable_scope('rnn_cell', reuse=True):
-                        if par['use_dendrites']:
-                            metaweight_vals.append(tf.get_variable('W_stim_dend'))
-                            metaweight_vals.append(tf.get_variable('W_td_dend'))
-                            metaweight_vals.append(tf.get_variable('W_rnn_dend'))
-
-                        if par['use_stim_soma']:
-                            metaweight_vals.append(tf.get_variable('W_stim_soma'))
-                            metaweight_vals.append(tf.get_variable('W_td_soma'))
-
-                        metaweight_vals.append(tf.get_variable('W_rnn_soma'))
-                    with tf.variable_scope('output', reuse=True):
-                        metaweight_vals.append(tf.get_variable('W_out'))
-
-                    sess.run(list(map((lambda u, v: u.assign(mw.adjust(v))), metaweight_vals, sess.run(metaweight_vals))))
+                    # and put them back into the graph
+                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), metaweight_vals, sess.run(metaweight_vals), metaweight_names)))
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
                 bar = int(np.round(progress*20))
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
-
 
             # Allows all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])

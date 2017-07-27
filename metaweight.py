@@ -1,8 +1,36 @@
 import numpy as np
 from parameters import *
 
-def adjust(x):
-    return 1.5*x
+class MetaweightSet:
+
+    def __init__(self):
+        self.mws_dict = {
+            'W_stim_dend_u' : np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_stim_dend_g' : np.zeros(np.append(par['input_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_stim_soma_u' : np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+            'W_stim_soma_g' : np.zeros(np.append(par['input_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+
+            'W_td_dend_u' : np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_td_dend_g' : np.zeros(np.append(par['td_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_td_soma_u' : np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+            'W_td_soma_g' : np.zeros(np.append(par['td_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+
+            'W_rnn_dend_u' : np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_rnn_dend_g' : np.zeros(np.append(par['hidden_to_hidden_dend_dims'],par['num_mw']), dtype=np.float32),
+            'W_rnn_soma_u' : np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+            'W_rnn_soma_g' : np.zeros(np.append(par['hidden_to_hidden_soma_dims'],par['num_mw']), dtype=np.float32),
+
+            'W_out_u' : np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32),
+            'W_out_g' : np.zeros((par['n_hidden'], par['n_output'], par['num_mw']), dtype=np.float32)
+        }
+
+global mws
+mws = MetaweightSet()
+
+def adjust(x, name):
+    print(name, np.shape(x))
+
+    return x
 
 u = np.zeros(par['num_mw'])
 
