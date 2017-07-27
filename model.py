@@ -106,7 +106,7 @@ class Model:
                 W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
                 W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
 
-            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=False)
+            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
 
         # Sets up the histories for the computation
@@ -255,7 +255,16 @@ class Model:
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss
+
+        # Motif loss
+        m = np.zeros((par['n_hidden'], par['n_hidden']), dtype = np.float32)
+        m[:par['n_hidden']//5, :par['n_hidden']//5] = 1
+        mask = tf.constant(m)
+        with tf.variable_scope('rnn_cell', reuse=True):
+            W_rnn_soma  = tf.get_variable('W_rnn_soma')
+        motif_loss = 0.2*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
+
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + motif_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -265,6 +274,7 @@ class Model:
         #Apply any applicable weights masks to the gradient and clip
         capped_gvs = []
         for grad, var in grads_and_vars:
+            print(var)
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
                 print('Applied weight mask to w_rnn_dend.')
@@ -467,6 +477,8 @@ def set_rule(iteration):
     	n = (iteration//2)%2 + 2
     else:
     	n = (iteration//2)%2
+
+    n = 2
 
     par['allowed_rules'] = [n]
     print('Allowed task rule(s):', par['allowed_rules'])
