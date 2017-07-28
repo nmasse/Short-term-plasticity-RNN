@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'multitask',    # multitask, att, mnist
+    'stimulus_type'         : 'att',    # multitask, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -27,21 +27,21 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'use_stim_soma'     : True,
     'df_num'            : '0009',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 100,
-    'den_per_unit'      : 7,
+    'n_hidden'          : 40,
+    'den_per_unit'      : 2,
 
     # Timings and rates
     'dt'                        : 20,
-    'learning_rate'             : 5e-3,
-    'membrane_time_constant'    : 50,
+    'learning_rate'             : 2e-3,
+    'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
     'connection_prob_in'        : 0.25,
-    'connection_prob_rnn'       : 0.1,
+    'connection_prob_rnn'       : 0.5,
     'connection_prob_out'       : 0.5,
     'mask_connectivity'         : 1.0,
 
@@ -49,7 +49,7 @@ par = {
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
-    'internal_sd'       : 0.5/10,
+    'internal_sd'       : 0.5,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -62,9 +62,10 @@ par = {
     'probe_time'        : 25,
 
     # Cost parameters/function
-    'spike_cost'        : 2e-3,
+    'spike_cost'        : 1e-2,
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
+    'motif_cost'        : 0e-2,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -79,11 +80,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 500,
+    'num_train_batches' : 50,
     'num_test_batches'  : 20,
-    'num_iterations'    : 5,
+    'num_iterations'    : 40,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 1,
+    'switch_rule_iteration'         : 10,
 
     # Save paths and other info
     'save_notes'        : '',
@@ -140,18 +141,18 @@ def set_task_profile():
         par['profile_path'] = ['./profiles/attention.txt']
         par['rules_map'] = None
 
-        par['num_RFs']               = 4             # contributes to 'possible_rules'
-        par['allowed_fields']        = [0,1,2,3]     # can hold 0 through num_fields - 1
+        par['num_RFs']               = 1             # contributes to 'possible_rules'
+        par['allowed_fields']        = [0]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 2             # the number of possible judgements
-        par['allowed_rules']         = [0]           # Can be 0 OR 1 OR 0, 1
+        par['allowed_rules']         = [0,1]           # Can be 0 OR 1 OR 0, 1
 
         par['permutation_id']        = 0
 
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 24 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 24 * par['num_RFs']
+        par['num_rule_tuned']        = 12 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 0 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
@@ -161,7 +162,7 @@ def set_task_profile():
         par['profile_path'] = ['./profiles/attention_multitask.txt', './profiles/motion_multitask.txt']
         par['rules_map'] = [0] * 2 + [1] * 5             # Maps rules to profiles
 
-        par['num_RFs']               = 1             # contributes to 'possible_rules'
+        par['num_RFs']               = 1          # contributes to 'possible_rules'
         par['allowed_fields']        = [0]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 7             # Possible tasks and rules in those tasks
@@ -220,7 +221,7 @@ def update_parameters(updates):
     Takes a list of strings and values for updating parameters in the parameter dictionary
     Example: updates = [(key, val), (key, val)]
     """
-    for (key, val) in updates:
+    for (key, val) in updates.items():
         par[key] = val
 
     update_dependencies()
@@ -326,18 +327,14 @@ def spectral_radius(A):
 
 
 def set_template(trial_rules, trial_locations):
-    # Set up dendrite inhibition template for df0009
-    if par['df_num'] == '0009':
-        o = 100*np.ones([par['num_rules']*par['num_RFs'], par['num_rules']*par['num_RFs']], dtype=np.float32)
-        o[np.diag_indices(par['num_rules']*par['num_RFs'])] = 0
-        template = np.zeros([par['n_hidden'], par['batch_train_size'], par['den_per_unit']])
-        for n in range(par['batch_train_size']):
-            template[:,n] = o[trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]]
-            #template[:,n] = o[trial_locations[n%par['num_RFs'],0]]
-        return np.transpose(template, [0,2,1])
-    else:
-        return np.zeros([par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
 
+    # Set up dendrite inhibition template for df0009
+    template = 1000*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
+    for n in range(par['batch_train_size']):
+        r = trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]
+        template[:,r,:] = 0
+
+    return template
 
 def update_dependencies():
     """
