@@ -93,7 +93,7 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, trial_time, num_reps = 
         Will also calculate the category decoding accuracies, assuming the first half of
         the sample direction belong to category 1, and the second half belong to category 2
         """
-        num_motion_dirs = len(unique(sample))
+        num_motion_dirs = len(np.unique(sample))
         sample = np.floor(sample/(num_motion_dirs/2)*np.ones_like(sample))
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
