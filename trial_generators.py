@@ -53,7 +53,7 @@ def handle_att(rule, target, sample_output_n):
     return sample_output_n
 
 
-def handle_multitask_test(rule, location, target, active_fields, npf, stim_tuning, test_input_n):
+def handle_multitask_test(rule, location, target, f, active_fields, npf, stim_tuning, test_input_n):
     unit_circle = [0, par['num_samples']//4, par['num_samples']//2, \
                     3*par['num_samples']//4 , par['num_samples']]
 
@@ -156,7 +156,8 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
         # rule dictates (currently MNIST only)
         for f in active_fields:
             sample_input[n, f*neurons_per_field:(f+1)*neurons_per_field] = \
-                        stimulus_permutation(stim_tuning[sample_indices[f]])
+                stimulus_permutation(stim_tuning[sample_indices[f]])
+
 
             # Based on rules in the MNIST task, inverts the neural input in
             # each field vertically or horizontally.  Currently hard-coded to
@@ -179,12 +180,12 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
 
         # Generate sample period outputs from the loop based on task-specific logic
         if par['stimulus_type'] == 'att':
-            sample_output[n] = handle_att(rule, target, sample_output[n])
+            sample_output[n,:] = handle_att(rule, target, sample_output[n,:])
         elif par['stimulus_type'] == 'mnist':
             sample_output[n, target+1] = 1
         elif par['stimulus_type'] == 'multitask':
             if rule in [0,1]:
-                sample_output[n] = handle_att(rule, target, sample_output[n])
+                sample_output[n,:] = handle_att(rule, target, sample_output[n,:])
             elif rule in [2,3,4,5,6]:
                 sample_output[n,0] = 1
         else:
@@ -195,7 +196,7 @@ def trial_batch(N, stim_tuning, fix_tuning, rule_tuning, spatial_tuning, images,
             if rule in [0,1]:
                 pass
             elif rule in [2,3,4,5,6]:
-                test_input[n], match = handle_multitask_test(rule, location, target, active_fields, neurons_per_field, stim_tuning, test_input[n])
+                test_input[n], match = handle_multitask_test(rule, location, target, f, active_fields, neurons_per_field, stim_tuning, test_input[n])
 
         # Generate test period outputs from the loop based on task-specific logic
         if par['stimulus_type'] == 'multitask':
