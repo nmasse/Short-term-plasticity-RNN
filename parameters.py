@@ -155,10 +155,12 @@ def update_trial_params():
     elif par['trial_type'] == 'dualDMS':
         par['catch_trial_pct'] = 0
         par['num_receptive_fields'] = 2
+        par['num_rules'] = 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 20
         par['num_rule_tuned'] = 12
         analysis_par['probe_trial_pct'] = 0.5
+        analysis_par['batch_train_size'] = 2048
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
