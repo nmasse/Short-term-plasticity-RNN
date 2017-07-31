@@ -612,6 +612,8 @@ def extract_weights():
         weights['w_stim_soma'] = W_stim_soma.eval()
         weights['w_td_soma'] = W_td_soma.eval()
 
+    weights['w_rnn_soma'] = W_rnn_soma.eval()
+
     return weights
 
 
