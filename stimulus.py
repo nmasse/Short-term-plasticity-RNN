@@ -380,12 +380,11 @@ class Stimulus:
                       'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
                       'test'            :  -1*np.ones((self.num_trials,par['max_num_tests']),dtype=np.float32),
                       'rule'            :  4*np.ones((self.num_trials),dtype=np.int8),
-                      'match'           :  np.zeros((self.num_trials),dtype=np.int8),
+                      'match'           :  np.zeros((self.num_trials,par['max_num_tests']),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'probe'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'num_test_stim'   :  np.zeros((self.num_trials),dtype=np.int8),
                       'repeat_test_stim':  np.zeros((self.num_trials),dtype=np.int8),
-                      'test_stim_code'  :  np.zeros((self.num_trials),dtype=np.int32),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
 
 
@@ -432,7 +431,6 @@ class Stimulus:
             trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
 
             # TEST stimuli
-            trial_info['catch'][t] = 1
             for i, stim_dir in enumerate(stim_dirs):
                 trial_info['test'][t,i] = stim_dir
                 test_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
@@ -441,9 +439,7 @@ class Stimulus:
                 trial_info['desired_output'][0, test_rng, t] = 0
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
-                    trial_info['match'][t] = 1
-                    trial_info['catch'][t] = 0
-                    trial_info['test_stim_code'][t] = test_stim_code
+                    trial_info['match'][t,i] = 1
                     trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
