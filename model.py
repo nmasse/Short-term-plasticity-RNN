@@ -17,13 +17,9 @@ import dendrite_functions as df
 import metaweight as mw
 import stimulus
 import analysis
-
 import os
 import time
 import psutil
-
-# Reset TensorFlow before running anythin
-tf.reset_default_graph()
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -250,21 +246,21 @@ class Model:
         else:
             dend_loss = tf.constant(0, dtype=tf.float32)
 
+        # L1 penalty term to encourage motifs
+        # work in progress!
+        m = np.zeros((par['n_hidden'], par['n_hidden']), dtype = np.float32)
+        m[:par['n_hidden']//5, :par['n_hidden']//5] = 1
+        mask = tf.constant(m)
+        with tf.variable_scope('rnn_cell', reuse=True):
+            W_rnn_soma  = tf.get_variable('W_rnn_soma')
+        self.motif_loss = par['motif_cost']*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
 
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
 
-        # Motif loss
-        m = np.zeros((par['n_hidden'], par['n_hidden']), dtype = np.float32)
-        m[:par['n_hidden']//5, :par['n_hidden']//5] = 1
-        mask = tf.constant(m)
-        with tf.variable_scope('rnn_cell', reuse=True):
-            W_rnn_soma  = tf.get_variable('W_rnn_soma')
-        motif_loss = 0.2*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
-
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + motif_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -311,6 +307,9 @@ def main():
     Builds and runs a task with the specified model, based on the current
     parameter setup and task scenario.
     """
+
+    # Reset TensorFlow before running anythin
+    tf.reset_default_graph()
 
     print_startup_info()
 
@@ -373,13 +372,14 @@ def main():
                 metaweight_names.append('W_out')
 
         # Loop through the desired number of iterations
+        set_task_profile()
+
         for i in range(par['num_iterations']):
 
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
 
             # Reset any altered task parameters back to their defaults, then switch
             # the allowed rules if the iteration number crosses a specified threshold
-            set_task_profile()
             set_rule(i)
 
             # Training loop
@@ -387,8 +387,8 @@ def main():
 
                 # Generate batch of par['batch_train_size'] trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
-                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
-                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'], :, :]
+                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:, :, :]
 
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
@@ -421,17 +421,16 @@ def main():
 
                 # Generate batch of testing trials
                 trial_info = stim.generate_trial(par['batch_train_size'])
-                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned']]
-                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:]
+                trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'],:,:]
+                trial_td    = trial_info['neural_input'][par['num_stim_tuned']:,:,:]
 
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
+
                 # Run the model
-                _, test_data['loss'][j], test_data['perf_loss'][j], test_data['spike_loss'][j], test_data['dend_loss'][j], \
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
-                = sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.dend_loss, \
-                    model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
+                = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], dendrite_template: template, learning_rate: 0})
@@ -449,38 +448,30 @@ def main():
             print("\nTesting session {:} complete.\n".format(i))
 
             # Analyze the data and save the results
-            iteration_time = time.time() - t_start
-            N = par['batch_train_size']*par['num_train_batches']
-            model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
-            model_results['weights'] = extract_weights()
+            if i > -1:
+                iteration_time = time.time() - t_start
+                N = par['batch_train_size']*par['num_train_batches']
+                model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
+                model_results['weights'] = extract_weights()
 
-            analysis_val = analysis.get_analysis(test_data, model_results['weights'])
+                analysis_val = analysis.get_analysis(test_data, model_results['weights'])
 
-            model_results = append_analysis_vals(model_results, analysis_val)
+                model_results = append_analysis_vals(model_results, analysis_val)
 
-            print_data(dirpath, model_results, analysis_val)
+                print_data(dirpath, model_results, analysis_val)
 
-            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
-            json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
-            json_save(model_results, dirpath + '/model_results.json')
-            if par['use_checkpoints']:
-                saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
+                testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
+                json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
+                json_save(model_results, dirpath + '/model_results.json')
+                if par['use_checkpoints']:
+                    saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
 
     print('\nModel execution complete.\n')
 
 
 def set_rule(iteration):
-    #par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
-    #par['allowed_rules'] = [(iteration%3)*2]
 
-    if iteration%2 == 1:
-    	n = (iteration//2)%2 + 2
-    else:
-    	n = (iteration//2)%2
-
-    n = 2
-
-    par['allowed_rules'] = [n]
+    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
     print('Allowed task rule(s):', par['allowed_rules'])
 
 
@@ -498,8 +489,8 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
-            + '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
-            + '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
+            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
+            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + rule_accuracies + '\n')
 

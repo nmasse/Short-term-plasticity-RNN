@@ -82,7 +82,7 @@ par = {
     'batch_train_size'  : 100,
     'num_train_batches' : 50,
     'num_test_batches'  : 20,
-    'num_iterations'    : 40,
+    'num_iterations'    : 7,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
 
@@ -332,7 +332,7 @@ def set_template(trial_rules, trial_locations):
     template = 1000*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
     for n in range(par['batch_train_size']):
         r = trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]
-        template[:,r,:] = 0
+        template[:,r,n] = 0
 
     return template
 
