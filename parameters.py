@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'att',    # multitask, att, mnist
+    'stimulus_type'         : 'multitask',    # multitask, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -29,11 +29,11 @@ par = {
     'var_delay'         : False,
     'use_dendrites'     : True,
     'use_stim_soma'     : True,
-    'df_num'            : '0009',    # Designates which dendrite function to use
+    'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
     'n_hidden'          : 40,
-    'den_per_unit'      : 2,
+    'den_per_unit'      : 7,
 
     # Timings and rates
     'dt'                        : 20,
@@ -83,7 +83,7 @@ par = {
     'batch_train_size'  : 100,
     'num_train_batches' : 50,
     'num_test_batches'  : 20,
-    'num_iterations'    : 7,
+    'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 10,
 
@@ -104,7 +104,9 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False
+    'use_metaweights'   : False,
+    'alpha_mw'          : 1,
+    'cascade_strength'  : 0.01
 }
 
 ##############################
@@ -167,7 +169,7 @@ def set_task_profile():
         par['allowed_fields']        = [0]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 7             # Possible tasks and rules in those tasks
-        par['allowed_rules']         = [0,1,2,3,4,5,6]  # Can be 0 OR 1 OR 0, 1, etc.
+        par['allowed_rules']         = [2,3]  # Can be 0 OR 1 OR 0, 1, etc.
 
         par['permutation_id']        = 0
 

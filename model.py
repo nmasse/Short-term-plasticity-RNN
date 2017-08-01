@@ -20,6 +20,7 @@ import analysis
 import os
 import time
 import psutil
+import itertools
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -257,12 +258,40 @@ class Model:
             W_rnn_soma  = tf.get_variable('W_rnn_soma')
         self.motif_loss = par['motif_cost']*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
 
+        n = ((800//par['dt']) - 1) - 400//par['dt']
+        # u_0, u_1, v_0, v_1, cov = [tf.placeholder(tf.float32, shape = n)]*5
+
+        # print(self.hidden_state_hist)
+
+        # u_0, v_0 = zip(*[tf.nn.moments(h, axes=[0,1]) for h in self.hidden_state_hist[(400//par['dt']):(800//par['dt'])-1]])
+        # u_1, v_1 = zip(*[tf.nn.moments(h, axes=[0,1]) for h in self.hidden_state_hist[(400//par['dt'])+1:(800//par['dt'])]])
+        desired_corr = np.zeros((40, 40))
+        for i,j in itertools.product(range(20), range(20)):
+            if i!=j:
+                desired_corr[i, j] = 0.25
+
+        desired_corr = tf.constant(desired_corr, dtype=tf.float32)
+
+        mse = []
+        for h_0, h_1 in zip(self.hidden_state_hist[(400//par['dt']):(800//par['dt'])-1], self.hidden_state_hist[(400//par['dt'])+1:(800//par['dt'])]):
+            u_0, v_0 = tf.nn.moments(h_0, axes=1)
+            u_1, v_1 = tf.nn.moments(h_1, axes=1)
+            cov = tf.matmul(h_0 - tf.tile(tf.reshape(u_0, (40,1)), (1,100)), tf.transpose(h_1 - tf.tile(tf.reshape(u_1, (40,1)), (1,100))))/(100*100)
+            b = tf.matmul(tf.reshape(v_0, (40,1)), tf.reshape(v_1, (1,40)))
+            mse.append(tf.pow((cov - (desired_corr * b)), 2))
+
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
+        mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss
+        omega_loss = 0
+        for r in par['num_rules']:
+            if r != par['allowed_rules']:
+                omega_loss+=self.omega[r]
+
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + mse + omega_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -478,8 +507,7 @@ def main():
 
 
 def set_rule(iteration):
-
-    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%par['num_rules']]
+    par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%2]
     print('Allowed task rule(s):', par['allowed_rules'])
 
 
