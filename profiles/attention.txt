@@ -7,11 +7,11 @@ List of Events
 Time	Event	Data	Var
 
 0	start
-400	input	fix
-400	mask	on
+800	input	fix
+800	mask	on
 
-900	input	sample
-900	mask	off
-950	mask	on
+1300	input	sample
+1300	mask	off
+1350	mask	on
 
-1400	finish
+1700	finish
