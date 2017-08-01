@@ -328,7 +328,7 @@ def main():
     x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
     y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
     dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
-    rule_index = tf.placeholder(tf.int8)
+    rule_index = tf.placeholder(tf.int32)
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
