@@ -81,11 +81,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 100,
+    'num_train_batches' : 500,
     'num_test_batches'  : 20,
     'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 2,
+    'switch_rule_iteration'         : 3,
 
     # Save paths and other info
     'save_notes'        : '',

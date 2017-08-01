@@ -39,7 +39,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, template, omega_mask_switch, omega_mask_add, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, template, omega, omega_mask_switch, omega_mask_add, learning_rate):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -51,7 +51,7 @@ class Model:
         self.template       = template
         self.omega_mask_switch = omega_mask_switch
         self.omega_mask_add = omega_mask_add
-        self.omega          = tf.get_variable('Omega', initializer = np.float32(np.zeros(par['num_rules'])), trainable=False)
+        self.omega          = omega
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -287,7 +287,7 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.omega_loss = tf.multiply(1000000., tf.reduce_sum(tf.multiply(self.omega, self.omega_mask_add)))
+        self.omega_loss = tf.multiply(500., tf.reduce_sum(tf.multiply(self.omega, self.omega_mask_add)))
 
         self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + 0.*mse + self.omega_loss
 
@@ -329,8 +329,12 @@ class Model:
         print("\n")
 
         for grad, var in capped_gvs:
-            w = tf.multiply(tf.divide(tf.reduce_sum(self.learning_rate * tf.square(grad)), tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi']), tf.reduce_sum(tf.square(grad)))
-            self.omega.assign(self.omega + tf.multiply(self.omega_mask_switch, w))
+            #w1 = 1 / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
+            #w1 = tf.reduce_sum(self.learning_rate * tf.square(grad)) / 1
+
+            w1 = tf.reduce_sum(self.learning_rate * tf.square(grad)) / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
+            w2 = w1 * tf.reduce_sum(tf.square(grad))
+            self.omega = self.omega + tf.multiply(self.omega_mask_switch, w2)
 
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -357,12 +361,13 @@ def main():
     dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
     omega_mask_switch = tf.placeholder(tf.float32, shape=[par['num_rules']])
     omega_mask_add = tf.placeholder(tf.float32, shape=[par['num_rules']])
+    omega = tf.placeholder(tf.float32, shape=[par['num_rules']])
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x_stim, x_td, y, mask, dendrite_template, omega_mask_switch, omega_mask_add, learning_rate)
+        model = Model(x_stim, x_td, y, mask, dendrite_template, omega, omega_mask_switch, omega_mask_add, learning_rate)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -409,6 +414,8 @@ def main():
         # Loop through the desired number of iterations
         set_task_profile()
 
+        omega_in = np.zeros(par['num_rules'])
+
         for i in range(par['num_iterations']):
 
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
@@ -437,8 +444,8 @@ def main():
                 o_add[par['allowed_rules'][0]] = 0
 
                 # Train the model
-                [_, omega_loss] = sess.run([model.train_op, model.omega], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, omega_mask_switch: o_switch, omega_mask_add: o_add, \
+                [_, omega_in, omega_loss[j]] = sess.run([model.train_op, model.omega, model.omega_loss], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
+                    mask: trial_info['train_mask'], dendrite_template: template, omega: omega_in, omega_mask_switch: o_switch, omega_mask_add: o_add, \
                     learning_rate: par['learning_rate']})
 
                 if par['use_metaweights']:
@@ -452,7 +459,7 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            print('Omega loss:', omega_loss)
+            print('Omega loss:', np.mean(omega_loss))
             print('')
 
             # Allows all fields and rules for testing purposes
