@@ -286,12 +286,12 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        omega_loss = 0
-        for r in par['num_rules']:
-            if r != par['allowed_rules']:
-                omega_loss+=self.omega[r]
+        self.omega_loss = 0
+        for r in range(par['num_rules']):
+            if r != self.rule_index:
+                self.omega_loss+=self.omega[r]
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + mse + omega_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + mse + self.omega_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -331,8 +331,10 @@ class Model:
         print("\n")
 
         for grad, var in capped_gvs:
-            self.omega[self.rule_index] += tf.reduce_sum(self.learning_rate * tf.square(grad)) \
-                                        / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
+            for r in range(par['num_rules']):
+                if tf.constant(r) == self.rule_index:
+                    self.omega[r] += tf.reduce_sum(self.learning_rate * tf.square(grad)) \
+                                                / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi']) * tf.reduce_sum(tf.square(grad))
 
         self.train_op = opt.apply_gradients(capped_gvs)
 

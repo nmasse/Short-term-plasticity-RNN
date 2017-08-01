@@ -17,7 +17,7 @@ global par
 
 par = {
     # Setup parameters
-    'stimulus_type'         : 'multitask',    # multitask, att, mnist
+    'stimulus_type'         : 'att',    # multitask, att, mnist
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
@@ -27,7 +27,7 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : True,
+    'use_dendrites'     : False,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
@@ -85,7 +85,7 @@ par = {
     'num_test_batches'  : 20,
     'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 10,
+    'switch_rule_iteration'         : 1,
 
     # Save paths and other info
     'save_notes'        : '',
