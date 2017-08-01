@@ -39,7 +39,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, template, rule_index, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, template, omega_mask_switch, omega_mask_add, learning_rate):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -49,8 +49,8 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
-        self.rule_index     = rule_index
-        self.omega          = [0]*par['num_rules']
+        self.omega_mask_switch = omega_mask_switch
+        self.omega_mask_add = omega_mask_add
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -229,6 +229,8 @@ class Model:
         masks where necessary.
         """
 
+        omega = tf.get_variable('omega', initializer = np.float32(np.zeros(par['num_rules'])), trainable=False)
+
         # Calculate performance loss
         if par['loss_function'] == 'MSE':
             perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
@@ -286,12 +288,9 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.omega_loss = 0
-        for r in range(par['num_rules']):
-            if r != self.rule_index:
-                self.omega_loss+=self.omega[r]
+        self.omega_loss = tf.multiply(0.1, tf.reduce_sum(tf.multiply(omega, self.omega_mask_add)))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + mse + self.omega_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + 0.*mse + self.omega_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -331,10 +330,8 @@ class Model:
         print("\n")
 
         for grad, var in capped_gvs:
-            for r in range(par['num_rules']):
-                if tf.constant(r) == self.rule_index:
-                    self.omega[r] += tf.reduce_sum(self.learning_rate * tf.square(grad)) \
-                                                / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi']) * tf.reduce_sum(tf.square(grad))
+            w = tf.multiply(tf.divide(tf.reduce_sum(self.learning_rate * tf.square(grad)), tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi']), tf.reduce_sum(tf.square(grad)))
+            omega = omega + tf.multiply(self.omega_mask_switch, w)
 
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -359,13 +356,14 @@ def main():
     x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
     y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
     dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
-    rule_index = tf.placeholder(tf.int32)
+    omega_mask_switch = tf.placeholder(tf.float32, shape=[par['num_rules']])
+    omega_mask_add = tf.placeholder(tf.float32, shape=[par['num_rules']])
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x_stim, x_td, y, mask, dendrite_template, rule_index, learning_rate)
+        model = Model(x_stim, x_td, y, mask, dendrite_template, omega_mask_switch, omega_mask_add, learning_rate)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -420,6 +418,8 @@ def main():
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
+            omega_loss = np.zeros(par['num_train_batches'])
+
             # Training loop
             for j in range(par['num_train_batches']):
 
@@ -431,9 +431,15 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
+                o_switch = np.zeros(par['num_rules'])
+                o_switch[par['allowed_rules'][0]] = 1
+
+                o_add = np.ones(par['num_rules'])
+                o_add[par['allowed_rules'][0]] = 0
+
                 # Train the model
-                _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, rule_index: par['allowed_rules'][0], \
+                [_, omega_loss[j]] = sess.run([model.train_op, model.omega_loss], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
+                    mask: trial_info['train_mask'], dendrite_template: template, omega_mask_switch: o_switch, omega_mask_add: o_add, \
                     learning_rate: par['learning_rate']})
 
                 if par['use_metaweights']:
@@ -446,6 +452,9 @@ def main():
                 bar = int(np.round(progress*20))
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
+
+            print('Omega loss:', np.mean(omega_loss))
+            print('')
 
             # Allows all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])
@@ -466,13 +475,13 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
-
                 # Run the model
-                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch \
-                = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
+                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch\
+                = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, rule_index: par['allowed_rules'][0], learning_rate: 0})
+                    mask: trial_info['train_mask'], dendrite_template: template, omega_mask_switch: np.ones(par['num_rules']), \
+                    omega_mask_add: np.ones(par['num_rules']), learning_rate: 0})
 
                 # Aggregate the test data for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
