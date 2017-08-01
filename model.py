@@ -51,6 +51,7 @@ class Model:
         self.template       = template
         self.omega_mask_switch = omega_mask_switch
         self.omega_mask_add = omega_mask_add
+        self.omega          = tf.get_variable('Omega', initializer = np.float32(np.zeros(par['num_rules'])), trainable=False)
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -229,8 +230,6 @@ class Model:
         masks where necessary.
         """
 
-        omega = tf.get_variable('omega', initializer = np.float32(np.zeros(par['num_rules'])), trainable=False)
-
         # Calculate performance loss
         if par['loss_function'] == 'MSE':
             perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0) \
@@ -288,7 +287,7 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.omega_loss = tf.multiply(0.1, tf.reduce_sum(tf.multiply(omega, self.omega_mask_add)))
+        self.omega_loss = tf.multiply(1000000., tf.reduce_sum(tf.multiply(self.omega, self.omega_mask_add)))
 
         self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + 0.*mse + self.omega_loss
 
@@ -331,7 +330,7 @@ class Model:
 
         for grad, var in capped_gvs:
             w = tf.multiply(tf.divide(tf.reduce_sum(self.learning_rate * tf.square(grad)), tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi']), tf.reduce_sum(tf.square(grad)))
-            omega = omega + tf.multiply(self.omega_mask_switch, w)
+            self.omega.assign(self.omega + tf.multiply(self.omega_mask_switch, w))
 
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -438,7 +437,7 @@ def main():
                 o_add[par['allowed_rules'][0]] = 0
 
                 # Train the model
-                [_, omega_loss[j]] = sess.run([model.train_op, model.omega_loss], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
+                [_, omega_loss] = sess.run([model.train_op, model.omega], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
                     mask: trial_info['train_mask'], dendrite_template: template, omega_mask_switch: o_switch, omega_mask_add: o_add, \
                     learning_rate: par['learning_rate']})
 
@@ -453,7 +452,7 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            print('Omega loss:', np.mean(omega_loss))
+            print('Omega loss:', omega_loss)
             print('')
 
             # Allows all fields and rules for testing purposes
