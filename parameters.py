@@ -50,6 +50,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
+    'xi'                : 0.1,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises

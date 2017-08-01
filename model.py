@@ -38,7 +38,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, template, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, template, rule_index, learning_rate):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -48,6 +48,8 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
+        self.rule_index     = rule_index
+        self.omega          = [0]*par['num_rules']
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -266,7 +268,6 @@ class Model:
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
         grads_and_vars = opt.compute_gradients(self.loss)
 
-
         #Apply any applicable weights masks to the gradient and clip
         capped_gvs = []
         for grad, var in grads_and_vars:
@@ -299,6 +300,11 @@ class Model:
             if not str(type(grad)) == "<class 'NoneType'>":
                 capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
+
+        for grad, var in capped_gvs:
+            self.omega[self.rule_index] += tf.reduce_sum(self.learning_rate * tf.square(grad)) \
+                                        / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
+
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
@@ -322,12 +328,13 @@ def main():
     x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
     y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
     dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
+    rule_index = tf.placeholder(tf.int8)
     learning_rate = tf.placeholder(tf.float32)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x_stim, x_td, y, mask, dendrite_template, learning_rate)
+        model = Model(x_stim, x_td, y, mask, dendrite_template, rule_index, learning_rate)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -395,7 +402,8 @@ def main():
 
                 # Train the model
                 _ = sess.run(model.train_op, {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, learning_rate: par['learning_rate']})
+                    mask: trial_info['train_mask'], dendrite_template: template, rule_index: par['allowed_rules'][0], \
+                    learning_rate: par['learning_rate']})
 
                 if par['use_metaweights']:
                     # Evaluate the weight matrices to yield metaweights
@@ -433,7 +441,7 @@ def main():
                 = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist, \
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
                     {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, learning_rate: 0})
+                    mask: trial_info['train_mask'], dendrite_template: template, rule_index: par['allowed_rules'][0], learning_rate: 0})
 
                 # Aggregate the test data for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
