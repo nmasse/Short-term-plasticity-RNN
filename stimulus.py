@@ -355,7 +355,6 @@ class Stimulus:
         Generate ABBA trials
         Sample stimulis is followed by up to max_num_tests test stimuli
         Goal is to to indicate when a test stimulus matches the sample
-        Rule = 4
         """
 
         trial_length = par['num_time_steps']
@@ -379,7 +378,7 @@ class Stimulus:
                       'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
                       'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
                       'test'            :  -1*np.ones((self.num_trials,par['max_num_tests']),dtype=np.float32),
-                      'rule'            :  4*np.ones((self.num_trials),dtype=np.int8),
+                      'rule'            :  np.zeros((self.num_trials),dtype=np.int8),
                       'match'           :  np.zeros((self.num_trials,par['max_num_tests']),dtype=np.int8),
                       'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
                       'probe'           :  np.zeros((self.num_trials),dtype=np.int8),
