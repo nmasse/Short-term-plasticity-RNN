@@ -5,7 +5,10 @@ import sys
 import os
 
 def script():
-    model.main()
-
+    try:
+        model.main()
+    except KeyboardInterrupt:
+        print('\nQuit by KeyboardInterrupt.\n')
+        quit()
 
 script()

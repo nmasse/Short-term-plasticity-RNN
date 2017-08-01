@@ -27,13 +27,13 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : True,
+    'use_dendrites'     : False,
     'use_stim_soma'     : True,
-    'df_num'            : '0009',    # Designates which dendrite function to use
+    'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
     'n_hidden'          : 40,
-    'den_per_unit'      : 2,
+    'den_per_unit'      : 7,
 
     # Timings and rates
     'dt'                        : 20,
@@ -50,6 +50,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
+    'xi'                : 0.1,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -80,11 +81,11 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 50,
+    'num_train_batches' : 500,
     'num_test_batches'  : 20,
-    'num_iterations'    : 7,
+    'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 10,
+    'switch_rule_iteration'         : 3,
 
     # Save paths and other info
     'save_notes'        : '',
@@ -103,7 +104,9 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False
+    'use_metaweights'   : False,
+    'alpha_mw'          : 1,
+    'cascade_strength'  : 0.01
 }
 
 ##############################
@@ -166,7 +169,7 @@ def set_task_profile():
         par['allowed_fields']        = [0]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 7             # Possible tasks and rules in those tasks
-        par['allowed_rules']         = [0,1,2,3,4,5,6]  # Can be 0 OR 1 OR 0, 1, etc.
+        par['allowed_rules']         = [2,3]  # Can be 0 OR 1 OR 0, 1, etc.
 
         par['permutation_id']        = 0
 
