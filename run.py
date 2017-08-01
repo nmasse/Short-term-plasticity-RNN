@@ -8,6 +8,7 @@ def script():
     try:
         model.main()
     except KeyboardInterrupt:
+        print('\nQuit by KeyboardInterrupt.\n')
         quit()
 
 script()
