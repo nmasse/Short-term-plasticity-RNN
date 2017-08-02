@@ -289,7 +289,7 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         #mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -327,11 +327,6 @@ class Model:
             if not str(type(grad)) == "<class 'NoneType'>":
                 self.capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
-
-        for grad, var in self.capped_gvs:
-            omega = self.learning_rate * tf.square(grad) / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
-            scale = tf.sigmoid(-(10000000*omega - 1))
-            grad = grad * scale
 
         self.train_op = opt.apply_gradients(self.capped_gvs)
 
@@ -388,6 +383,10 @@ def main():
         # Ensure that the correct task settings are in place
         set_task_profile()
 
+        previous_weights = []
+        new_weights      = []
+        omega = 0.
+
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
@@ -396,6 +395,8 @@ def main():
             # Reset any altered task parameters back to their defaults, then switch
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
+
+            w = 0.
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -408,11 +409,11 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
-                o_switch = np.zeros(par['num_rules'])
+                o_switch = np.ones(par['num_rules'])
                 o_switch[par['allowed_rules'][0]] = 1
 
                 o_add = np.ones(par['num_rules'])
-                o_add[par['allowed_rules'][0]] = 0
+                o_add[par['allowed_rules'][0]] = 1
 
                 # Build feed_dict
                 feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
@@ -430,6 +431,14 @@ def main():
                 # Train the model
                 _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
 
+                for grad, var in grads:
+                    w += tf.reduce_sum(par['learning_rate'] * tf.square(grad))
+
+                new_weights = new_vals
+
+                if i == 0:
+                    previous_weights = [0]*new_weights
+
                 if par['use_metaweights']:
                     # Calculate metaweight values, then plug them back into the graph
                     sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_vals, par['working_weights'])))
@@ -439,6 +448,8 @@ def main():
                 bar = int(np.round(progress*20))
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
+
+            omega, previous_weights = calculate_omega(w, new_weights, previous_weights)
 
             # Allows all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])
@@ -481,6 +492,8 @@ def main():
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
 
+            print(omega.eval())
+
             # Analyze the data and save the results
             if i > -1:
                 iteration_time = time.time() - t_start
@@ -507,6 +520,18 @@ def set_rule(iteration):
     par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%2]
     print('Allowed task rule(s):', par['allowed_rules'])
 
+def calculate_omega(w, new_weights, previous_weights):
+    print("\nNEW WEIGHTS")
+    print(new_weights)
+    print("\nPREVIOUS WEIGHTS")
+    print(previous_weights)
+    weight_diff = [a - b for a, b in zip(new_weights, previous_weights)]
+    print("\nWEIGHT DIFF")
+    print(weight_diff)
+    omega = w/(np.sum(np.square(weight_diff)) + par['xi'])
+    previous_weights = new_weights
+
+    return omega, previous_weights
 
 def create_placeholders(general, default=False):
     g = []
