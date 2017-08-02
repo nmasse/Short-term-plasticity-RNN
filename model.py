@@ -39,7 +39,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, template, learning_rate):
+    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, *weights):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -49,6 +49,8 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
+        self.omega          = 0
+        self.weights        = weights
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -348,18 +350,30 @@ def main():
     # Create the stimulus class to generate trial parameters and input activity
     stim = stimulus.Stimulus()
 
-    # Define all placeholders
-    mask    = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x_stim  = tf.placeholder(tf.float32, shape=[par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
-    x_td    = tf.placeholder(tf.float32, shape=[par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']])
-    y       = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
-    dendrite_template = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['den_per_unit'], par['batch_train_size']])
-    learning_rate = tf.placeholder(tf.float32)
+    general_placeholder_info    = [('x_stim',              [par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
+                                   ('x_td',                [par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
+                                   ('y',                   [par['n_output'], par['num_time_steps'], par['batch_train_size']]),
+                                   ('mask',                [par['num_time_steps'], par['batch_train_size']]),
+                                   ('learning_rate',       [])]
+
+    other_placeholder_info      = [('dendrite_template',   [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
+
+    weight_placeholder_info     = [('W_stim_dend_placeholder',  par['input_to_hidden_dend_dims']),
+                                   ('W_td_dend_placeholder',    par['td_to_hidden_dend_dims']),
+                                   ('W_rnn_dend_placeholder',   par['hidden_to_hidden_dend_dims']),
+                                   ('W_stim_soma_placeholder',  par['input_to_hidden_soma_dims']),
+                                   ('W_td_soma_placeholder',    par['td_to_hidden_soma_dims']),
+                                   ('W_rnn_soma_placeholder',   par['hidden_to_hidden_soma_dims']),
+                                   ('W_out_placeholder',        [par['n_output'], par['n_hidden']])]
+
+    g = create_placeholders(general_placeholder_info)
+    o = create_placeholders(other_placeholder_info)
+    w = create_placeholders(weight_placeholder_info, True)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(x_stim, x_td, y, mask, dendrite_template, learning_rate)
+        model = Model(*g, *o, *w)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)
@@ -402,9 +416,10 @@ def main():
             metaweight_vals.append(tf.get_variable('W_out'))
             metaweight_names.append('W_out')
 
-        # Loop through the desired number of iterations
+        # Ensure that the correct task settings are in place
         set_task_profile()
 
+        # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
@@ -430,14 +445,16 @@ def main():
                 o_add = np.ones(par['num_rules'])
                 o_add[par['allowed_rules'][0]] = 0
 
+                # Generate feed_dict
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                feed_places = [*g, *o]
+                feed_dict = zip_to_dict(feed_places, feed_stream)
+
                 # Train the model
-                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *metaweight_vals], {x_stim: trial_stim, x_td: trial_td, \
-                    y: trial_info['desired_output'], mask: trial_info['train_mask'], dendrite_template: template, \
-                    learning_rate: par['learning_rate']})
+                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *metaweight_vals], feed_dict)
 
                 if par['use_metaweights']:
-                    # Evaluate the weight matrices to yield metaweights
-                    # and put them back into the graph
+                    # Calculate metaweight values, then plug them back into the graph
                     sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), metaweight_vals, new_vals, metaweight_names)))
 
                 # Show model progress
@@ -465,12 +482,15 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
+                # Generate feed_dict
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                feed_places = [*g, *o]
+                feed_dict = zip_to_dict(feed_places, feed_stream)
+
                 # Run the model
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch\
                 = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
-                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], \
-                    {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, learning_rate: 0})
+                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], feed_dict)
 
                 # Aggregate the test data for analysis
                 test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
@@ -510,6 +530,28 @@ def set_rule(iteration):
     par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%2]
     print('Allowed task rule(s):', par['allowed_rules'])
 
+
+def create_placeholders(general, default=False):
+    g = []
+    if not default:
+        for p in general:
+            g.append(tf.placeholder(tf.float32, shape=p[1]))
+    else:
+        for p in general:
+            g.append(tf.placeholder_with_default(np.zeros(p[1], dtype=np.float32), shape=p[1]))
+    return g
+
+
+def zip_to_dict(g, s):
+    r = {}
+    if len(g) == len(s):
+        for i in range(len(g)):
+            r[g[i]] = s[i]
+    else:
+        print("ERROR: Lists in zip_to_dict must be of same size")
+        quit()
+
+    return r
 
 def print_data(dirpath, model_results, analysis):
 
