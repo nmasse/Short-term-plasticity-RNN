@@ -81,7 +81,7 @@ par = {
 
     # Training specs
     'batch_train_size'  : 100,
-    'num_train_batches' : 500,
+    'num_train_batches' : 50,
     'num_test_batches'  : 20,
     'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
