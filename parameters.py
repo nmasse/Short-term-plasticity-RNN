@@ -516,6 +516,41 @@ def update_dependencies():
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
 
+    # Describe which weights will be used in this model
+    par['working_weights'] = []
+    if par['use_dendrites']:
+        par['working_weights'].append('W_stim_dend')
+        par['working_weights'].append('W_td_dend')
+        par['working_weights'].append('W_rnn_dend')
+    if par['use_stim_soma']:
+        par['working_weights'].append('W_stim_soma')
+        par['working_weights'].append('W_td_soma')
+    par['working_weights'].append('W_rnn_soma')
+    par['working_weights'].append('W_out')
+
+    # Establish the names and shapes of the Tensorflow graph placeholders
+    par['general_placeholder_info'] = [('x_stim',               [par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
+                                       ('x_td',                 [par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
+                                       ('y',                    [par['n_output'], par['num_time_steps'], par['batch_train_size']]),
+                                       ('mask',                 [par['num_time_steps'], par['batch_train_size']]),
+                                       ('learning_rate',        [])]
+
+    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
+
+    par['weight_placeholder_info']  = [('W_stim_dend',          par['input_to_hidden_dend_dims']),
+                                       ('W_td_dend',            par['td_to_hidden_dend_dims']),
+                                       ('W_rnn_dend',           par['hidden_to_hidden_dend_dims']),
+                                       ('W_stim_soma',          par['input_to_hidden_soma_dims']),
+                                       ('W_td_soma',            par['td_to_hidden_soma_dims']),
+                                       ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
+                                       ('W_out',                [par['n_output'], par['n_hidden']])]
+
+    # Describe the mapping between working indices and placeholder indices
+    par['weight_index_feed'] = []
+    for w, p in itertools.product(range(len(par['working_weights'])), range(len(par['weight_placeholder_info']))):
+        if par['working_weights'][w] == par['weight_placeholder_info'][p][0]:
+            par['weight_index_feed'].append(p)
+
     ######################################
     ### Setting up synaptic parameters ###
     ######################################

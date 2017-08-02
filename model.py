@@ -345,30 +345,16 @@ def main():
     # Reset TensorFlow before running anythin
     tf.reset_default_graph()
 
+    # Show a chosen selection of parameters in the console
     print_startup_info()
 
     # Create the stimulus class to generate trial parameters and input activity
     stim = stimulus.Stimulus()
 
-    general_placeholder_info    = [('x_stim',              [par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
-                                   ('x_td',                [par['n_input'] - par['num_stim_tuned'], par['num_time_steps'], par['batch_train_size']]),
-                                   ('y',                   [par['n_output'], par['num_time_steps'], par['batch_train_size']]),
-                                   ('mask',                [par['num_time_steps'], par['batch_train_size']]),
-                                   ('learning_rate',       [])]
-
-    other_placeholder_info      = [('dendrite_template',   [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
-
-    weight_placeholder_info     = [('W_stim_dend_placeholder',  par['input_to_hidden_dend_dims']),
-                                   ('W_td_dend_placeholder',    par['td_to_hidden_dend_dims']),
-                                   ('W_rnn_dend_placeholder',   par['hidden_to_hidden_dend_dims']),
-                                   ('W_stim_soma_placeholder',  par['input_to_hidden_soma_dims']),
-                                   ('W_td_soma_placeholder',    par['td_to_hidden_soma_dims']),
-                                   ('W_rnn_soma_placeholder',   par['hidden_to_hidden_soma_dims']),
-                                   ('W_out_placeholder',        [par['n_output'], par['n_hidden']])]
-
-    g = create_placeholders(general_placeholder_info)
-    o = create_placeholders(other_placeholder_info)
-    w = create_placeholders(weight_placeholder_info, True)
+    # Create the graph placeholders
+    g = create_placeholders(par['general_placeholder_info'])
+    o = create_placeholders(par['other_placeholder_info'])
+    w = create_placeholders(par['weight_placeholder_info'], True)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
@@ -392,29 +378,12 @@ def main():
                          'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Assemble the list of metaweights metaweights to use
-        metaweight_vals = []
-        metaweight_names = []
+        weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
-            if par['use_dendrites']:
-                metaweight_vals.append(tf.get_variable('W_stim_dend'))
-                metaweight_vals.append(tf.get_variable('W_td_dend'))
-                metaweight_vals.append(tf.get_variable('W_rnn_dend'))
-                metaweight_names.append('W_stim_dend')
-                metaweight_names.append('W_td_dend')
-                metaweight_names.append('W_rnn_dend')
-
-            if par['use_stim_soma']:
-                metaweight_vals.append(tf.get_variable('W_stim_soma'))
-                metaweight_vals.append(tf.get_variable('W_td_soma'))
-                metaweight_names.append('W_stim_soma')
-                metaweight_names.append('W_td_soma')
-
-            metaweight_vals.append(tf.get_variable('W_rnn_soma'))
-            metaweight_names.append('W_rnn_soma')
-
+            for name in par['working_weights'][:-1]:
+                weight_tf_vars.append(tf.get_variable(name))
         with tf.variable_scope('output', reuse=True):
-            metaweight_vals.append(tf.get_variable('W_out'))
-            metaweight_names.append('W_out')
+            weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
 
         # Ensure that the correct task settings are in place
         set_task_profile()
@@ -445,17 +414,25 @@ def main():
                 o_add = np.ones(par['num_rules'])
                 o_add[par['allowed_rules'][0]] = 0
 
-                # Generate feed_dict
+                # Build feed_dict
                 feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
                 feed_places = [*g, *o]
-                feed_dict = zip_to_dict(feed_places, feed_stream)
+
+                w_feed_stream = []
+                w_feed_places = []
+                if j != 0:
+                    w_feed_stream = [*new_vals]
+                    for ws in par['weight_index_feed']:
+                        w_feed_places.append(w[ws])
+
+                feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Train the model
-                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *metaweight_vals], feed_dict)
+                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
 
                 if par['use_metaweights']:
                     # Calculate metaweight values, then plug them back into the graph
-                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), metaweight_vals, new_vals, metaweight_names)))
+                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_vals, par['working_weights'])))
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
