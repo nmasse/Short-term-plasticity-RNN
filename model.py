@@ -258,7 +258,7 @@ class Model:
         with tf.variable_scope('rnn_cell', reuse=True):
             W_rnn_soma  = tf.get_variable('W_rnn_soma')
         self.motif_loss = par['motif_cost']*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
-
+        """
         n = ((800//par['dt']) - 1) - 400//par['dt']
         # u_0, u_1, v_0, v_1, cov = [tf.placeholder(tf.float32, shape = n)]*5
 
@@ -280,21 +280,21 @@ class Model:
             cov = tf.matmul(h_0 - tf.tile(tf.reshape(u_0, (40,1)), (1,100)), tf.transpose(h_1 - tf.tile(tf.reshape(u_1, (40,1)), (1,100))))/(100*100)
             b = tf.matmul(tf.reshape(v_0, (40,1)), tf.reshape(v_1, (1,40)))
             mse.append(tf.pow((cov - (desired_corr * b)), 2))
-
+        """
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
-        mse = tf.reduce_mean(tf.stack(mse, axis=0))
+        #mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss + 0.*mse
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.motif_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
         grads_and_vars = opt.compute_gradients(self.loss)
 
         #Apply any applicable weights masks to the gradient and clip
-        capped_gvs = []
+        self.capped_gvs = []
         for grad, var in grads_and_vars:
             print(var)
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
@@ -323,15 +323,15 @@ class Model:
                 print('Applied weight mask to w_out.')
 
             if not str(type(grad)) == "<class 'NoneType'>":
-                capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
+                self.capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
 
-        for grad, var in capped_gvs:
+        for grad, var in self.capped_gvs:
             omega = self.learning_rate * tf.square(grad) / (tf.square(tf.reduce_sum(self.learning_rate * grad)) + par['xi'])
             scale = tf.sigmoid(-(10000000*omega - 1))
             grad = grad * scale
 
-        self.train_op = opt.apply_gradients(capped_gvs)
+        self.train_op = opt.apply_gradients(self.capped_gvs)
 
 
 def main():
@@ -378,30 +378,29 @@ def main():
                          'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
         # Assemble the list of metaweights metaweights to use
-        if par['use_metaweights']:
-            metaweight_vals = []
-            metaweight_names = []
-            with tf.variable_scope('rnn_cell', reuse=True):
-                if par['use_dendrites']:
-                    metaweight_vals.append(tf.get_variable('W_stim_dend'))
-                    metaweight_vals.append(tf.get_variable('W_td_dend'))
-                    metaweight_vals.append(tf.get_variable('W_rnn_dend'))
-                    metaweight_names.append('W_stim_dend')
-                    metaweight_names.append('W_td_dend')
-                    metaweight_names.append('W_rnn_dend')
+        metaweight_vals = []
+        metaweight_names = []
+        with tf.variable_scope('rnn_cell', reuse=True):
+            if par['use_dendrites']:
+                metaweight_vals.append(tf.get_variable('W_stim_dend'))
+                metaweight_vals.append(tf.get_variable('W_td_dend'))
+                metaweight_vals.append(tf.get_variable('W_rnn_dend'))
+                metaweight_names.append('W_stim_dend')
+                metaweight_names.append('W_td_dend')
+                metaweight_names.append('W_rnn_dend')
 
-                if par['use_stim_soma']:
-                    metaweight_vals.append(tf.get_variable('W_stim_soma'))
-                    metaweight_vals.append(tf.get_variable('W_td_soma'))
-                    metaweight_names.append('W_stim_soma')
-                    metaweight_names.append('W_td_soma')
+            if par['use_stim_soma']:
+                metaweight_vals.append(tf.get_variable('W_stim_soma'))
+                metaweight_vals.append(tf.get_variable('W_td_soma'))
+                metaweight_names.append('W_stim_soma')
+                metaweight_names.append('W_td_soma')
 
-                metaweight_vals.append(tf.get_variable('W_rnn_soma'))
-                metaweight_names.append('W_rnn_soma')
+            metaweight_vals.append(tf.get_variable('W_rnn_soma'))
+            metaweight_names.append('W_rnn_soma')
 
-            with tf.variable_scope('output', reuse=True):
-                metaweight_vals.append(tf.get_variable('W_out'))
-                metaweight_names.append('W_out')
+        with tf.variable_scope('output', reuse=True):
+            metaweight_vals.append(tf.get_variable('W_out'))
+            metaweight_names.append('W_out')
 
         # Loop through the desired number of iterations
         set_task_profile()
@@ -432,18 +431,14 @@ def main():
                 o_add[par['allowed_rules'][0]] = 0
 
                 # Train the model
-                _, *new_vals = sess.run([model.train_op, *metaweight_vals], {x_stim: trial_stim, x_td: trial_td, y: trial_info['desired_output'], \
-                    mask: trial_info['train_mask'], dendrite_template: template, \
+                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *metaweight_vals], {x_stim: trial_stim, x_td: trial_td, \
+                    y: trial_info['desired_output'], mask: trial_info['train_mask'], dendrite_template: template, \
                     learning_rate: par['learning_rate']})
-
-                print(type(new_vals))
-                print(type(new_vals[0]))
-                quit()
 
                 if par['use_metaweights']:
                     # Evaluate the weight matrices to yield metaweights
                     # and put them back into the graph
-                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), metaweight_vals, sess.run(metaweight_vals), metaweight_names)))
+                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), metaweight_vals, new_vals, metaweight_names)))
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
