@@ -39,7 +39,7 @@ if os.name == 'nt':
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, *weights):
+    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, omega, *weights):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -49,7 +49,7 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
-        self.omega          = 0
+        self.omega          = omega
         self.weights        = weights
 
         # Load the initial hidden state activity to be used at
@@ -283,13 +283,34 @@ class Model:
             b = tf.matmul(tf.reshape(v_0, (40,1)), tf.reshape(v_1, (1,40)))
             mse.append(tf.pow((cov - (desired_corr * b)), 2))
         """
+
+        # Only works if two rules/tasks
+        weight_tf_vars = []
+        with tf.variable_scope('rnn_cell', reuse=True):
+            for name in par['working_weights'][:-1]:
+                weight_tf_vars.append(tf.get_variable(name))
+        with tf.variable_scope('output', reuse=True):
+            weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
+
+        weight_prev_vars = []
+        for i in range(len(self.weights)):
+            if i in par['weight_index_feed']:
+                weight_prev_vars.append(self.weights[i])
+
+        self.omega_loss = 0.
+
+        for w1, w2 in zip(weight_prev_vars, weight_tf_vars):
+            self.omega_loss += tf.reduce_sum(self.omega*tf.square(w1 - w2))
+
+        self.omega_loss = par['omega_cost'] * self.omega_loss
+
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         #mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.omega_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -385,7 +406,7 @@ def main():
 
         previous_weights = []
         new_weights      = []
-        omega = 0.
+        omega = np.float32(0.)
 
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
@@ -396,7 +417,7 @@ def main():
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
-            w = 0.
+            w_k = 0.
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -416,32 +437,38 @@ def main():
                 o_add[par['allowed_rules'][0]] = 1
 
                 # Build feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, omega]
                 feed_places = [*g, *o]
 
                 w_feed_stream = []
                 w_feed_places = []
                 if j != 0:
-                    w_feed_stream = [*new_vals]
+                    w_feed_stream = [*previous_weights]
                     for ws in par['weight_index_feed']:
                         w_feed_places.append(w[ws])
 
                 feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Train the model
-                _, grads, *new_vals = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
+                _, grads, oml, *new_vals = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
 
-                for grad, var in grads:
-                    w += tf.reduce_sum(par['learning_rate'] * tf.square(grad))
-
-                new_weights = new_vals
-
-                if i == 0:
-                    previous_weights = [0]*new_weights
+                if j == 0:
+                    print('Omega loss:', oml)
 
                 if par['use_metaweights']:
                     # Calculate metaweight values, then plug them back into the graph
                     sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_vals, par['working_weights'])))
+
+
+                for grad, var in grads:
+                    w_k += np.sum(par['learning_rate'] * np.square(grad))
+
+                new_weights = new_vals
+
+                if i == 0 and j == 0:
+                    for l in range(len(new_weights)):
+                        previous_weights.append(np.zeros(np.shape(new_weights[l])))
+
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
@@ -449,7 +476,8 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            omega, previous_weights = calculate_omega(w, new_weights, previous_weights)
+            print('Omega loss:', oml)
+            omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
 
             # Allows all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])
@@ -470,10 +498,18 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
-                # Generate feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                # Build feed_dict
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, omega]
                 feed_places = [*g, *o]
-                feed_dict = zip_to_dict(feed_places, feed_stream)
+
+                w_feed_stream = []
+                w_feed_places = []
+                if j != 0:
+                    w_feed_stream = [*previous_weights]
+                    for ws in par['weight_index_feed']:
+                        w_feed_places.append(w[ws])
+
+                feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Run the model
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch\
@@ -491,8 +527,6 @@ def main():
                 bar = int(np.round(progress*20))
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
-
-            print(omega.eval())
 
             # Analyze the data and save the results
             if i > -1:
@@ -520,18 +554,17 @@ def set_rule(iteration):
     par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%2]
     print('Allowed task rule(s):', par['allowed_rules'])
 
+
 def calculate_omega(w, new_weights, previous_weights):
-    print("\nNEW WEIGHTS")
-    print(new_weights)
-    print("\nPREVIOUS WEIGHTS")
-    print(previous_weights)
     weight_diff = [a - b for a, b in zip(new_weights, previous_weights)]
-    print("\nWEIGHT DIFF")
-    print(weight_diff)
-    omega = w/(np.sum(np.square(weight_diff)) + par['xi'])
+    w_d = 0
+    for d in weight_diff:
+        w_d += np.sum(np.square(d))
+    omega = w/(w_d + par['xi'])
     previous_weights = new_weights
 
     return omega, previous_weights
+
 
 def create_placeholders(general, default=False):
     g = []

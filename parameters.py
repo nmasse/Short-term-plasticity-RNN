@@ -50,7 +50,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 0.1,
+    'xi'                : 1.,
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -67,6 +67,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
+    'omega_cost'        : 1000.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -80,12 +81,12 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 50,
-    'num_train_batches' : 50,
+    'batch_train_size'  : 100,
+    'num_train_batches' : 500,
     'num_test_batches'  : 20,
     'num_iterations'    : 20,
     'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 3,
+    'switch_rule_iteration'         : 1,
 
     # Save paths and other info
     'save_notes'        : '',
@@ -535,7 +536,8 @@ def update_dependencies():
                                        ('mask',                 [par['num_time_steps'], par['batch_train_size']]),
                                        ('learning_rate',        [])]
 
-    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
+    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']]),
+                                       ('omega',                [])]
 
     par['weight_placeholder_info']  = [('W_stim_dend',          par['input_to_hidden_dend_dims']),
                                        ('W_td_dend',            par['td_to_hidden_dend_dims']),
