@@ -95,6 +95,7 @@ class Model:
         # dendrite usage (with dendrites requies a rank higher of tensor)
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
+
                 W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
                 W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
                 W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
@@ -197,10 +198,12 @@ class Model:
             dendrite_function = getattr(df, 'dendrite_function' + par['df_num'])
             if par['df_num'] == '0009':
                 h_soma_in, dend_out, exc_activity, inh_activity = \
-                    dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend, template)
+                    dendrite_function(tf.nn.relu(W_stim_dend), tf.nn.relu(W_td_dend), \
+                        tf.nn.relu(W_rnn_dend), stim_in, td_in, h_post_syn, dend, template)
             else:
                 h_soma_in, dend_out, exc_activity, inh_activity = \
-                    dendrite_function(W_stim_dend, W_td_dend, W_rnn_dend, stim_in, td_in, h_post_syn, dend)
+                    dendrite_function(tf.nn.relu(W_stim_dend), tf.nn.relu(W_td_dend), \
+                        tf.nn.relu(W_rnn_dend), stim_in, td_in, h_post_syn, dend)
         else:
             dend_out = dend
             h_soma_in = 0
