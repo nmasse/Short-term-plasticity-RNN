@@ -26,13 +26,13 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
     'n_hidden'          : 100,
-    'den_per_unit'      : 7,
+    'den_per_unit'      : 4,
 
     # Timings and rates
     'dt'                        : 20,
@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 1000.,
+    'omega_cost'        : 0.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -106,7 +106,10 @@ par = {
     'num_mw'            : 10,
     'use_metaweights'   : False,
     'alpha_mw'          : 1,
-    'cascade_strength'  : 0.01
+    'cascade_strength'  : 0.01,
+
+    # Disinhibition circuit
+    'use_disinhibition' : True,
 }
 
 ##############################
@@ -144,8 +147,8 @@ def set_task_profile():
         par['profile_path'] = ['./profiles/attention.txt']
         par['rules_map'] = None
 
-        par['num_RFs']               = 1             # contributes to 'possible_rules'
-        par['allowed_fields']        = [0]     # can hold 0 through num_fields - 1
+        par['num_RFs']               = 2             # contributes to 'possible_rules'
+        par['allowed_fields']        = [0,1]     # can hold 0 through num_fields - 1
 
         par['num_rules']             = 2             # the number of possible judgements
         par['allowed_rules']         = [0,1]           # Can be 0 OR 1 OR 0, 1
@@ -155,7 +158,7 @@ def set_task_profile():
         par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
         par['num_rule_tuned']        = 12 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 0 * par['num_RFs']
+        par['num_spatial_cue_tuned'] = 12 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
@@ -240,11 +243,10 @@ def generate_masks():
     n = par['num_inh_units']//4
     hidden_type = 2*np.ones((par['n_hidden']), dtype = np.uint8)
     hidden_type[par['num_exc_units']:par['num_exc_units']+2*n] = 3
-    hidden_type[par['num_exc_units']+2*n:par['num_exc_units']+2*3] = 4
+    hidden_type[par['num_exc_units']+2*n:par['num_exc_units']+3*n] = 4
     hidden_type[par['num_exc_units']+3*n::] = 5
 
-
-    connectivity = np.ones((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
     # to soma
 
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
@@ -258,6 +260,12 @@ def generate_masks():
     connectivity[1, 2, 2:4] = 1 # EXC will project to EXC,PV
     connectivity[1, 4, 5] = 1 # VIP will project to SOM
     connectivity[1, 5, 2:4] = 1 # SOM will project to EXC,PV
+
+    if par['use_disinhibition']:
+        connectivity[1, 1, 4] = 0.4
+        connectivity[1, 4, 5] = 0.9
+        connectivity[1, 5, 2:4] = 1
+
 
     par['w_rnn_dend_mask'] = np.zeros((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
     par['w_rnn_soma_mask'] = np.zeros((par['hidden_to_hidden_soma_dims']), dtype=np.float32)
@@ -338,6 +346,37 @@ def set_template(trial_rules, trial_locations):
         template[:,r,n] = 0
 
     return template
+
+
+def apply_prob(mat, p):
+    dims = np.shape(mat)
+    for i, j in itertools.product(range(dims[0]), range(dims[1])):
+        num = np.random.randint(2)
+        if num > p:
+            mat[i,j] = 0
+    return mat
+
+def get_dend():
+    n_0, n_1, n_2, n_3 = par['n_input'] - par['num_stim_tuned'], 10, 10, par['den_per_unit']
+    c_1, c_2, c_3 = 0.4, 0.9, 1.0
+    p_1, p_2, p_3 = 0.9, 0.7, 0.8
+    beta = 1.0
+
+    td = np.ones(n_0)
+    W_td = np.ones((n_1, n_0)) * c_1
+    W_vip = np.ones((n_2, n_1)) * c_2
+    W_som = np.ones((n_3, n_2)) * c_3
+
+    W_td = apply_prob(W_td, p_1)
+    W_vip = apply_prob(W_vip, p_2)
+    W_som = apply_prob(W_som, p_3)
+
+    VIP = np.matmul(W_td, td)
+    SOM = beta - np.matmul(W_vip, VIP)
+    dend = np.matmul(W_som, SOM)
+    # print(dend)
+
+    return dend
 
 def update_dependencies():
     """
@@ -458,6 +497,15 @@ def update_dependencies():
     par['w_td_dend0'] = initialize(par['td_to_hidden_dend_dims'], par['connection_prob_in'])
     par['w_td_soma0'] = initialize(par['td_to_hidden_soma_dims'], par['connection_prob_in'])
 
+    # Use 0.9 for td to VIP projection; connection_prob_in for others
+    if par['use_disinhibition']:
+        n = par['num_inh_units']//4
+        vip = par['num_exc_units']+2*n
+        som = par['num_exc_units']+3*n
+        par['w_td_dend0'][:vip] = initialize([vip, par['den_per_unit'], par['n_input'] - par['num_stim_tuned']], par['connection_prob_in'])
+        par['w_td_dend0'][vip:som] = initialize([n, par['den_per_unit'], par['n_input'] - par['num_stim_tuned']], 0.9)
+        par['w_td_dend0'][som:] = initialize([n, par['den_per_unit'], par['n_input'] - par['num_stim_tuned']], par['connection_prob_in'])
+
     par['w_stim_dend0'] *= par['w_stim_dend_mask']
     par['w_stim_soma0'] *= par['w_stim_soma_mask']
 
@@ -471,6 +519,17 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn_dend0'] = initialize(par['hidden_to_hidden_dend_dims'], par['connection_prob_rnn'])
         par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob_rnn'])
+
+        # Use 0.7 for td to VIP to SOM projections; connection_prob_rnn for others
+        if par['use_disinhibition']:
+            n = par['num_inh_units']//4
+            par['w_rnn_dend0'][0:vip] = initialize([vip, par['den_per_unit'], par['n_hidden']], par['connection_prob_rnn'])
+            par['w_rnn_dend0'][vip:som, :, :som] = initialize([n, par['den_per_unit'], (par['n_hidden']-n)], par['connection_prob_rnn'])
+            par['w_rnn_dend0'][vip:som, :, som:] = initialize([n, par['den_per_unit'], n], 0.7)
+            par['w_rnn_dend0'][som:, :, :vip] = initialize([n, par['den_per_unit'], vip], 0.8)
+            par['w_rnn_dend0'][som:, :, vip:] = initialize([n, par['den_per_unit'], 2*n], par['connection_prob_rnn'])
+            
+
         #par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
         #par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
 
@@ -504,6 +563,7 @@ def update_dependencies():
     if par['synapse_config'] == None:
         par['w_rnn_dend0'] /= (2*spectral_radius(par['w_rnn_dend0']))
         par['w_rnn_soma0'] /= (2*spectral_radius(par['w_rnn_soma0']))
+
 
     # Initialize output weights and biases
     par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob_out'])
@@ -598,6 +658,10 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+    # if par['use_disinhibition']:
+        # np.set_printoptions(threshold=np.nan)
+        # print(par['w_rnn_dend0'])
 
 set_task_profile()
 update_dependencies()
