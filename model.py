@@ -321,7 +321,7 @@ class Model:
                 print('  Applied weight mask to w_stim_soma.')
             elif var.name == "rnn_cell/W_stim_dend:0":
                 grad *= par['w_stim_dend_mask']
-                print('  tApplied weight mask to w_stim_dend.')
+                print('  Applied weight mask to w_stim_dend.')
 
             elif var.name == "rnn_cell/W_td_soma:0":
                 grad *= par['w_td_soma_mask']
