@@ -3,35 +3,19 @@
 Edited: 2017/06/13 Gregory Grant
 """
 
-print("\nRunning model...\n")
-
 import tensorflow as tf
 import numpy as np
-import networkx as nx
-import matplotlib.pyplot as plt
-import resources.community as com
 
 from parameters import *
 from model_saver import *
+import model_utils as mu
 import dendrite_functions as df
 import metaweight as mw
 import stimulus
 import analysis
+
 import os
 import time
-import psutil
-import itertools
-
-# Ignore "use compiled version of TensorFlow" errors
-os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
-
-# Allow for varied processor use (if on Windows)
-if os.name == 'nt':
-    p = psutil.Process(os.getpid())
-    p.cpu_affinity(par['processor_affinity'])
-    print('Running with PID', os.getpid(), "on processor(s)", \
-            str(p.cpu_affinity()) + ".", "\n")
-
 
 #################################
 ### Model setup and execution ###
@@ -359,19 +343,21 @@ def main():
     parameter setup and task scenario.
     """
 
+    print("\nRunning model...\n")
+
     # Reset TensorFlow before running anythin
     tf.reset_default_graph()
 
     # Show a chosen selection of parameters in the console
-    print_startup_info()
+    mu.print_startup_info()
 
     # Create the stimulus class to generate trial parameters and input activity
     stim = stimulus.Stimulus()
 
     # Create the graph placeholders
-    g = create_placeholders(par['general_placeholder_info'])
-    o = create_placeholders(par['other_placeholder_info'])
-    w = create_placeholders(par['weight_placeholder_info'], True)
+    g = mu.create_placeholders(par['general_placeholder_info'])
+    o = mu.create_placeholders(par['other_placeholder_info'])
+    w = mu.create_placeholders(par['weight_placeholder_info'], True)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
@@ -388,7 +374,7 @@ def main():
             print('Model ' + par['ckpt_load_fn'] + ' restored.')
 
         # Generate an identifying timestamp and save directory for the model
-        timestamp, dirpath = create_save_dir()
+        timestamp, dirpath = mu.create_save_dir()
 
         # Keep track of the model performance across training
         model_results = {'accuracy': [], 'rule_accuracy' : [], 'modularity': [], 'loss': [], 'perf_loss': [], \
@@ -450,7 +436,7 @@ def main():
                     for ws in par['weight_index_feed']:
                         w_feed_places.append(w[ws])
 
-                feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Train the model
                 _, grads, oml, *new_weights = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
@@ -467,15 +453,6 @@ def main():
                     for l in range(len(new_weights)):
                         previous_weights.append(np.zeros(np.shape(new_weights[l])))
 
-                """
-                print('-----', j, '-----')
-                print('single:'.ljust(12), single)
-                print('omega_k:'.ljust(12), w_k)
-                print('Omega:'.ljust(12), omega)
-                """
-
-
-
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
                 bar = int(np.round(progress*20))
@@ -491,7 +468,7 @@ def main():
             par['num_active_fields']    = len(par['allowed_fields'])
 
             # Keep track of the model performance for this batch
-            test_data = initialize_test_data()
+            test_data = mu.initialize_test_data()
 
             # Testing loop
             for j in range(par['num_test_batches']):
@@ -515,7 +492,7 @@ def main():
                     for ws in par['weight_index_feed']:
                         w_feed_places.append(w[ws])
 
-                feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Run the model
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch\
@@ -523,7 +500,7 @@ def main():
                     model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], feed_dict)
 
                 # Aggregate the test data for analysis
-                test_data = append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
+                test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
                 test_data['y_hat'][j] = trial_info['desired_output']
                 test_data['train_mask'][j] = trial_info['train_mask']
                 test_data['mean_hidden'][j] = np.mean(state_hist_batch)
@@ -538,14 +515,14 @@ def main():
             if i > -1:
                 iteration_time = time.time() - t_start
                 N = par['batch_train_size']*par['num_train_batches']
-                model_results = append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
-                model_results['weights'] = extract_weights()
+                model_results = mu.append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
+                model_results['weights'] = mu.extract_weights()
 
                 analysis_val = analysis.get_analysis(test_data, model_results['weights'])
 
-                model_results = append_analysis_vals(model_results, analysis_val)
+                model_results = mu.append_analysis_vals(model_results, analysis_val)
 
-                print_data(dirpath, model_results, analysis_val)
+                mu.print_data(dirpath, model_results, analysis_val)
 
                 testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
                 json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
@@ -570,250 +547,3 @@ def calculate_omega(w, new_weights, previous_weights):
     previous_weights = new_weights
 
     return omega, previous_weights
-
-
-def create_placeholders(general, default=False):
-    g = []
-    if not default:
-        for p in general:
-            g.append(tf.placeholder(tf.float32, shape=p[1]))
-    else:
-        for p in general:
-            g.append(tf.placeholder_with_default(np.zeros(p[1], dtype=np.float32), shape=p[1]))
-    return g
-
-
-def zip_to_dict(g, s):
-    r = {}
-    if len(g) == len(s):
-        for i in range(len(g)):
-            r[g[i]] = s[i]
-    else:
-        print("ERROR: Lists in zip_to_dict must be of same size")
-        quit()
-
-    return r
-
-def print_data(dirpath, model_results, analysis):
-
-    rule_accuracies = ''
-    for a in range(len(model_results['rule_accuracy'][-1])):
-        rule_accuracies += ('\t{0:4f}'.format(model_results['rule_accuracy'][-1][a]))
-
-    with open(dirpath + '/model_summary.txt', 'a') as f:
-        # In order, Trial | Time | Perf Loss | Spike Loss | Mean Activity | Accuracy | Rule Accuracy
-        f.write('{:7d}'.format(model_results['trial'][-1]) \
-            + '\t{:0.2f}'.format(model_results['time'][-1]) \
-            + '\t{:0.4f}'.format(model_results['perf_loss'][-1]) \
-            + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
-            + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
-            + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
-            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
-            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
-            + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
-            + rule_accuracies + '\n')
-
-    # output model performance to screen
-    print('\nIteration Summary:')
-    print('------------------')
-    print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format(model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
-    print('Perf. Loss: {:8.4f} | Dend. Loss: {:8.4f} | Mean Activity: {:8.4f}'.format( \
-        model_results['perf_loss'][-1], model_results['dend_loss'][-1], model_results['mean_hidden'][-1]))
-
-    if par['stimulus_type'] == 'multitask':
-        print('')
-        print('Attention Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][0:2], 2)))
-        print('DMC Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][2:4], 2)))
-        print('DMRS Accuracies:'.ljust(22) + str(np.round(model_results['rule_accuracy'][-1][4:], 2)))
-    else:
-        print('\nRule Accuracies:\t', np.round(model_results['rule_accuracy'][-1], 2))
-
-    if par['modul_vars']:
-        print('\nModularity:')
-        print('-----------')
-        print('Modularity value'.ljust(22) + ': {:5.3f} '.format(model_results['modularity'][-1]['mod']))
-        print('Number of communities'.ljust(22) + ': {:5.3f} '.format(model_results['modularity'][-1]['community']))
-        print('Community size'.ljust(22) + ': {:5.3f} +/- {:5.3f} '.format(model_results['modularity'][-1]['mean'], model_results['modularity'][-1]['std']))
-        print(''.ljust(22) + ': Max {:5.3f}, min {:5.3f} '.format(model_results['modularity'][-1]['max'], model_results['modularity'][-1]['min']))
-
-    if par['anova_vars'] is not None:
-        anova_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.mean(v<0.001)) for k,v in analysis['anova'].items() if k.count('pval')>0]
-        print('\nAnova P < 0.001:')
-        print('----------------')
-        for i in range(0, len(anova_print), 2):
-            print(anova_print[i] + "\t| " + anova_print[i+1])
-        if len(anova_print)%2 != 0:
-            print(anova_print[-1] + "\t|")
-    if par['roc_vars'] is not None:
-        roc_print = [k[:-5].ljust(22) + ':  {:5.3f} '.format(np.percentile(np.abs(v), 98)) for k,v in analysis['roc'].items()]
-        print('\n98th prctile t-stat:')
-        print('--------------------')
-        for i in range(0, len(roc_print), 2):
-            print(roc_print[i] + "\t| " + roc_print[i+1])
-        if len(roc_print)%2 != 0:
-            print(roc_print[-1] + "\t|")
-    print("\n")
-
-def print_startup_info():
-        print('Using dendrites:\t', par['use_dendrites'])
-        print('Using EI network:\t', par['EI'])
-        print('Input-soma connection:\t', par['use_stim_soma'])
-        print('Synaptic configuration:\t', par['synapse_config'], '\n')
-
-        print("="*77)
-        print('Stimulus type'.ljust(22) + ': ' + par['stimulus_type'].ljust(10) + '| ' + 'Loss function'.ljust(22) + ': ' + par['loss_function'])
-        print('Num. stim. neurons'.ljust(22) + ': ' + str(par['num_stim_tuned']).ljust(10) + '| ' + 'Num. fix. neurons'.ljust(22) + ': ' + str(par['num_fix_tuned']))
-        print('Num. rule neurons'.ljust(22) + ': ' + str(par['num_rule_tuned']).ljust(10) + '| ' + 'Num. spatial neurons'.ljust(22) + ': ' + str(par['num_spatial_cue_tuned']))
-        print('Num. hidden neurons'.ljust(22) + ': ' + str(par['n_hidden']).ljust(10) + '| ' + 'Time step'.ljust(22) + ': ' + str(par['dt']) + ' ms')
-
-        print('Num. dendrites'.ljust(22) + ': ' + str(par['den_per_unit']).ljust(10) + '| ' + 'Dendrite function'.ljust(22) + ': ' + str(par['df_num']))
-        print('Spike cost'.ljust(22) + ': ' + str(par['spike_cost']).ljust(10) + '| ' + 'Dendrite cost'.ljust(22) + ': ' + str(par['dend_cost']))
-        print('Stimulus noise'.ljust(22) + ': ' + str(np.round(par['input_sd'], 2)).ljust(10) + '| ' + 'Internal noise'.ljust(22) + ': ' + str(np.round(par['noise_sd'], 2)))
-        print('Batch size'.ljust(22) + ': ' + str(par['batch_train_size']).ljust(10) + '| ' + 'Num. train batches'.ljust(22) + ': ' + str(par['num_train_batches']))
-        print('Switch iteration'.ljust(22) + ': ' + str(par['switch_rule_iteration']).ljust(10) + '| ' + 'Num. test batches'.ljust(22) + ': ' + str(par['num_test_batches']))
-        print("="*77 + '\n')
-
-
-def append_model_performance(model_results, test_data, trial_num, iteration_time):
-
-    model_results['loss'].append(np.mean(test_data['loss']))
-    model_results['spike_loss'].append(np.mean(test_data['spike_loss']))
-    model_results['perf_loss'].append(np.mean(test_data['perf_loss']))
-    model_results['dend_loss'].append(np.mean(test_data['dend_loss']))
-    model_results['mean_hidden'].append(np.mean(test_data['mean_hidden']))
-    model_results['trial'].append(trial_num)
-    model_results['time'].append(iteration_time)
-
-    return model_results
-
-
-def extract_weights():
-
-    with tf.variable_scope('rnn_cell', reuse=True):
-        if par['use_dendrites']:
-            W_stim_dend = tf.get_variable('W_stim_dend')
-            W_td_dend = tf.get_variable('W_td_dend')
-            W_rnn_dend = tf.get_variable('W_rnn_dend')
-
-        if par['use_stim_soma']:
-            W_stim_soma = tf.get_variable('W_stim_soma')
-            W_td_soma = tf.get_variable('W_td_soma')
-
-        W_rnn_soma = tf.get_variable('W_rnn_soma')
-        b_rnn = tf.get_variable('b_rnn')
-
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
-
-    weights = {
-        'w_rnn_soma': W_rnn_soma.eval(),
-        'w_out': W_out.eval(),
-        'b_rnn': b_rnn.eval(),
-        'b_out': b_out.eval()
-        }
-
-    if par['use_dendrites']:
-        weights['w_stim_dend'] = W_stim_dend.eval()
-        weights['w_td_dend'] = W_td_dend.eval()
-        weights['w_rnn_dend'] = W_rnn_dend.eval()
-
-    if par['use_stim_soma']:
-        weights['w_stim_soma'] = W_stim_soma.eval()
-        weights['w_td_soma'] = W_td_soma.eval()
-
-    return weights
-
-
-def append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, batch_num):
-
-    trial_ind = range(batch_num*par['batch_train_size'], (batch_num+1)*par['batch_train_size'])
-
-    # add stimulus information
-    test_data['sample_index'][trial_ind,:] = trial_info['sample_index']
-    test_data['rule_index'][trial_ind] = trial_info['rule_index']
-    test_data['location_index'][trial_ind] = trial_info['location_index']
-
-    # add neuronal activity
-    test_data['state_hist'][:,:,trial_ind] = state_hist_batch
-    if par['use_dendrites']:
-        test_data['dend_hist'][:,:,:,trial_ind] = dend_hist_batch
-        test_data['dend_exc_hist'][:,:,:,trial_ind] = dend_exc_hist_batch
-        test_data['dend_inh_hist'][:,:,:,trial_ind] = dend_inh_hist_batch
-
-    return test_data
-
-
-def initialize_test_data():
-
-    N = par['batch_train_size']*par['num_test_batches']
-
-    test_data = {
-        'loss'          : np.zeros((par['num_test_batches']), dtype=np.float32),
-        'perf_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
-        'spike_loss'    : np.zeros((par['num_test_batches']), dtype=np.float32),
-        'dend_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
-        'mean_hidden'   : np.zeros((par['num_test_batches']), dtype=np.float32),
-        'accuracy'      : np.zeros((par['num_test_batches']), dtype=np.float32),
-
-        'y'             : np.zeros((par['num_test_batches'], par['num_time_steps'], par['n_output'], par['batch_train_size'])),
-        'y_hat'         : np.zeros((par['num_test_batches'], par['n_output'], par['num_time_steps'], par['batch_train_size'])),
-        'train_mask'    : np.zeros((par['num_test_batches'], par['num_time_steps'], par['batch_train_size'])),
-
-        'sample_index'  : np.zeros((N, par['num_RFs']), dtype=np.uint8),
-        'location_index': np.zeros((N, 1), dtype=np.uint8),
-        'rule_index'    : np.zeros((N, 1), dtype=np.uint8),
-        'state_hist'    : np.zeros((par['num_time_steps'], par['n_hidden'], N), dtype=np.float32)
-    }
-
-    if par['use_dendrites']:
-        test_data['dend_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
-        test_data['dend_exc_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
-        test_data['dend_inh_hist'] = np.zeros((par['num_time_steps'], par['n_hidden'], par['den_per_unit'], N), dtype=np.float32)
-
-    return test_data
-
-
-def append_analysis_vals(model_results, analysis_val):
-
-    for k in analysis_val.keys():
-        if k == 'accuracy':
-            model_results['accuracy'].append(analysis_val['accuracy'])
-        elif k == 'rule_accuracy':
-            model_results['rule_accuracy'].append(analysis_val['rule_accuracy'])
-        elif k == 'modularity':
-            model_results['modularity'].append(analysis_val['modularity'])
-        elif not analysis_val[k] == []:
-            for k1,v in analysis_val[k].items():
-                current_key = k + '_' + k1
-                if not current_key in model_results.keys():
-                    model_results[current_key] = [v]
-                else:
-                    model_results[current_key].append([v])
-
-    return model_results
-
-
-def create_save_dir():
-
-    # Generate an identifying timestamp and save directory for the model
-    timestamp = "_D" + time.strftime("%y-%m-%d") + "_T" + time.strftime("%H-%M-%S")
-    if par['use_dendrites']:
-        dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-            str(par['n_hidden']) + '_df' + par['df_num'] + timestamp + par['save_notes']
-    else:
-        dirpath = './savedir/model_' + par['stimulus_type'] + '_h' + \
-            str(par['n_hidden']) + 'nd' + timestamp + par['save_notes']
-
-    # Make new folder for parameters, results, and analysis
-    if not os.path.exists(dirpath):
-        os.makedirs(dirpath)
-
-    # Store a copy of the parameters setup in its default state
-    json_save(par, dirpath + '/parameters.json')
-
-    # Create summary file
-    with open(dirpath + '/model_summary.txt', 'w') as f:
-        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tMean activity\tModularity\tCommunities\tAccuracy\tRule Accuracies\n')
-
-    return timestamp, dirpath
