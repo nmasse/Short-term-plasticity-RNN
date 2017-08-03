@@ -1,7 +1,3 @@
-"""
-2017/06/27 Gregory Grant
-"""
-
 import numpy as np
 import json
 import copy

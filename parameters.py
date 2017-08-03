@@ -1,7 +1,6 @@
-"""
-Overhauling the parameters setup
-2017/06/21 Gregory Grant
-"""
+### Parameters for RNN research
+### Authors: Nicolas Masse, Gregory Grant, Catherine Lee, Varun Iyer
+### Date:    3 August, 2017
 
 import numpy as np
 import tensorflow as tf
@@ -50,7 +49,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 1e-3,     # Value used in Ganguli paper, though can be changed
+    'xi'                : 1,     # Value used in Ganguli paper is 1e-3
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises

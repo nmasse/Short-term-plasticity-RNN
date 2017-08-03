@@ -1,7 +1,8 @@
-"""
-2017/05/03 Nicolas Masse
-Edited: 2017/06/13 Gregory Grant
-"""
+###############################################################################
+### Project: Recurrent Neural Network Research with Tensorflow              ###
+### Authors: Nicolas Masse, Gregory Grant, Catherine Lee, Varun Iyer        ###
+### Date:    3 August, 2017                                                 ###
+###############################################################################
 
 import tensorflow as tf
 import numpy as np
