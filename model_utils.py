@@ -19,6 +19,7 @@ def initialize_test_data():
         'perf_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
         'spike_loss'    : np.zeros((par['num_test_batches']), dtype=np.float32),
         'dend_loss'     : np.zeros((par['num_test_batches']), dtype=np.float32),
+        'omega_loss'    : np.zeros((par['num_test_batches']), dtype=np.float32),
         'mean_hidden'   : np.zeros((par['num_test_batches']), dtype=np.float32),
         'accuracy'      : np.zeros((par['num_test_batches']), dtype=np.float32),
 
@@ -40,42 +41,11 @@ def initialize_test_data():
     return test_data
 
 
-def extract_weights():
+def initialize_model_results():
+    model_results = {'accuracy': [], 'rule_accuracy' : [], 'modularity': [], 'loss': [], 'perf_loss': [], \
+                 'spike_loss': [], 'dend_loss': [], 'omega_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
 
-    with tf.variable_scope('rnn_cell', reuse=True):
-        if par['use_dendrites']:
-            W_stim_dend = tf.get_variable('W_stim_dend')
-            W_td_dend = tf.get_variable('W_td_dend')
-            W_rnn_dend = tf.get_variable('W_rnn_dend')
-
-        if par['use_stim_soma']:
-            W_stim_soma = tf.get_variable('W_stim_soma')
-            W_td_soma = tf.get_variable('W_td_soma')
-
-        W_rnn_soma = tf.get_variable('W_rnn_soma')
-        b_rnn = tf.get_variable('b_rnn')
-
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
-
-    weights = {
-        'w_rnn_soma': W_rnn_soma.eval(),
-        'w_out': W_out.eval(),
-        'b_rnn': b_rnn.eval(),
-        'b_out': b_out.eval()
-        }
-
-    if par['use_dendrites']:
-        weights['w_stim_dend'] = W_stim_dend.eval()
-        weights['w_td_dend'] = W_td_dend.eval()
-        weights['w_rnn_dend'] = W_rnn_dend.eval()
-
-    if par['use_stim_soma']:
-        weights['w_stim_soma'] = W_stim_soma.eval()
-        weights['w_td_soma'] = W_td_soma.eval()
-
-    return weights
+    return model_results
 
 
 def append_model_performance(model_results, test_data, trial_num, iteration_time):
@@ -84,6 +54,7 @@ def append_model_performance(model_results, test_data, trial_num, iteration_time
     model_results['spike_loss'].append(np.mean(test_data['spike_loss']))
     model_results['perf_loss'].append(np.mean(test_data['perf_loss']))
     model_results['dend_loss'].append(np.mean(test_data['dend_loss']))
+    model_results['omega_loss'].append(np.mean(test_data['omega_loss']))
     model_results['mean_hidden'].append(np.mean(test_data['mean_hidden']))
     model_results['trial'].append(trial_num)
     model_results['time'].append(iteration_time)
@@ -130,6 +101,44 @@ def append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, d
     return test_data
 
 
+def extract_weights():
+
+    with tf.variable_scope('rnn_cell', reuse=True):
+        if par['use_dendrites']:
+            W_stim_dend = tf.get_variable('W_stim_dend')
+            W_td_dend = tf.get_variable('W_td_dend')
+            W_rnn_dend = tf.get_variable('W_rnn_dend')
+
+        if par['use_stim_soma']:
+            W_stim_soma = tf.get_variable('W_stim_soma')
+            W_td_soma = tf.get_variable('W_td_soma')
+
+        W_rnn_soma = tf.get_variable('W_rnn_soma')
+        b_rnn = tf.get_variable('b_rnn')
+
+    with tf.variable_scope('output', reuse=True):
+        W_out = tf.get_variable('W_out')
+        b_out = tf.get_variable('b_out')
+
+    weights = {
+        'w_rnn_soma': W_rnn_soma.eval(),
+        'w_out': W_out.eval(),
+        'b_rnn': b_rnn.eval(),
+        'b_out': b_out.eval()
+        }
+
+    if par['use_dendrites']:
+        weights['w_stim_dend'] = W_stim_dend.eval()
+        weights['w_td_dend'] = W_td_dend.eval()
+        weights['w_rnn_dend'] = W_rnn_dend.eval()
+
+    if par['use_stim_soma']:
+        weights['w_stim_soma'] = W_stim_soma.eval()
+        weights['w_td_soma'] = W_td_soma.eval()
+
+    return weights
+
+
 #########################
 ### General Utilities ###
 #########################
@@ -154,7 +163,7 @@ def create_save_dir():
 
     # Create summary file
     with open(dirpath + '/model_summary.txt', 'w') as f:
-        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tMean activity\tModularity\tCommunities\tAccuracy\tRule Accuracies\n')
+        f.write('Trial\tTime\tPerf loss\tSpike loss\tDend loss\tOmega loss\tMean activity\tModularity\tCommunities\tAccuracy\tRule Accuracies\n')
 
     return timestamp, dirpath
 
@@ -198,19 +207,22 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.2f}'.format(model_results['time'][-1]) \
             + '\t{:0.4f}'.format(model_results['perf_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['spike_loss'][-1]) \
-            + '\t{:0.4f}'.format(model_results['dend_loss'][-1])
+            + '\t{:0.4f}'.format(model_results['dend_loss'][-1]) \
+            + '\t{:0.4f}'.format(model_results['omega_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
-            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
-            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
+            + '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
+            + '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + rule_accuracies + '\n')
 
     # output model performance to screen
     print('\nIteration Summary:')
     print('------------------')
-    print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format(model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
+    print('Trial: {:13.0f} | Time: {:12.2f} s | Accuracy: {:13.4f}'.format( \
+    model_results['trial'][-1], model_results['time'][-1], model_results['accuracy'][-1]))
     print('Perf. Loss: {:8.4f} | Dend. Loss: {:8.4f} | Mean Activity: {:8.4f}'.format( \
         model_results['perf_loss'][-1], model_results['dend_loss'][-1], model_results['mean_hidden'][-1]))
+    print('Spike Loss: {:8.4f} | Omega Loss: {:8.4f} | '.format(model_results['spike_loss'][-1], model_results['omega_loss'][-1]))
 
     if par['stimulus_type'] == 'multitask':
         print('')

@@ -269,7 +269,8 @@ class Model:
             mse.append(tf.pow((cov - (desired_corr * b)), 2))
         """
 
-        # Only works if two rules/tasks
+        # Calculate omega loss
+        # So far, only works if two rules/tasks
         weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
             for name in par['working_weights'][:-1]:
@@ -283,12 +284,9 @@ class Model:
                 weight_prev_vars.append(self.weights[i])
 
         self.omega_loss = 0.
-
         for w1, w2 in zip(weight_prev_vars, weight_tf_vars):
             self.single = [tf.reduce_sum(w1), tf.reduce_sum(w2), tf.reduce_sum(self.omega*tf.square(w1 - w2))]
-            self.omega_loss += tf.reduce_sum(self.omega*tf.square(w1 - w2))
-
-        self.omega_loss = par['omega_cost'] * self.omega_loss
+            self.omega_loss += par['omega_cost'] * tf.reduce_sum(self.omega*tf.square(w1 - w2))
 
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
@@ -302,34 +300,39 @@ class Model:
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
         grads_and_vars = opt.compute_gradients(self.loss)
 
+        # Print out the active, trainable TensorFlow variables
+        print('Active TensorFlow variables:')
+        for grad, var in grads_and_vars:
+            print('  ', var)
+
         #Apply any applicable weights masks to the gradient and clip
+        print('\nWeight masks:')
         self.capped_gvs = []
         for grad, var in grads_and_vars:
-            print(var)
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
-                print('Applied weight mask to w_rnn_dend.')
+                print('  Applied weight mask to w_rnn_dend.')
             elif var.name == "rnn_cell/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
-                print('Applied weight mask to w_rnn_soma.')
+                print('  Applied weight mask to w_rnn_soma.')
 
             elif var.name == "rnn_cell/W_stim_soma:0":
                 grad *= par['w_stim_soma_mask']
-                print('Applied weight mask to w_stim_soma.')
+                print('  Applied weight mask to w_stim_soma.')
             elif var.name == "rnn_cell/W_stim_dend:0":
                 grad *= par['w_stim_dend_mask']
-                print('Applied weight mask to w_stim_dend.')
+                print('  tApplied weight mask to w_stim_dend.')
 
             elif var.name == "rnn_cell/W_td_soma:0":
                 grad *= par['w_td_soma_mask']
-                print('Applied weight mask to w_td_soma.')
+                print('  Applied weight mask to w_td_soma.')
             elif var.name == "rnn_cell/W_td_dend:0":
                 grad *= par['w_td_dend_mask']
-                print('Applied weight mask to w_td_dend.')
+                print('  Applied weight mask to w_td_dend.')
 
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
-                print('Applied weight mask to w_out.')
+                print('  Applied weight mask to w_out.')
 
             if not str(type(grad)) == "<class 'NoneType'>":
                 self.capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
@@ -355,7 +358,7 @@ def main():
     # Create the stimulus class to generate trial parameters and input activity
     stim = stimulus.Stimulus()
 
-    # Create the graph placeholders
+    # Create graph placeholders
     g = mu.create_placeholders(par['general_placeholder_info'])
     o = mu.create_placeholders(par['other_placeholder_info'])
     w = mu.create_placeholders(par['weight_placeholder_info'], True)
@@ -378,8 +381,7 @@ def main():
         timestamp, dirpath = mu.create_save_dir()
 
         # Keep track of the model performance across training
-        model_results = {'accuracy': [], 'rule_accuracy' : [], 'modularity': [], 'loss': [], 'perf_loss': [], \
-                         'spike_loss': [], 'dend_loss': [], 'mean_hidden': [], 'trial': [], 'time': []}
+        model_results = mu.initialize_model_results()
 
         # Assemble the list of metaweights metaweights to use
         weight_tf_vars = []
@@ -392,6 +394,7 @@ def main():
         # Ensure that the correct task settings are in place
         set_task_profile()
 
+        # Initialize omega items
         previous_weights = []
         new_weights      = []
         omega = np.float32(0.)
@@ -399,12 +402,17 @@ def main():
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
+            # Print iteration header
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
 
             # Reset any altered task parameters back to their defaults, then switch
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
+            # Keep track of the model performance for this batch
+            test_data = mu.initialize_test_data()
+
+            # Reset omega_k
             w_k = 0.
 
             # Training loop
@@ -418,21 +426,13 @@ def main():
                 # Allow for special dendrite functions
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
-                o_switch = np.ones(par['num_rules'])
-                o_switch[par['allowed_rules'][0]] = 1
-
-                o_add = np.ones(par['num_rules'])
-                o_add[par['allowed_rules'][0]] = 1
-
                 # Build feed_dict
                 feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, omega]
                 feed_places = [*g, *o]
 
                 w_feed_stream = []
                 w_feed_places = []
-                if i == 0 and j == 0:
-                    pass
-                else:
+                if not (i == 0 and j == 0):
                     w_feed_stream = [*previous_weights]
                     for ws in par['weight_index_feed']:
                         w_feed_places.append(w[ws])
@@ -442,14 +442,15 @@ def main():
                 # Train the model
                 _, grads, oml, *new_weights = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
 
+                # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
-                    # Calculate metaweight values, then plug them back into the graph
                     sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_vals, par['working_weights'])))
 
-
+                # Update omega_k
                 for grad, var in grads:
                     w_k += np.sum(par['learning_rate'] * np.square(grad))
 
+                # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
                     for l in range(len(new_weights)):
                         previous_weights.append(np.zeros(np.shape(new_weights[l])))
@@ -460,16 +461,10 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            print('Omega loss:'.ljust(12), oml)
-            omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
-
-            # Allows all fields and rules for testing purposes
+            # Allow all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])
             par['allowed_rules']        = np.arange(par['num_rules'])
             par['num_active_fields']    = len(par['allowed_fields'])
-
-            # Keep track of the model performance for this batch
-            test_data = mu.initialize_test_data()
 
             # Testing loop
             for j in range(par['num_test_batches']):
@@ -496,9 +491,12 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Run the model
-                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch\
+                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
+                test_data['loss'][j], test_data['perf_loss'], test_data['spike_loss'], test_data['dend_loss'], test_data['omega_loss']\
                 = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
-                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], feed_dict)
+                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist,\
+                    model.loss, model.perf_loss, model.spike_loss, model.dend_loss,\
+                    model.omega_loss], feed_dict)
 
                 # Aggregate the test data for analysis
                 test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
@@ -512,24 +510,26 @@ def main():
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
 
+            # Calculate this iteration's omega value and reset the previous weight values
+            omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
+
             # Analyze the data and save the results
-            if i > -1:
-                iteration_time = time.time() - t_start
-                N = par['batch_train_size']*par['num_train_batches']
-                model_results = mu.append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
-                model_results['weights'] = mu.extract_weights()
+            iteration_time = time.time() - t_start
+            N = par['batch_train_size']*par['num_train_batches']
+            model_results = mu.append_model_performance(model_results, test_data, (i+1)*N, iteration_time)
+            model_results['weights'] = mu.extract_weights()
 
-                analysis_val = analysis.get_analysis(test_data, model_results['weights'])
+            analysis_val = analysis.get_analysis(test_data, model_results['weights'])
+            model_results = mu.append_analysis_vals(model_results, analysis_val)
 
-                model_results = mu.append_analysis_vals(model_results, analysis_val)
+            mu.print_data(dirpath, model_results, analysis_val)
 
-                mu.print_data(dirpath, model_results, analysis_val)
+            testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
+            json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
+            json_save(model_results, dirpath + '/model_results.json')
 
-                testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
-                json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
-                json_save(model_results, dirpath + '/model_results.json')
-                if par['use_checkpoints']:
-                    saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
+            if par['use_checkpoints']:
+                saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
 
     print('\nModel execution complete.\n')
 
@@ -539,12 +539,10 @@ def set_rule(iteration):
     print('Allowed task rule(s):', par['allowed_rules'])
 
 
-def calculate_omega(w, new_weights, previous_weights):
-    weight_diff = [a - b for a, b in zip(new_weights, previous_weights)]
+def calculate_omega(w_k, new_weights, previous_weights):
     w_d = 0
-    for d in weight_diff:
+    for d in [a - b for a, b in zip(new_weights, previous_weights)]:
         w_d += np.sum(np.square(d))
-    omega = w/(w_d + par['xi'])
-    previous_weights = new_weights
+    omega = w_k/(w_d + par['xi'])
 
-    return omega, previous_weights
+    return omega, new_weights
