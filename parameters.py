@@ -32,7 +32,7 @@ par = {
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 40,
+    'n_hidden'          : 100,
     'den_per_unit'      : 7,
 
     # Timings and rates
@@ -40,9 +40,9 @@ par = {
     'learning_rate'             : 2e-3,
     'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
-    'connection_prob_in'        : 0.25,
-    'connection_prob_rnn'       : 0.5,
-    'connection_prob_out'       : 0.5,
+    'connection_prob_in'        : 0.5,
+    'connection_prob_rnn'       : 0.75,
+    'connection_prob_out'       : 0.75,
     'mask_connectivity'         : 1.0,
 
     # Variance values
@@ -50,7 +50,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 1.,
+    'xi'                : 1e-3,     # Value used in Ganguli paper, though can be changed
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -84,7 +84,7 @@ par = {
     'batch_train_size'  : 100,
     'num_train_batches' : 500,
     'num_test_batches'  : 20,
-    'num_iterations'    : 20,
+    'num_iterations'    : 4,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 1,
 

@@ -300,6 +300,7 @@ class Model:
         self.omega_loss = 0.
 
         for w1, w2 in zip(weight_prev_vars, weight_tf_vars):
+            self.single = [tf.reduce_sum(w1), tf.reduce_sum(w2), tf.reduce_sum(self.omega*tf.square(w1 - w2))]
             self.omega_loss += tf.reduce_sum(self.omega*tf.square(w1 - w2))
 
         self.omega_loss = par['omega_cost'] * self.omega_loss
@@ -442,7 +443,9 @@ def main():
 
                 w_feed_stream = []
                 w_feed_places = []
-                if j != 0:
+                if i == 0 and j == 0:
+                    pass
+                else:
                     w_feed_stream = [*previous_weights]
                     for ws in par['weight_index_feed']:
                         w_feed_places.append(w[ws])
@@ -450,10 +453,7 @@ def main():
                 feed_dict = zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
                 # Train the model
-                _, grads, oml, *new_vals = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
-
-                if j == 0:
-                    print('Omega loss:', oml)
+                _, grads, oml, *new_weights = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
 
                 if par['use_metaweights']:
                     # Calculate metaweight values, then plug them back into the graph
@@ -463,11 +463,17 @@ def main():
                 for grad, var in grads:
                     w_k += np.sum(par['learning_rate'] * np.square(grad))
 
-                new_weights = new_vals
-
                 if i == 0 and j == 0:
                     for l in range(len(new_weights)):
                         previous_weights.append(np.zeros(np.shape(new_weights[l])))
+
+                """
+                print('-----', j, '-----')
+                print('single:'.ljust(12), single)
+                print('omega_k:'.ljust(12), w_k)
+                print('Omega:'.ljust(12), omega)
+                """
+
 
 
                 # Show model progress
@@ -476,7 +482,7 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            print('Omega loss:', oml)
+            print('Omega loss:'.ljust(12), oml)
             omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
 
             # Allows all fields and rules for testing purposes
@@ -625,8 +631,8 @@ def print_data(dirpath, model_results, analysis):
     if par['modul_vars']:
         print('\nModularity:')
         print('-----------')
-        print('Modularity value'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['mod']))
-        print('Number of communities'.ljust(22) + ':  {:5.3f} '.format(model_results['modularity'][-1]['community']))
+        print('Modularity value'.ljust(22) + ': {:5.3f} '.format(model_results['modularity'][-1]['mod']))
+        print('Number of communities'.ljust(22) + ': {:5.3f} '.format(model_results['modularity'][-1]['community']))
         print('Community size'.ljust(22) + ': {:5.3f} +/- {:5.3f} '.format(model_results['modularity'][-1]['mean'], model_results['modularity'][-1]['std']))
         print(''.ljust(22) + ': Max {:5.3f}, min {:5.3f} '.format(model_results['modularity'][-1]['max'], model_results['modularity'][-1]['min']))
 
