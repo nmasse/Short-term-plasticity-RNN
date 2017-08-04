@@ -26,12 +26,12 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : True,
+    'use_dendrites'     : False,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 100,
+    'n_hidden'          : 60,
     'den_per_unit'      : 4,
 
     # Timings and rates
@@ -39,7 +39,7 @@ par = {
     'learning_rate'             : 2e-3,
     'membrane_time_constant'    : 100,
     'dendrite_time_constant'    : 100,
-    'connection_prob_in'        : 0.5,
+    'connection_prob_in'        : 0.75,
     'connection_prob_rnn'       : 0.75,
     'connection_prob_out'       : 0.75,
     'mask_connectivity'         : 1.0,
@@ -49,7 +49,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 1.,     # Value used in Ganguli paper is 1e-3
+    'xi'                : 0.001,     # Value used in Ganguli paper is 1e-3
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 1200.,
+    'omega_cost'        : 900.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -80,12 +80,11 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 100,
-    'num_train_batches' : 500,
-    'num_test_batches'  : 20,
-    'num_iterations'    : 2,
-    'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 1,
+    'batch_train_size'      : 100,
+    'num_train_batches'     : 1000,
+    'num_test_batches'      : 20,
+    'num_iterations'        : 2,
+    'switch_rule_iteration' : 1,
 
     # Save paths and other info
     'save_notes'        : '',
@@ -109,7 +108,8 @@ par = {
     'cascade_strength'  : 0.01,
 
     # Disinhibition circuit
-    'use_disinhibition' : True,
+    'use_connectivity'  : False,
+    'use_disinhibition' : False
 }
 
 ##############################
@@ -246,7 +246,10 @@ def generate_masks():
     hidden_type[par['num_exc_units']+2*n:par['num_exc_units']+3*n] = 4
     hidden_type[par['num_exc_units']+3*n::] = 5
 
-    connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    if par['use_connectivity']:
+        connectivity = np.zeros((2,6,6)) # dim 0=0 refers to connections to soma, dim 0=1 refers to connections to dendrite
+    else:
+        connectivity = np.ones((2,6,6))
     # to soma
 
     connectivity[0, 0, 2:4] = 1 # stim tuned will project to EXC,PV
