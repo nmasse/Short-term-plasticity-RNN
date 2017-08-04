@@ -31,13 +31,8 @@ par = {
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-<<<<<<< HEAD
-    'n_hidden'          : 40,
-    'den_per_unit'      : 7,
-=======
     'n_hidden'          : 100,
     'den_per_unit'      : 4,
->>>>>>> 1730a3bdd75d58b2c3122565216c7014597e2594
 
     # Timings and rates
     'dt'                        : 20,
@@ -71,11 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-<<<<<<< HEAD
     'omega_cost'        : 1200.,
-=======
-    'omega_cost'        : 0.,
->>>>>>> 1730a3bdd75d58b2c3122565216c7014597e2594
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -537,7 +528,7 @@ def update_dependencies():
             par['w_rnn_dend0'][vip:som, :, som:] = initialize([n, par['den_per_unit'], n], 0.7)
             par['w_rnn_dend0'][som:, :, :vip] = initialize([n, par['den_per_unit'], vip], 0.8)
             par['w_rnn_dend0'][som:, :, vip:] = initialize([n, par['den_per_unit'], 2*n], par['connection_prob_rnn'])
-            
+
 
         #par['w_rnn_dend_mask'] = np.ones((par['hidden_to_hidden_dend_dims']), dtype=np.float32)
         #par['w_rnn_soma_mask'] = np.ones((par['hidden_to_hidden_soma_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
