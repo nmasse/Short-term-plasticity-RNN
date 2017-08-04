@@ -26,12 +26,12 @@ par = {
     'synapse_config'    : None,      # Full is 'std_stf'
     'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 100,
+    'n_hidden'          : 40,
     'den_per_unit'      : 7,
 
     # Timings and rates
@@ -49,7 +49,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 1,     # Value used in Ganguli paper is 1e-3
+    'xi'                : 1.,     # Value used in Ganguli paper is 1e-3
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 1000.,
+    'omega_cost'        : 1200.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -83,7 +83,7 @@ par = {
     'batch_train_size'  : 100,
     'num_train_batches' : 500,
     'num_test_batches'  : 20,
-    'num_iterations'    : 4,
+    'num_iterations'    : 2,
     'iterations_between_outputs'    : 5,        # Ususally 500
     'switch_rule_iteration'         : 1,
 
