@@ -592,22 +592,32 @@ def update_dependencies():
                                        ('mask',                 [par['num_time_steps'], par['batch_train_size']]),
                                        ('learning_rate',        [])]
 
-    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']]),
-                                       ('omega',                [])]
+    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
 
-    par['weight_placeholder_info']  = [('W_stim_dend',          par['input_to_hidden_dend_dims']),
-                                       ('W_td_dend',            par['td_to_hidden_dend_dims']),
-                                       ('W_rnn_dend',           par['hidden_to_hidden_dend_dims']),
-                                       ('W_stim_soma',          par['input_to_hidden_soma_dims']),
-                                       ('W_td_soma',            par['td_to_hidden_soma_dims']),
-                                       ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
-                                       ('W_out',                [par['n_output'], par['n_hidden']])]
+    par['external_placeholder_info']  = [
+                                        ('W_stim_dend',          par['input_to_hidden_dend_dims']),
+                                        ('W_td_dend',            par['td_to_hidden_dend_dims']),
+                                        ('W_rnn_dend',           par['hidden_to_hidden_dend_dims']),
+                                        ('W_stim_soma',          par['input_to_hidden_soma_dims']),
+                                        ('W_td_soma',            par['td_to_hidden_soma_dims']),
+                                        ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
+                                        ('W_out',                [par['n_output'], par['n_hidden']]),
+
+                                        ('W_stim_dend',          par['input_to_hidden_dend_dims']),
+                                        ('W_td_dend',            par['td_to_hidden_dend_dims']),
+                                        ('W_rnn_dend',           par['hidden_to_hidden_dend_dims']),
+                                        ('W_stim_soma',          par['input_to_hidden_soma_dims']),
+                                        ('W_td_soma',            par['td_to_hidden_soma_dims']),
+                                        ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
+                                        ('W_out',                [par['n_output'], par['n_hidden']])
+                                        ]
 
     # Describe the mapping between working indices and placeholder indices
-    par['weight_index_feed'] = []
-    for w, p in itertools.product(range(len(par['working_weights'])), range(len(par['weight_placeholder_info']))):
-        if par['working_weights'][w] == par['weight_placeholder_info'][p][0]:
-            par['weight_index_feed'].append(p)
+    par['external_index_feed'] = []
+    for w, p in itertools.product(range(len(par['working_weights'])), range(len(par['external_placeholder_info']))):
+        if par['working_weights'][w] == par['external_placeholder_info'][p][0]:
+            par['external_index_feed'].append(p)
+    par['external_index_feed'].sort()
 
     ######################################
     ### Setting up synaptic parameters ###
