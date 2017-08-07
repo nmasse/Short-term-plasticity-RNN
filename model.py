@@ -24,7 +24,7 @@ import time
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, omega, *weights):
+    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, *external):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -34,8 +34,8 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
-        self.omega          = omega
-        self.weights        = weights
+        self.weights, self.omegas       = mu.split_list(external)
+        self.weight_i, self.omegas_i    = mu.split_list(par['external_index_feed'])
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -280,6 +280,11 @@ class Model:
 
         weight_prev_vars = []
         for i in range(len(self.weights)):
+            if i in par['weight_index_feed'][len(par['weight_index_feed'])]:
+                weight_prev_vars.append(self.weights[i])
+
+        omega_vars = []
+        for i in range(len(self.omegas)):
             if i in par['weight_index_feed']:
                 weight_prev_vars.append(self.weights[i])
 
@@ -427,28 +432,32 @@ def main():
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Build feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, omega]
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
                 feed_places = [*g, *o]
 
-                w_feed_stream = []
-                w_feed_places = []
+                e_feed_stream = []
+                e_feed_places = []
                 if not (i == 0 and j == 0):
-                    w_feed_stream = [*previous_weights]
-                    for ws in par['weight_index_feed']:
-                        w_feed_places.append(w[ws])
+                    e_feed_stream = [*previous_weights, *omegas]
+                    for es in par['external_index_feed']:
+                        e_feed_places.append(e[es])
 
-                feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Train the model
                 _, grads, oml, *new_weights = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
 
                 # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
-                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_vals, par['working_weights'])))
+                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
 
                 # Update omega_k
-                for grad, var in grads:
-                    w_k += np.sum(par['learning_rate'] * np.square(grad))
+                if j == 0:
+                    for grad, var in grads:
+                        w_k = par['learning_rate'] * np.square(grad)
+                else:
+                    for grad, var in grads:
+                        w_k += par['learning_rate'] * np.square(grad)
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
@@ -484,9 +493,9 @@ def main():
                 w_feed_stream = []
                 w_feed_places = []
                 if j != 0:
-                    w_feed_stream = [*previous_weights]
-                    for ws in par['weight_index_feed']:
-                        w_feed_places.append(w[ws])
+                    e_feed_stream = [*previous_weights, *omegas]
+                    for es in par['external_index_feed']:
+                        e_feed_places.append(e[es])
 
                 feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
 
@@ -511,7 +520,7 @@ def main():
             print("\nTesting session {:} complete.\n".format(i))
 
             # Calculate this iteration's omega value and reset the previous weight values
-            omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
+            omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start

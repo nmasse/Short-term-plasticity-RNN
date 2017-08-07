@@ -191,6 +191,10 @@ def zip_to_dict(g, s):
     return r
 
 
+def split_list(l):
+    return l[:len(l)//2], l[len(l)//2:]
+
+
 #######################
 ### Console outputs ###
 #######################
