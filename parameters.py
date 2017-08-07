@@ -103,9 +103,9 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False,
+    'use_metaweights'   : True,
     'alpha_mw'          : 1,
-    'cascade_strength'  : 0.01,
+    'g_decay'           : 5.0,
 
     # Disinhibition circuit
     'use_connectivity'  : False,

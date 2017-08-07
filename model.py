@@ -441,8 +441,16 @@ def main():
                 _, grads, *new_weights = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
 
                 # Calculate metaweight values if desired, then plug them back into the graph
+                print("MW Before: ", np.sum(new_weights[0]))
+                print("MW Before: ", np.sum(new_weights[1]))
+                print("MW Before: ", np.sum(new_weights[2]))
+                print("MW Before: ", np.sum(new_weights[3]))
                 if par['use_metaweights']:
-                    sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
+                    new_weights = sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
+                    print("MW After: ", np.sum(new_weights[0]))
+                    print("MW After: ", np.sum(new_weights[1]))
+                    print("MW After: ", np.sum(new_weights[2]))
+                    print("MW After: ", np.sum(new_weights[3]))
 
                 # Update omega_k
                 z = 0
@@ -520,6 +528,7 @@ def main():
 
             # Calculate this iteration's omega value and reset the previous weight values
             omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
+            mw.set_g(omegas)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start
