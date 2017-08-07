@@ -449,14 +449,13 @@ def main():
                 num_bs = 0
                 for grad, var in grads:
                     if np.shape(grad)[1] != 1:
-                        w_k[z] += par['learning_rate'] * np.square(grad)
+                        w_k[z] += np.square(grad) # par['learning_rate'] *
                         z += 1
                     else:
                         num_bs += 1
                         if num_bs > 2:
                             print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
                             quit()
-                print('-'*20)
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
