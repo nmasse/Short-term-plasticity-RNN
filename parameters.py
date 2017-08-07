@@ -24,15 +24,15 @@ par = {
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
-    'exc_inh_prop'      : 0.6,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
-    'use_dendrites'     : False,
+    'use_dendrites'     : True,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 60,
-    'den_per_unit'      : 4,
+    'n_hidden'          : 50,
+    'den_per_unit'      : 2,
 
     # Timings and rates
     'dt'                        : 20,

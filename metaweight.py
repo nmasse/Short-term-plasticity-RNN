@@ -28,15 +28,22 @@ global mws
 mws = MetaweightSet()
 
 def set_g(omegas):
-    if par['use_dendrites'] != True:
+    if True:
         for i, j in itertools.product(range(par['input_to_hidden_soma_dims'][0]), range(par['input_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
+            mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[3][i,j])
         for i, j in itertools.product(range(par['td_to_hidden_soma_dims'][0]), range(par['td_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_td_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
+            mws.mws_dict['W_td_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[4][i,j])
         for i, j in itertools.product(range(par['hidden_to_hidden_soma_dims'][0]), range(par['hidden_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_rnn_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
+            mws.mws_dict['W_rnn_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[5][i,j])
         for i, j in itertools.product(range(par['n_output']), range(par['n_hidden'])):
-            mws.mws_dict['W_out_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
+            mws.mws_dict['W_out_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[6][i,j])
+
+        for i, j, k in itertools.product(range(par['input_to_hidden_dend_dims'][0]), range(par['input_to_hidden_dend_dims'][1]), range(par['input_to_hidden_dend_dims'][2])):
+            mws.mws_dict['W_stim_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[1][i,j,k])
+        for i, j, k in itertools.product(range(par['td_to_hidden_dend_dims'][0]), range(par['td_to_hidden_dend_dims'][1]), range(par['td_to_hidden_dend_dims'][2])):
+            mws.mws_dict['W_td_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[2][i,j,k])
+        for i, j, k in itertools.product(range(par['hidden_to_hidden_dend_dims'][0]), range(par['hidden_to_hidden_dend_dims'][1]), range(par['hidden_to_hidden_dend_dims'][2])):
+            mws.mws_dict['W_rnn_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j,k])
     else:
         print("ERROR: This has not yet been implemented.")
         quit()
@@ -53,7 +60,7 @@ def omega(u, weight, g, alpha):
 
     for i in range(len(u)-1):
         if i == 0:
-            u[i] = weight        
+            u[i] = weight
         elif i == len(u)-1:
             u[i] = (-1*g[i-1]*(u[i]-u[i-1])) * alpha
         else:
