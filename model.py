@@ -400,11 +400,6 @@ def main():
         # Ensure that the correct task settings are in place
         set_task_profile()
 
-        # Initialize omega items
-        previous_weights = []
-        new_weights      = []
-        omegas = [0]*(len(par['external_index_feed'])//2)
-
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
 
@@ -453,19 +448,19 @@ def main():
                 z = 0
                 num_bs = 0
                 for grad, var in grads:
-                    if not np.shape(grad)[1] == 1:
-                        if j == 0:
-                            w_k[z] = par['learning_rate'] * np.square(grad)
-                        else:
-                            w_k[z] += par['learning_rate'] * np.square(grad)
+                    if np.shape(grad)[1] != 1:
+                        w_k[z] += par['learning_rate'] * np.square(grad)
                         z += 1
                     else:
                         num_bs += 1
                         if num_bs > 2:
                             print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
+                            quit()
+                print('-'*20)
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
+                    previous_weights = []
                     for l in range(len(new_weights)):
                         previous_weights.append(np.zeros(np.shape(new_weights[l])))
 
@@ -554,10 +549,10 @@ def set_rule(iteration):
 
 
 def calculate_omega(w_k, new_weights, previous_weights):
-    omega = []
+    omegas = []
     for w_k_i, a, b in zip(w_k, new_weights, previous_weights):
         w_d = np.square(a-b)
         omega_array = w_k_i/(w_d + par['xi'])
-        omega.append(omega_array)
+        omegas.append(omega_array)
 
-    return omega, new_weights
+    return omegas, new_weights
