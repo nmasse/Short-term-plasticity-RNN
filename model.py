@@ -34,8 +34,9 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
-        self.weights, self.omegas       = mu.split_list(external)
-        self.weight_i, self.omegas_i    = mu.split_list(par['external_index_feed'])
+        self.weights, self.omegas   = mu.split_list(external)
+        self.split_indices, _       = mu.split_list(par['external_index_feed'])
+
 
         # Load the initial hidden state activity to be used at
         # the start of each trial
@@ -280,18 +281,17 @@ class Model:
 
         weight_prev_vars = []
         for i in range(len(self.weights)):
-            if i in par['weight_index_feed'][len(par['weight_index_feed'])]:
+            if i in self.split_indices:
                 weight_prev_vars.append(self.weights[i])
 
         omega_vars = []
         for i in range(len(self.omegas)):
-            if i in par['weight_index_feed']:
-                weight_prev_vars.append(self.weights[i])
+            if i in self.split_indices:
+                omega_vars.append(self.omegas[i])
 
         self.omega_loss = 0.
-        for w1, w2 in zip(weight_prev_vars, weight_tf_vars):
-            self.single = [tf.reduce_sum(w1), tf.reduce_sum(w2), tf.reduce_sum(self.omega*tf.square(w1 - w2))]
-            self.omega_loss += par['omega_cost'] * tf.reduce_sum(self.omega*tf.square(w1 - w2))
+        for w1, w2, omega in zip(weight_prev_vars, weight_tf_vars, omega_vars):
+            self.omega_loss += par['omega_cost'] * tf.reduce_sum(tf.multiply(omega, tf.square(w1 - w2)))
 
         # Aggregate loss values
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
@@ -366,12 +366,12 @@ def main():
     # Create graph placeholders
     g = mu.create_placeholders(par['general_placeholder_info'])
     o = mu.create_placeholders(par['other_placeholder_info'])
-    w = mu.create_placeholders(par['weight_placeholder_info'], True)
+    e = mu.create_placeholders(par['external_placeholder_info'], True)
 
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
-        model = Model(*g, *o, *w)
+        model = Model(*g, *o, *e)
         init = tf.global_variables_initializer()
         t_start = time.time()
         sess.run(init)

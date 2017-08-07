@@ -612,6 +612,8 @@ def update_dependencies():
                                         ('W_out',                [par['n_output'], par['n_hidden']])
                                         ]
 
+    par['num_ext_placeholders'] = len(par['external_placeholder_info'])
+
     # Describe the mapping between working indices and placeholder indices
     par['external_index_feed'] = []
     for w, p in itertools.product(range(len(par['working_weights'])), range(len(par['external_placeholder_info']))):
