@@ -334,6 +334,13 @@ class Model:
                 grad *= par['w_out_mask']
                 print('  Applied weight mask to w_out.')
 
+            elif var.name == "output/b_rnn:0":
+                grad *= par['b_rnn_mask']
+                print('  Applied weight mask to b_rnn.')
+            elif var.name == "output/b_out:0":
+                grad *= par['b_out_mask']
+                print('  Applied weight mask to b_out.')
+
             if not str(type(grad)) == "<class 'NoneType'>":
                 self.capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
@@ -543,6 +550,7 @@ def calculate_omega(w_k, new_weights, previous_weights):
     w_d = 0
     for d in [a - b for a, b in zip(new_weights, previous_weights)]:
         w_d += np.sum(np.square(d))
+
     omega = w_k/(w_d + par['xi'])
 
     return omega, new_weights
