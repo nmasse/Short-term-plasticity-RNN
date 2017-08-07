@@ -414,11 +414,8 @@ def main():
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
-            # Keep track of the model performance for this batch
-            test_data = mu.initialize_test_data()
-
             # Reset omega_k
-            w_k = 0.
+            w_k = np.zeros(len(par['external_index_feed'])//2)
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -452,12 +449,10 @@ def main():
                     sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
 
                 # Update omega_k
-                if j == 0:
-                    for grad, var in grads:
-                        w_k = par['learning_rate'] * np.square(grad)
-                else:
-                    for grad, var in grads:
-                        w_k += par['learning_rate'] * np.square(grad)
+                z = 0
+                for grad, var in grads:
+                    w_k[z] += par['learning_rate'] * tf.square(grad)
+                    z+=1
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
@@ -470,7 +465,7 @@ def main():
                 print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
-            # Allow all fields and rules for testing purposes
+            # Allows all fields and rules for testing purposes
             par['allowed_fields']       = np.arange(par['num_RFs'])
             par['allowed_rules']        = np.arange(par['num_rules'])
             par['num_active_fields']    = len(par['allowed_fields'])
@@ -549,9 +544,14 @@ def set_rule(iteration):
 
 
 def calculate_omega(w_k, new_weights, previous_weights):
-    w_d = 0
-    for d in [a - b for a, b in zip(new_weights, previous_weights)]:
-        w_d += np.sum(np.square(d))
-    omega = w_k/(w_d + par['xi'])
+    omega = []
+    for i in range(len(previous_weights)):
+        omega_array = np.zeros(previous_weights[i].shape)
+        j = 0
+        for d in [a - b for a, b in zip(new_weights[i], previous_weights[i])]:
+            w_d = np.sum(np.square(d))
+            omega_array[j] = w_k[j]/(w_d + par['xi'])
+            j+=1
+        omega.append(omega_array)
 
     return omega, new_weights
