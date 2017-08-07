@@ -299,7 +299,7 @@ class Model:
         self.dend_loss = tf.reduce_mean(tf.stack(dend_loss, axis=0))
         #mse = tf.reduce_mean(tf.stack(mse, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.omega_loss
+        self.loss = self.perf_loss + self.spike_loss + self.dend_loss #+ self.omega_loss
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
@@ -521,6 +521,7 @@ def main():
 
             # Calculate this iteration's omega value and reset the previous weight values
             omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
+            mw.set_g(omegas)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start
