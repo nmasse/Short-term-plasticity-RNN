@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 0.,
+    'omega_cost'        : 5000.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -80,12 +80,11 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'  : 200,
-    'num_train_batches' : 50,
-    'num_test_batches'  : 20,
-    'num_iterations'    : 10,
-    'iterations_between_outputs'    : 5,        # Ususally 500
-    'switch_rule_iteration'         : 3,
+    'batch_train_size'      : 100,
+    'num_train_batches'     : 500,
+    'num_test_batches'      : 20,
+    'num_iterations'        : 2,
+    'switch_rule_iteration' : 1,
 
     # Save paths and other info
     'save_notes'        : '',

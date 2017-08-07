@@ -387,6 +387,7 @@ def main():
 
         # Keep track of the model performance across training
         model_results = mu.initialize_model_results()
+        test_data = mu.initialize_test_data()
 
         # Assemble the list of metaweights metaweights to use
         weight_tf_vars = []
@@ -402,7 +403,7 @@ def main():
         # Initialize omega items
         previous_weights = []
         new_weights      = []
-        omega = np.float32(0.)
+        omegas = [0]*(len(par['external_index_feed'])//2)
 
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
@@ -415,7 +416,7 @@ def main():
             set_rule(i)
 
             # Reset omega_k
-            w_k = np.zeros(len(par['external_index_feed'])//2)
+            w_k = [0]*(len(par['external_index_feed'])//2)
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -434,7 +435,7 @@ def main():
 
                 e_feed_stream = []
                 e_feed_places = []
-                if not (i == 0 and j == 0):
+                if (i > 0):
                     e_feed_stream = [*previous_weights, *omegas]
                     for es in par['external_index_feed']:
                         e_feed_places.append(e[es])
@@ -442,7 +443,7 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Train the model
-                _, grads, oml, *new_weights = sess.run([model.train_op, model.capped_gvs, model.omega_loss, *weight_tf_vars], feed_dict)
+                _, grads, *new_weights = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
 
                 # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
@@ -450,9 +451,18 @@ def main():
 
                 # Update omega_k
                 z = 0
+                num_bs = 0
                 for grad, var in grads:
-                    w_k[z] += par['learning_rate'] * tf.square(grad)
-                    z+=1
+                    if not np.shape(grad)[1] == 1:
+                        if j == 0:
+                            w_k[z] = par['learning_rate'] * np.square(grad)
+                        else:
+                            w_k[z] += par['learning_rate'] * np.square(grad)
+                        z += 1
+                    else:
+                        num_bs += 1
+                        if num_bs > 2:
+                            print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
@@ -482,17 +492,17 @@ def main():
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Build feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, omega]
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
                 feed_places = [*g, *o]
 
-                w_feed_stream = []
-                w_feed_places = []
-                if j != 0:
+                e_feed_stream = []
+                e_feed_places = []
+                if (i > 0):
                     e_feed_stream = [*previous_weights, *omegas]
                     for es in par['external_index_feed']:
                         e_feed_places.append(e[es])
 
-                feed_dict = mu.zip_to_dict(feed_places + w_feed_places, feed_stream + w_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Run the model
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
@@ -545,13 +555,9 @@ def set_rule(iteration):
 
 def calculate_omega(w_k, new_weights, previous_weights):
     omega = []
-    for i in range(len(previous_weights)):
-        omega_array = np.zeros(previous_weights[i].shape)
-        j = 0
-        for d in [a - b for a, b in zip(new_weights[i], previous_weights[i])]:
-            w_d = np.sum(np.square(d))
-            omega_array[j] = w_k[j]/(w_d + par['xi'])
-            j+=1
+    for w_k_i, a, b in zip(w_k, new_weights, previous_weights):
+        w_d = np.square(a-b)
+        omega_array = w_k_i/(w_d + par['xi'])
         omega.append(omega_array)
 
     return omega, new_weights
