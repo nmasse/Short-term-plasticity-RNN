@@ -439,22 +439,22 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Train the model
-                _, grads, *new_weights = sess.run([model.train_op, model.capped_gvs, *weight_tf_vars], feed_dict)
+                _, perf_loss, grads, *new_weights = sess.run([model.train_op, model.perf_loss, model.capped_gvs, *weight_tf_vars], feed_dict)
 
                 # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
                     new_weights = sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
 
                 #Performance loss difference
-                loss_diff = model.perf_loss - previous_loss
-                previous_loss = model.perf_loss
+                loss_diff = np.abs(perf_loss - previous_loss)
+                previous_loss = perf_loss
 
                 # Update omega_k
                 z = 0
                 num_bs = 0
                 for grad, var in grads:
                     if np.shape(grad)[1] != 1:
-                        w_k[z] += grad*loss_diff
+                        w_k[z] += np.abs(grad)*loss_diff
                         z += 1
                     else:
                         num_bs += 1

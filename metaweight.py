@@ -30,7 +30,7 @@ mws = MetaweightSet()
 def set_g(omegas):
     if True:
         for i, j in itertools.product(range(par['input_to_hidden_soma_dims'][0]), range(par['input_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[3][i,j])
+            mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
         for i, j in itertools.product(range(par['td_to_hidden_soma_dims'][0]), range(par['td_to_hidden_soma_dims'][1])):
             mws.mws_dict['W_td_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[1][i,j])
         for i, j in itertools.product(range(par['hidden_to_hidden_soma_dims'][0]), range(par['hidden_to_hidden_soma_dims'][1])):
@@ -40,7 +40,7 @@ def set_g(omegas):
     else:
         print("ERROR: This has not yet been implemented.")
         quit()
-    print(omegas[0][1, 2])
+    print(omegas[0][0:5, 0:5])
     print(mws.mws_dict['W_stim_soma_g'][1, 2])
 
 def adjust(x, name):
