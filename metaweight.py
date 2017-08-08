@@ -28,7 +28,7 @@ global mws
 mws = MetaweightSet()
 
 def set_g(omegas):
-    if True:
+    if not par['use_dendrites']:
         for i, j in itertools.product(range(par['input_to_hidden_soma_dims'][0]), range(par['input_to_hidden_soma_dims'][1])):
             mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j])
         for i, j in itertools.product(range(par['td_to_hidden_soma_dims'][0]), range(par['td_to_hidden_soma_dims'][1])):

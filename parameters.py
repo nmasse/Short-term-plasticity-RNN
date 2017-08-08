@@ -80,8 +80,8 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'      : 100,
-    'num_train_batches'     : 500,
+    'batch_train_size'      : 50,
+    'num_train_batches'     : 250,
     'num_test_batches'      : 20,
     'num_iterations'        : 2,
     'switch_rule_iteration' : 1,
@@ -103,9 +103,9 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False,
-    'alpha_mw'          : 0.9,
-    'g_decay'           : 1.0,
+    'use_metaweights'   : True,
+    'alpha_mw'          : 0.8,
+    'g_decay'           : 0.5,
 
     # Disinhibition circuit
     'use_connectivity'  : False,
