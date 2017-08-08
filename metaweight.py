@@ -32,21 +32,16 @@ def set_g(omegas):
         for i, j in itertools.product(range(par['input_to_hidden_soma_dims'][0]), range(par['input_to_hidden_soma_dims'][1])):
             mws.mws_dict['W_stim_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[3][i,j])
         for i, j in itertools.product(range(par['td_to_hidden_soma_dims'][0]), range(par['td_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_td_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[4][i,j])
+            mws.mws_dict['W_td_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[1][i,j])
         for i, j in itertools.product(range(par['hidden_to_hidden_soma_dims'][0]), range(par['hidden_to_hidden_soma_dims'][1])):
-            mws.mws_dict['W_rnn_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[5][i,j])
+            mws.mws_dict['W_rnn_soma_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[2][i,j])
         for i, j in itertools.product(range(par['n_output']), range(par['n_hidden'])):
-            mws.mws_dict['W_out_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[6][i,j])
-
-        for i, j, k in itertools.product(range(par['input_to_hidden_dend_dims'][0]), range(par['input_to_hidden_dend_dims'][1]), range(par['input_to_hidden_dend_dims'][2])):
-            mws.mws_dict['W_stim_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[1][i,j,k])
-        for i, j, k in itertools.product(range(par['td_to_hidden_dend_dims'][0]), range(par['td_to_hidden_dend_dims'][1]), range(par['td_to_hidden_dend_dims'][2])):
-            mws.mws_dict['W_td_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[2][i,j,k])
-        for i, j, k in itertools.product(range(par['hidden_to_hidden_dend_dims'][0]), range(par['hidden_to_hidden_dend_dims'][1]), range(par['hidden_to_hidden_dend_dims'][2])):
-            mws.mws_dict['W_rnn_dend_g'][i,j,k] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[0][i,j,k])
+            mws.mws_dict['W_out_g'][i,j] = np.logspace(1.0, par['g_decay'], num = par['num_mw'], base = omegas[3][i,j])
     else:
         print("ERROR: This has not yet been implemented.")
         quit()
+    print(omegas[0][1, 2])
+    print(mws.mws_dict['W_stim_soma_g'][1, 2])
 
 def adjust(x, name):
     for index, w in np.ndenumerate(x):
