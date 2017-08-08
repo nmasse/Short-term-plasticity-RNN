@@ -2,15 +2,20 @@ import analysis
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
+import model_saver
 
 import os
 os.system('cls' if os.name == 'nt' else 'clear')
 
 ### Informal plotting code
 
-data    = analysis.load_data_dir('./savedir/model_multitask_h250_df0009_D17-07-25_T13-14-32')
+#data    = analysis.load_data_dir('./savedir/model_att_h60nd_D17-08-07_T13-32-15')
 #weights = model_saver.json_load('./savedir/model_multitask_h250_df0009_D17-07-24_T17-00-57/model_results.json')['weights']['w_rnn_soma']
-weight  = model_saver.json_load('./savedir/model_multitask_h100nd_D17-08-01_T10-08-20_m1_without_time/model_results.json')['weights']['w_rnn_soma']
+weight  = model_saver.json_load('./savedir/model_att_h60nd_D17-08-07_T13-32-15/model_results.json')['weights']['w_rnn_soma']
+
+print(np.shape(weight), np.count_nonzero(weight))
+quit()
+
 weight = np.maximum(0, weight)
 #weight = np.matmul(weight, par['EI_matrix'])
 #weight = np.matmul(weight, par['m2_transfer'])
@@ -22,7 +27,7 @@ im2 = axes[1].imshow(np.abs(weight-np.transpose(weight)), cmap='magma')
 
 plt.show()
 
-quit()ss
+quit()
 
 anova   = data['anova']
 roc     = data['roc']
