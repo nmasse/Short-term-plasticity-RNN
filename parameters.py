@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 5000.,
+    'omega_cost'        : 25.,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs

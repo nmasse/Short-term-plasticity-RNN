@@ -410,8 +410,9 @@ def main():
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
-            # Reset omega_k
+            # Reset omega_k and previous performance loss
             w_k = [0]*(len(par['external_index_feed'])//2)
+            previous_loss = np.float32(0)
 
             # Training loop
             for j in range(par['num_train_batches']):
@@ -444,12 +445,16 @@ def main():
                 if par['use_metaweights']:
                     new_weights = sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
 
+                #Performance loss difference
+                loss_diff = model.perf_loss - previous_loss
+                previous_loss = model.perf_loss
+
                 # Update omega_k
                 z = 0
                 num_bs = 0
                 for grad, var in grads:
                     if np.shape(grad)[1] != 1:
-                        w_k[z] += np.square(grad) # par['learning_rate'] *
+                        w_k[z] += grad*loss_diff
                         z += 1
                     else:
                         num_bs += 1
