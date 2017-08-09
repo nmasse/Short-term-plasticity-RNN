@@ -40,8 +40,8 @@ def set_g(omegas):
     else:
         print("ERROR: This has not yet been implemented.")
         quit()
-    print(omegas[0][0:5, 0:5])
-    print(mws.mws_dict['W_stim_soma_g'][1, 2])
+    #print(omegas[0][0:5, 0:5])
+    #print(mws.mws_dict['W_stim_soma_g'][1, 2])
 
 def adjust(x, name):
     for index, w in np.ndenumerate(x):

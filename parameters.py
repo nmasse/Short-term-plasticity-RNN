@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 0.9,
+    'omega_cost'        : 0.3,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -103,8 +103,8 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : False,
-    'alpha_mw'          : 0.9,
+    'use_metaweights'   : True,
+    'alpha_mw'          : 1.0,  # Keep greater than one
     'g_decay'           : 1.0,
 
     # Disinhibition circuit
