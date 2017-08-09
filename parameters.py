@@ -80,8 +80,8 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'      : 100,
-    'num_train_batches'     : 500,
+    'batch_train_size'      : 50,
+    'num_train_batches'     : 250,
     'num_test_batches'      : 20,
     'num_iterations'        : 2,
     'switch_rule_iteration' : 1,

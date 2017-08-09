@@ -402,7 +402,6 @@ def main():
 
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
-
             # Print iteration header
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
 
@@ -534,6 +533,7 @@ def main():
             model_results['weights'] = mu.extract_weights()
 
             analysis_val = analysis.get_analysis(test_data, model_results['weights'])
+            iteration++
             model_results = mu.append_analysis_vals(model_results, analysis_val)
 
             mu.print_data(dirpath, model_results, analysis_val)

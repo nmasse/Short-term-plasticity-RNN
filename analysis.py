@@ -251,6 +251,24 @@ def modul_analysis(weights):
 
     return modularity
 
+def graph_plot(weights):
+    global iteration
+    print("Plotting with iteration: ", iteration)
+
+    gr = nx.Graph()
+    gr = nx.from_numpy_matrix(np.maximum(weights,0))
+    part = com.best_partition(gr)
+    values = [part.get(node) for node in gr.nodes()]
+    nx.draw_circular(gr, cmap = plt.get_cmap('jet'), node_color = values, node_size=30, with_labels=True, 
+        width=[gr.edge[i][j]['weight'] for (i,j) in gr.edges_iter()])
+    modularity = modul_analysis(weights)
+
+    plt.title('graph'+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']))
+    plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']+'.png')
+    plt.clf()
+
+    iteration = iteration + 1
+
 def get_perf(test_data):
     """
     Calculate task accuracy by comparing the actual network output to the
@@ -355,7 +373,7 @@ def get_analysis(test_data, weights, filename=None):
     # Analyze the network output and get the accuracy values
     result['accuracy'], result['rule_accuracy'] = get_perf(test_data)
 
-    # Get ROC, ANOVA, and Tuning results as requested
+    # Get ROC, ANOVA, Tuning, and Graph results as requested
     if par['roc_vars'] is not None:
         t1 = time.time()
         result['roc'] = roc_analysis(test_data)
@@ -374,6 +392,8 @@ def get_analysis(test_data, weights, filename=None):
         print('MODULARITY time\t', np.round(time.time()-t1,4))
 
     #plot(test_data)
+
+    graph_plot(weights['w_rnn_soma'])
 
     # Save analysis result
     # with open('.\savedir\dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
