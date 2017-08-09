@@ -533,7 +533,7 @@ def main():
             model_results['weights'] = mu.extract_weights()
 
             analysis_val = analysis.get_analysis(test_data, model_results['weights'])
-            iteration++
+            iteration += 1
             model_results = mu.append_analysis_vals(model_results, analysis_val)
 
             mu.print_data(dirpath, model_results, analysis_val)

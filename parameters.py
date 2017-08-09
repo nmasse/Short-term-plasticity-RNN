@@ -103,7 +103,7 @@ par = {
 
     # Meta weights
     'num_mw'            : 10,
-    'use_metaweights'   : True,
+    'use_metaweights'   : False,
     'alpha_mw'          : 1.0,  # Keep greater than one
     'g_decay'           : 1.0,
 

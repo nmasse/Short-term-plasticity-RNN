@@ -259,12 +259,12 @@ def graph_plot(weights):
     gr = nx.from_numpy_matrix(np.maximum(weights,0))
     part = com.best_partition(gr)
     values = [part.get(node) for node in gr.nodes()]
-    nx.draw_circular(gr, cmap = plt.get_cmap('jet'), node_color = values, node_size=30, with_labels=True, 
+    nx.draw_circular(gr, cmap = plt.get_cmap('jet'), node_color = values, node_size=30, with_labels=True,
         width=[gr.edge[i][j]['weight'] for (i,j) in gr.edges_iter()])
     modularity = modul_analysis(weights)
 
     plt.title('graph'+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']))
-    plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']+'.png')
+    plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']+'.png'))
     plt.clf()
 
     iteration = iteration + 1
