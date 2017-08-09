@@ -524,7 +524,8 @@ def main():
 
             # Calculate this iteration's omega value and reset the previous weight values
             omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
-            mw.set_g(omegas)
+            if par['use_metaweights']:
+                mw.set_g(omegas)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start
@@ -533,7 +534,7 @@ def main():
             model_results['weights'] = mu.extract_weights()
 
             analysis_val = analysis.get_analysis(test_data, model_results['weights'])
-            iteration += 1
+            #iteration += 1
             model_results = mu.append_analysis_vals(model_results, analysis_val)
 
             mu.print_data(dirpath, model_results, analysis_val)
