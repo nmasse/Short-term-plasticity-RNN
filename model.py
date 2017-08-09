@@ -18,6 +18,8 @@ import analysis
 import os
 import time
 
+global iteration=0
+
 #################################
 ### Model setup and execution ###
 #################################
