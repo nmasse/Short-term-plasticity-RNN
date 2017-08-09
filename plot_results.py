@@ -9,7 +9,7 @@ plt.rcParams["font.family"] = "arial"
 def plot_figure3():
 
     data_dir = 'C:/Users/nicol/Projects/RNN_STP_analysis/'
-    tasks = ['DMS', 'DMRS180','DMRS45','DMRS90']
+    tasks = ['DMS', 'DMRS180','DMRS90','DMC']
     num_tasks = len(tasks)
     accuracy_th = 0.9 # require all networks to have at least this performance accuracy
     models_per_task = 20
@@ -24,6 +24,11 @@ def plot_figure3():
     chance_level = 1/8
 
     for n in range(num_tasks):
+
+        if tasks[n] == 'DMC':
+            chance_level = 1/2
+        else:
+            chance_level = 1/8
 
         # load following results from each task
         delay_accuracy = np.zeros((models_per_task), dtype=np.float32)
@@ -88,5 +93,5 @@ def plot_figure3():
         ax.set_ylabel('Task accuracy')
         ax.set_xlabel('Delay neuronal decoding')
     plt.tight_layout()
-    #plt.savefig('Summary2.pdf', format='pdf')
+    plt.savefig('Summary.pdf', format='pdf')
     plt.show()
