@@ -31,7 +31,7 @@ par = {
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 50,
+    'n_hidden'          : 20,
     'den_per_unit'      : 4,
 
     # Timings and rates
@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 0.3,
+    'omega_cost'        : 0.5,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -80,8 +80,8 @@ par = {
     'stop_error_th'     : 1,
 
     # Training specs
-    'batch_train_size'      : 50,
-    'num_train_batches'     : 250,
+    'batch_train_size'      : 100,
+    'num_train_batches'     : 500,
     'num_test_batches'      : 20,
     'num_iterations'        : 2,
     'switch_rule_iteration' : 1,
