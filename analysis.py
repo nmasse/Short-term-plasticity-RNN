@@ -11,7 +11,7 @@ import pickle
 def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights):
 
     """
-    Converts neuroanl and synaptic values, stored in lists, into 3D arrays
+    Converts neuronal and synaptic values, stored in lists, into 3D arrays
     Creating new variable since h, syn_x, and syn_u are class members of model.py,
     and will get mofiied by functions within analysis.py
     """
