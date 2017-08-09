@@ -264,7 +264,7 @@ def graph_plot(weights):
     modularity = modul_analysis(weights)
 
     plt.title('graph'+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']))
-    plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']+'.png'))
+    plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community'])+'.png')
     plt.clf()
 
     iteration = iteration + 1

@@ -18,7 +18,7 @@ import analysis
 import os
 import time
 
-global iteration=0
+global iteration
 
 #################################
 ### Model setup and execution ###
@@ -276,9 +276,10 @@ class Model:
         # So far, only works if two rules/tasks
         weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
-            for name in par['working_weights'][:-1]:
+            for name in par['working_weights'][:-2]:
                 weight_tf_vars.append(tf.get_variable(name))
         with tf.variable_scope('output', reuse=True):
+            weight_tf_vars.append(tf.get_variable(par['working_weights'][-2]))
             weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
 
         weight_prev_vars = []
@@ -394,9 +395,10 @@ def main():
         # Assemble the list of metaweights metaweights to use
         weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
-            for name in par['working_weights'][:-1]:
+            for name in par['working_weights'][:-2]:
                 weight_tf_vars.append(tf.get_variable(name))
         with tf.variable_scope('output', reuse=True):
+            weight_tf_vars.append(tf.get_variable(par['working_weights'][-2]))
             weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
 
         # Ensure that the correct task settings are in place
@@ -452,16 +454,16 @@ def main():
 
                 # Update omega_k
                 z = 0
-                num_bs = 0
+                #num_bs = 0
                 for grad, var in grads:
-                    if np.shape(grad)[1] != 1:
-                        w_k[z] += np.abs(grad)*loss_diff
-                        z += 1
-                    else:
-                        num_bs += 1
-                        if num_bs > 2:
-                            print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
-                            quit()
+                    #if np.shape(grad)[1] != 1:
+                    w_k[z] += np.abs(grad)*loss_diff
+                    z += 1
+                    #else:
+                    #    num_bs += 1
+                    #    if num_bs > 2:
+                    #        print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
+                    #        quit()
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
