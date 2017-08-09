@@ -213,7 +213,6 @@ class Model:
         else:
             return h_soma_out, dend_out, syn_x, syn_u, tf.constant(0), tf.constant(0)
 
-
     def optimize(self):
         """
         Calculate the loss functions for weight optimization, and apply weight
@@ -411,10 +410,6 @@ def main():
             # the allowed rules if the iteration number crosses a specified threshold
             set_rule(i)
 
-            # Reset omega_k and previous performance loss
-            w_k = [0]*(len(par['external_index_feed'])//2)
-            previous_loss = np.float32(0)
-
             # Training loop
             for j in range(par['num_train_batches']):
 
@@ -430,14 +425,7 @@ def main():
                 feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
                 feed_places = [*g, *o]
 
-                e_feed_stream = []
-                e_feed_places = []
-                if (i > 0):
-                    e_feed_stream = [*previous_weights, *omegas]
-                    for es in par['external_index_feed']:
-                        e_feed_places.append(e[es])
-
-                feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places, feed_stream)
 
                 # Train the model
                 _, perf_loss, grads, *new_weights = sess.run([model.train_op, model.perf_loss, model.capped_gvs, *weight_tf_vars], feed_dict)
@@ -445,29 +433,6 @@ def main():
                 # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
                     new_weights = sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
-
-                #Performance loss difference
-                loss_diff = np.abs(perf_loss - previous_loss)
-                previous_loss = perf_loss
-
-                # Update omega_k
-                z = 0
-                num_bs = 0
-                for grad, var in grads:
-                    if np.shape(grad)[1] != 1:
-                        w_k[z] += np.abs(grad)*loss_diff
-                        z += 1
-                    else:
-                        num_bs += 1
-                        if num_bs > 2:
-                            print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
-                            quit()
-
-                # Generate weight matrix storage on the first trial
-                if i == 0 and j == 0:
-                    previous_weights = []
-                    for l in range(len(new_weights)):
-                        previous_weights.append(np.zeros(np.shape(new_weights[l])))
 
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
@@ -495,14 +460,7 @@ def main():
                 feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
                 feed_places = [*g, *o]
 
-                e_feed_stream = []
-                e_feed_places = []
-                if (i > 0):
-                    e_feed_stream = [*previous_weights, *omegas]
-                    for es in par['external_index_feed']:
-                        e_feed_places.append(e[es])
-
-                feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
+                feed_dict = mu.zip_to_dict(feed_places, feed_stream)
 
                 # Run the model
                 test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
@@ -523,10 +481,6 @@ def main():
                 bar = int(np.round(progress*20))
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
-
-            # Calculate this iteration's omega value and reset the previous weight values
-            omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
-            mw.set_g(omegas)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start
@@ -553,13 +507,3 @@ def main():
 def set_rule(iteration):
     par['allowed_rules'] = [(iteration//par['switch_rule_iteration'])%2]
     print('Allowed task rule(s):', par['allowed_rules'])
-
-
-def calculate_omega(w_k, new_weights, previous_weights):
-    omegas = []
-    for w_k_i, a, b in zip(w_k, new_weights, previous_weights):
-        w_d = np.square(a-b)
-        omega_array = w_k_i/(w_d + par['xi'])
-        omegas.append(omega_array)
-
-    return omegas, new_weights
