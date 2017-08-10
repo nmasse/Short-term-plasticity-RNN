@@ -276,10 +276,9 @@ class Model:
         # So far, only works if two rules/tasks
         weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
-            for name in par['working_weights'][:-2]:
+            for name in par['working_weights'][:-1]:
                 weight_tf_vars.append(tf.get_variable(name))
         with tf.variable_scope('output', reuse=True):
-            weight_tf_vars.append(tf.get_variable(par['working_weights'][-2]))
             weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
 
         weight_prev_vars = []
@@ -306,17 +305,17 @@ class Model:
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
-        grads_and_vars = opt.compute_gradients(self.loss)
+        self.grads_and_vars = opt.compute_gradients(self.loss)
 
         # Print out the active, trainable TensorFlow variables
         print('Active TensorFlow variables:')
-        for grad, var in grads_and_vars:
+        for grad, var in self.grads_and_vars:
             print('  ', var)
 
         #Apply any applicable weights masks to the gradient and clip
         print('\nWeight masks:')
         self.capped_gvs = []
-        for grad, var in grads_and_vars:
+        for grad, var in self.grads_and_vars:
             if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
                 grad *= par['w_rnn_dend_mask']
                 print('  Applied weight mask to w_rnn_dend.')
@@ -395,10 +394,9 @@ def main():
         # Assemble the list of metaweights metaweights to use
         weight_tf_vars = []
         with tf.variable_scope('rnn_cell', reuse=True):
-            for name in par['working_weights'][:-2]:
+            for name in par['working_weights'][:-1]:
                 weight_tf_vars.append(tf.get_variable(name))
         with tf.variable_scope('output', reuse=True):
-            weight_tf_vars.append(tf.get_variable(par['working_weights'][-2]))
             weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
 
         # Ensure that the correct task settings are in place
@@ -442,7 +440,7 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Train the model
-                _, perf_loss, grads, *new_weights = sess.run([model.train_op, model.perf_loss, model.capped_gvs, *weight_tf_vars], feed_dict)
+                _, perf_loss, grads_and_vars, *new_weights = sess.run([model.train_op, model.perf_loss, model.grads_and_vars, *weight_tf_vars], feed_dict)
 
                 # Calculate metaweight values if desired, then plug them back into the graph
                 if par['use_metaweights']:
@@ -452,18 +450,23 @@ def main():
                 loss_diff = np.abs(perf_loss - previous_loss)
                 previous_loss = perf_loss
 
-                # Update omega_k
+                num_bs = 0
                 z = 0
-                #num_bs = 0
-                for grad, var in grads:
-                    #if np.shape(grad)[1] != 1:
-                    w_k[z] += np.abs(grad)*loss_diff
-                    z += 1
-                    #else:
-                    #    num_bs += 1
-                    #    if num_bs > 2:
-                    #        print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
-                    #        quit()
+                if j == 0:
+                    prev_grad = [0]*(len(par['external_index_feed'])//2) #prev_grad = [0]*(len(par['external_index_feed'])//2)
+                    prev_var = [0]*(len(par['external_index_feed'])//2)  #prev_var = [0]*(len(par['external_index_feed'])//2)
+                for grad, var in grads_and_vars:
+                    if np.shape(var)[1] != 1:
+                        if j > 0:
+                            w_k[z] -= (var - prev_var[z])*prev_grad[z]
+                            prev_var[z] = var
+                            prev_grad[z] = grad
+                            z += 1
+                    else:
+                        num_bs += 1
+                        if num_bs > 2:
+                            print("ERROR: Check number of bias matrices or make some weight matrix not have size 1 on axis 1")
+                            quit()
 
                 # Generate weight matrix storage on the first trial
                 if i == 0 and j == 0:
