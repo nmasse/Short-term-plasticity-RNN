@@ -457,6 +457,10 @@ def main():
                     prev_var = [0]*(len(par['external_index_feed'])//2)  #prev_var = [0]*(len(par['external_index_feed'])//2)
                 for grad, var in grads_and_vars:
                     if np.shape(var)[1] != 1:
+                        if j == 0:
+                            prev_var[z] = var
+                            prev_grad[z] = grad
+                            z += 1
                         if j > 0:
                             w_k[z] -= (var - prev_var[z])*prev_grad[z]
                             prev_var[z] = var
