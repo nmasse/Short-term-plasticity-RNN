@@ -24,7 +24,7 @@ par = {
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
-    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'      : 1.0,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
     'use_dendrites'     : False,
     'use_stim_soma'     : True,
@@ -536,7 +536,7 @@ def update_dependencies():
 
     else:
         par['w_rnn_dend0'] = np.zeros(par['hidden_to_hidden_dend_dims'], dtype=np.float32)
-        par['w_rnn_soma0'] = np.eye(par['hidden_to_hidden_soma_dims'], dtype=np.float32)
+        par['w_rnn_soma0'] = np.eye(par['hidden_to_hidden_soma_dims'][0], dtype=np.float32)
 
         for i in range(par['n_hidden']):
             par['w_rnn_dend0'][i,:,i] = 1
