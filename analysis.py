@@ -203,7 +203,12 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
     test_length = trial_length - test_onset
 
     for r in range(par['num_rules']):
-        trial_ind = np.where(trial_info['rule']==r)[0]
+        # For ABBA/ABCA trials, will only analyze trials for which the first n-1
+        # test stimuli, out of n, are non-matches
+        if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
+            trial_ind = np.where((np.sum(match[:,:-1],axis=1)==0)*(trial_info['rule']==r))[0]
+        else:
+            trial_ind = np.where(trial_info['rule']==r)[0]
         train_mask = trial_info['train_mask'][test_onset:,trial_ind]
         x = np.split(trial_info['neural_input'][:,test_onset:,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:,trial_ind]
