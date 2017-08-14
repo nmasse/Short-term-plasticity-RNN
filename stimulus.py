@@ -439,7 +439,7 @@ class Stimulus:
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
                     trial_info['match'][t,i] = 1
-                    trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
+                    #trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
 
