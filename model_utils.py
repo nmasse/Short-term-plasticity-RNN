@@ -195,6 +195,10 @@ def split_list(l):
     return l[:len(l)//2], l[len(l)//2:]
 
 
+def get_vars_in_scope(scope_name):
+    return list(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope_name))
+
+
 #######################
 ### Console outputs ###
 #######################
