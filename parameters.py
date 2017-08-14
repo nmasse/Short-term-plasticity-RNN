@@ -49,7 +49,7 @@ par = {
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
     'internal_sd'       : 0.5,
-    'xi'                : 0.1,     # Value used in Ganguli paper is 1e-3
+    'xi'                : 0.001,     # Value used in Ganguli paper is 1e-3
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -99,12 +99,13 @@ par = {
     'roc_vars'          : None,
     'anova_vars'        : None, #['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'tuning_vars'       : None, #['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
-    'modul_vars'        : True,
+    'modul_vars'        : None,
 
     # Meta weights
-    'num_mw'            : 10,
+    'num_mw'            : 3,
     'use_metaweights'   : False,
-    'alpha_mw'          : 1.0,  # Keep greater than one
+    'mw_steps'          : 20,
+    'mw_dt'             : 0.001,  # Keep greater than one
     'g_decay'           : 1.0,
 
     # Disinhibition circuit
@@ -193,7 +194,7 @@ def set_task_profile():
 ### Dependent parameters ###
 ############################
 
-def initialize(dims, connection_prob):
+def generate_weight(dims, connection_prob):
     n = np.float32(np.random.gamma(shape=0.25, scale=1.0, size=dims))
     n *= (np.random.rand(*dims) < connection_prob)
     return n
@@ -231,6 +232,7 @@ def update_parameters(updates):
         par[key] = val
 
     update_dependencies()
+
 
 def generate_masks():
 
@@ -337,13 +339,12 @@ def spectral_radius(A):
 
 
 def set_template(trial_rules, trial_locations):
-
     # Set up dendrite inhibition template for df0009
     template = 1000*np.ones((par['n_hidden'], par['den_per_unit'], par['batch_train_size']), dtype=np.float32)
-    for n in range(par['batch_train_size']):
-        r = trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]
-        template[:,r,n] = 0
-
+    if par['df_num'] == '0009':
+        for n in range(par['batch_train_size']):
+            r = trial_rules[n,0]*par['num_RFs'] + trial_locations[n,0]
+            template[:,r,n] = 0
     return template
 
 
@@ -383,6 +384,7 @@ def get_dend():
     # print(dend)
 
     return dend
+
 
 def update_dependencies():
     """
@@ -496,12 +498,12 @@ def update_dependencies():
     if par['mask_connectivity'] < 1:
         reduce_connectivity()
 
-    # Initialize input weights
-    par['w_stim_dend0'] = initialize(par['input_to_hidden_dend_dims'], par['connection_prob_in'])
-    par['w_stim_soma0'] = initialize(par['input_to_hidden_soma_dims'], par['connection_prob_in'])
+    # Generate input weights
+    par['w_stim_dend0'] = generate_weight(par['input_to_hidden_dend_dims'], par['connection_prob_in'])
+    par['w_stim_soma0'] = generate_weight(par['input_to_hidden_soma_dims'], par['connection_prob_in'])
 
-    par['w_td_dend0'] = initialize(par['td_to_hidden_dend_dims'], par['connection_prob_in'])
-    par['w_td_soma0'] = initialize(par['td_to_hidden_soma_dims'], par['connection_prob_in'])
+    par['w_td_dend0'] = generate_weight(par['td_to_hidden_dend_dims'], par['connection_prob_in'])
+    par['w_td_soma0'] = generate_weight(par['td_to_hidden_soma_dims'], par['connection_prob_in'])
 
     par['w_stim_dend0'] *= par['w_stim_dend_mask']
     par['w_stim_soma0'] *= par['w_stim_soma_mask']
@@ -514,8 +516,8 @@ def update_dependencies():
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn_dend0'] = initialize(par['hidden_to_hidden_dend_dims'], par['connection_prob_rnn'])
-        par['w_rnn_soma0'] = initialize(par['hidden_to_hidden_soma_dims'], par['connection_prob_rnn'])
+        par['w_rnn_dend0'] = generate_weight(par['hidden_to_hidden_dend_dims'], par['connection_prob_rnn'])
+        par['w_rnn_soma0'] = generate_weight(par['hidden_to_hidden_soma_dims'], par['connection_prob_rnn'])
 
         # Remove connection based on the connection probability
         if par['use_disinhibition']:
@@ -562,7 +564,7 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob_out'])
+    par['w_out0'] = generate_weight([par['n_output'], par['n_hidden']], par['connection_prob_out'])
 
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
@@ -571,6 +573,17 @@ def update_dependencies():
         par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
+
+    # Create the intitial metaweight state
+    par['U_stim_soma0'] = np.zeros([*par['input_to_hidden_soma_dims'], par['num_mw']])
+    par['U_stim_dend0'] = np.zeros([*par['input_to_hidden_dend_dims'], par['num_mw']])
+    par['U_td_soma0'] = np.zeros([*par['td_to_hidden_soma_dims'], par['num_mw']])
+    par['U_td_dend0'] = np.zeros([*par['td_to_hidden_dend_dims'], par['num_mw']])
+    par['U_rnn_soma0'] = np.zeros([*par['hidden_to_hidden_soma_dims'], par['num_mw']])
+    par['U_rnn_dend0'] = np.zeros([*par['hidden_to_hidden_dend_dims'], par['num_mw']])
+    par['U_out0'] = np.zeros([par['n_output'], par['n_hidden'], par['num_mw']])
+    par['U_bout0'] = np.zeros([par['n_output'], 1, par['num_mw']])
+    par['U_brnn0'] = np.zeros([par['n_hidden'], 1, par['num_mw']])
 
     # Describe which weights will be used in this model
     par['working_weights'] = []
@@ -600,16 +613,8 @@ def update_dependencies():
                                         ('W_stim_soma',          par['input_to_hidden_soma_dims']),
                                         ('W_td_soma',            par['td_to_hidden_soma_dims']),
                                         ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
-                                        ('W_out',                [par['n_output'], par['n_hidden']]),
-
-                                        ('W_stim_dend',          par['input_to_hidden_dend_dims']),
-                                        ('W_td_dend',            par['td_to_hidden_dend_dims']),
-                                        ('W_rnn_dend',           par['hidden_to_hidden_dend_dims']),
-                                        ('W_stim_soma',          par['input_to_hidden_soma_dims']),
-                                        ('W_td_soma',            par['td_to_hidden_soma_dims']),
-                                        ('W_rnn_soma',           par['hidden_to_hidden_soma_dims']),
-                                        ('W_out',                [par['n_output'], par['n_hidden']])
-                                        ]
+                                        ('W_out',                [par['n_output'], par['n_hidden']])]
+    par['external_placeholder_info'] = sorted(par['external_placeholder_info'], key=lambda x : x[1])*2
 
     par['num_ext_placeholders'] = len(par['external_placeholder_info'])
 

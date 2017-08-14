@@ -292,8 +292,7 @@ class Model:
         """
         # Calculate omega loss
         # So far, only works if two rules/tasks
-        weight_tf_vars = mu.get_vars_in_scope('parameters')
-
+        weight_tf_vars = mu.sort_tf_vars(mu.get_vars_in_scope('parameters'))
 
         """weight_tf_vars = []
         with tf.variable_scope('parameters', reuse=True):
@@ -304,25 +303,18 @@ class Model:
         for i in range(len(self.weights)):
             if i in self.split_indices:
                 weight_prev_vars.append(self.weights[i])
-
-        a = map(lambda w: print(w.shape), weight_tf_vars)
-        for b in a:
-            if b != None:
-                print('-')
-                print(type(b), '|', type(b[0]))
-        print('')
-
-        a = map(lambda w: print(w.shape), weight_prev_vars)
-        for b in a:
-            if b != None:
-                print(b)
-                print(type(b), '|', type(b[0]))
-        quit()
+        weight_prev_vars = mu.sort_tf_vars(weight_prev_vars)
 
         omega_vars = []
         for i in range(len(self.omegas)):
             if i in self.split_indices:
                 omega_vars.append(self.omegas[i])
+        omega_vars = mu.sort_tf_vars(omega_vars)
+
+        # Checks the omega and prev_weight vars, then restricts the tf vars
+        # according to the allowed shapes
+        omega_vars, weight_prev_vars = mu.intersection_by_shape(omega_vars, weight_prev_vars)
+        weight_tf_vars, omega_vars = mu.intersection_by_shape(weight_tf_vars, omega_vars)
 
         self.omega_loss = 0.
         for w1, w2, omega in zip(weight_prev_vars, weight_tf_vars, omega_vars):
@@ -343,41 +335,40 @@ class Model:
         # Print out the active, trainable TensorFlow variables
         print('Active TensorFlow variables:')
         for grad, var in self.grads_and_vars:
-            print('  ', var)
+            print('  ', var.name.ljust(36), 'shape =', var.shape)
 
         #Apply any applicable weights masks to the gradient and clip
         print('\nWeight masks:')
         self.capped_gvs = []
         for grad, var in self.grads_and_vars:
-            if var.name == "rnn_cell/W_rnn_dend:0" and par['use_dendrites']:
-                grad *= par['w_rnn_dend_mask']
-                print('  Applied weight mask to w_rnn_dend.')
-            elif var.name == "rnn_cell/W_rnn_soma:0":
+            if var.name == "parameters/soma/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
-                print('  Applied weight mask to w_rnn_soma.')
+                print('   Applied weight mask to w_rnn_soma.')
+            elif var.name == "parameters/dendrite/W_rnn_dend:0" and par['use_dendrites']:
+                grad *= par['w_rnn_dend_mask']
+                print('   Applied weight mask to w_rnn_dend.')
 
-            elif var.name == "rnn_cell/W_stim_soma:0":
+            elif var.name == "parameters/soma/W_stim_soma:0":
                 grad *= par['w_stim_soma_mask']
-                print('  Applied weight mask to w_stim_soma.')
-            elif var.name == "rnn_cell/W_stim_dend:0":
+                print('   Applied weight mask to w_stim_soma.')
+            elif var.name == "parameters/dendrite/W_stim_dend:0":
                 grad *= par['w_stim_dend_mask']
-                print('  Applied weight mask to w_stim_dend.')
+                print('   Applied weight mask to w_stim_dend.')
 
-            elif var.name == "rnn_cell/W_td_soma:0":
+            elif var.name == "parameters/soma/W_td_soma:0":
                 grad *= par['w_td_soma_mask']
-                print('  Applied weight mask to w_td_soma.')
-            elif var.name == "rnn_cell/W_td_dend:0":
+                print('   Applied weight mask to w_td_soma.')
+            elif var.name == "parameters/dendrite/W_td_dend:0":
                 grad *= par['w_td_dend_mask']
-                print('  Applied weight mask to w_td_dend.')
+                print('   Applied weight mask to w_td_dend.')
 
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
-                print('  Applied weight mask to w_out.')
+                print('   Applied weight mask to w_out.')
 
             if not str(type(grad)) == "<class 'NoneType'>":
                 self.capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
         print("\n")
-
         self.train_op = opt.apply_gradients(self.capped_gvs)
 
 
@@ -425,12 +416,9 @@ def main():
         test_data = mu.initialize_test_data()
 
         # Assemble the list of metaweights metaweights to use
-        weight_tf_vars = []
-        with tf.variable_scope('rnn_cell', reuse=True):
-            for name in par['working_weights'][:-1]:
-                weight_tf_vars.append(tf.get_variable(name))
-        with tf.variable_scope('output', reuse=True):
-            weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
+        weight_tf_vars = [var for var in mu.get_vars_in_scope('parameters') \
+        if any(val in var.name for val in par['working_weights']) and ('Adam' not in var.name)]
+        weight_tf_vars = mu.sort_tf_vars(weight_tf_vars)
 
         # Ensure that the correct task settings are in place
         set_task_profile()
@@ -452,7 +440,7 @@ def main():
             for j in range(par['num_train_batches']):
 
                 # Generate batch of par['batch_train_size'] trials
-                trial_info = stim.generate_trial(par['batch_train_size'])
+                trial_info  = stim.generate_trial(par['batch_train_size'])
                 trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'], :, :]
                 trial_td    = trial_info['neural_input'][par['num_stim_tuned']:, :, :]
 
@@ -488,7 +476,7 @@ def main():
                 if j == 0:
                     prev_grad = [0]*(len(par['external_index_feed'])//2) #prev_grad = [0]*(len(par['external_index_feed'])//2)
                     prev_var = [0]*(len(par['external_index_feed'])//2)  #prev_var = [0]*(len(par['external_index_feed'])//2)
-                for grad, var in grads_and_vars:
+                for grad, var in mu.sort_grads_and_vars(grads_and_vars):
                     if np.shape(var)[1] != 1:
                         if j == 0:
                             prev_var[z] = var
