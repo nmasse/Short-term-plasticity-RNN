@@ -50,11 +50,53 @@ class Model:
         self.synapse_x_init = tf.constant(par['syn_x_init'])
         self.synapse_u_init = tf.constant(par['syn_u_init'])
 
+        # Initialize all variables
+        self.initialize_variables()
+
         # Build the TensorFlow graph
         self.run_model()
 
+        # Engage the metaweights
+        if par['use_metaweights']:
+            self.run_metaweights()
+
         # Train the model
         self.optimize()
+
+
+    def initialize_variables(self):
+        with tf.variable_scope('parameters'):
+            if par['use_stim_soma']:
+                with tf.variable_scope('soma'):
+                    tf.get_variable('W_stim_soma',      initializer=np.float32(par['w_stim_soma0']),    trainable=True)
+                    tf.get_variable('W_td_soma',        initializer=np.float32(par['w_td_soma0']),      trainable=True)
+                    tf.get_variable('W_rnn_soma',       initializer=np.float32(par['w_rnn_soma0']),     trainable=True)
+            if par['use_dendrites']:
+                with tf.variable_scope('dendrite'):
+                    tf.get_variable('W_stim_dend',      initializer=np.float32(par['w_stim_dend0']),    trainable=True)
+                    tf.get_variable('W_td_dend',        initializer=np.float32(par['w_td_dend0']),      trainable=True)
+                    tf.get_variable('W_rnn_dend',       initializer=np.float32(par['w_rnn_dend0']),     trainable=True)
+            with tf.variable_scope('standard'):
+                tf.get_variable('W_out',                initializer=np.float32(par['w_out0']),          trainable=True)
+                tf.get_variable('b_rnn',                initializer=np.float32(par['b_rnn0']),          trainable=True)
+                tf.get_variable('b_out',                initializer=np.float32(par['b_out0']),          trainable=True)
+
+        if par['use_metaweights']:
+            with tf.variable_scope('meta'):
+                if par['use_stim_soma']:
+                    with tf.variable_scope('soma'):
+                        tf.get_variable('W_stim_soma',  initializer=np.float32(par['U_stim_soma0']),    trainable=False)
+                        tf.get_variable('W_td_soma',    initializer=np.float32(par['U_td_soma0']),      trainable=False)
+                        tf.get_variable('W_rnn_soma',   initializer=np.float32(par['U_rnn_soma0']),     trainable=False)
+                if par['use_dendrites']:
+                    with tf.variable_scope('dendrite'):
+                        tf.get_variable('W_stim_dend',  initializer=np.float32(par['U_stim_dend0']),    trainable=False)
+                        tf.get_variable('W_td_dend',    initializer=np.float32(par['U_td_dend0']),      trainable=False)
+                        tf.get_variable('W_rnn_dend',   initializer=np.float32(par['U_rnn_dend0']),     trainable=False)
+                with tf.variable_scope('standard'):
+                    tf.get_variable('W_out',            initializer=np.float32(par['U_out0']),          trainable=False)
+                    tf.get_variable('b_rnn',            initializer=np.float32(par['U_brnn0']),         trainable=False)
+                    tf.get_variable('b_out',            initializer=np.float32(par['U_bout0']),         trainable=False)
 
 
     def run_model(self):
@@ -66,9 +108,9 @@ class Model:
         self.rnn_cell_loop(self.input_data, self.td_data, self.hidden_init, self.dendrites_init, self.synapse_x_init, self.synapse_u_init)
 
         # Describes the output variables and scope
-        with tf.variable_scope('output'):
-            W_out = tf.get_variable('W_out', initializer = np.float32(par['w_out0']), trainable=True)
-            b_out = tf.get_variable('b_out', initializer = np.float32(par['b_out0']), trainable=True)
+        with tf.variable_scope('parameters', reuse=True), tf.variable_scope('standard'):
+            W_out = tf.get_variable('W_out')
+            b_out = tf.get_variable('b_out')
 
         # Setting the desired network output, considering only
         # excitatory RNN projections
@@ -81,21 +123,10 @@ class Model:
         the network computation
         """
 
-        # Initialize weights and biases, with behavior changes based on
-        # dendrite usage (with dendrites requies a rank higher of tensor)
-        with tf.variable_scope('rnn_cell'):
-            if par['use_dendrites']:
-
-                W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
-                W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
-                W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
-
-            if par['use_stim_soma']:
-                W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
-                W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
-
-            W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
+        ######## Used to initialize variables here ##################
+        """
+        Basically initialized anything in RNN_Cell
+        """
 
         # Sets up the histories for the computation
         self.hidden_state_hist = []
@@ -121,28 +152,33 @@ class Model:
         Run the main computation of the recurrent network
         """
 
-        # Get the requisite variables for running the model.  Again, the
-        # inclusion of dendrites changes the tensor shapes
-        with tf.variable_scope('rnn_cell', reuse=True):
+        # Get the requisite variables for running the model.  Note that
+        # the inclusion of dendrites changes some of the tensor shapes
+        with tf.variable_scope('parameters', reuse=True):
             if par['use_dendrites']:
-                W_stim_dend = tf.get_variable('W_stim_dend')
-                W_td_dend   = tf.get_variable('W_td_dend')
-                W_rnn_dend  = tf.get_variable('W_rnn_dend')
+                with tf.variable_scope('dendrite'):
+                    W_rnn_dend  = tf.get_variable('W_rnn_dend')
+                    W_stim_dend = tf.get_variable('W_stim_dend')
 
+                    W_td_dend   = tf.get_variable('W_td_dend')
             if par['use_stim_soma']:
-                W_stim_soma = tf.get_variable('W_stim_soma')
-                W_td_soma   = tf.get_variable('W_td_soma')
+                with tf.variable_scope('soma'):
+                    W_rnn_soma  = tf.get_variable('W_rnn_soma')
+                    W_stim_soma = tf.get_variable('W_stim_soma')
+                    W_td_soma   = tf.get_variable('W_td_soma')
             else:
-                W_stim_soma = np.zeros([par['n_hidden'], par['num_stim_tuned']], dtype=np.float32)
-                W_td_soma   = np.zeros([par['n_hidden'], par['n_input'] - par['num_stim_tuned']], dtype=np.float32)
+                W_stim_soma     = np.zeros([par['n_hidden'], par['num_stim_tuned']], dtype=np.float32)
+                W_td_soma       = np.zeros([par['n_hidden'], par['n_input'] - par['num_stim_tuned']], dtype=np.float32)
 
-            W_rnn_soma  = tf.get_variable('W_rnn_soma')
-            b_rnn       = tf.get_variable('b_rnn')
-            W_ei        = tf.constant(par['EI_matrix'], name='W_ei')
+            with tf.variable_scope('standard'):
+                b_rnn           = tf.get_variable('b_rnn')
+
+            W_ei                = tf.constant(par['EI_matrix'], name='W_ei')
 
         # If using an excitatory-inhibitory network, ensures that E neurons
         # have only positive outgoing weights, and that I neurons have only
-        # negative outgoing weights
+        # negative outgoing weights.  Dendritic EI is taken care of in the
+        # dendrite functions.
         if par['EI']:
             W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
         else:
@@ -214,6 +250,10 @@ class Model:
             return h_soma_out, dend_out, syn_x, syn_u, tf.constant(0), tf.constant(0)
 
 
+    def run_metaweights(self):
+        print('Metaweights function')
+
+
     def optimize(self):
         """
         Calculate the loss functions for weight optimization, and apply weight
@@ -242,6 +282,7 @@ class Model:
 
         # L1 penalty term to encourage motifs
         # work in progress!
+        """
         m = np.zeros((par['n_hidden'], par['n_hidden']), dtype = np.float32)
         m[:par['n_hidden']//5, :par['n_hidden']//5] = 1
         mask = tf.constant(m)
@@ -249,42 +290,34 @@ class Model:
             W_rnn_soma  = tf.get_variable('W_rnn_soma')
         self.motif_loss = par['motif_cost']*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
         """
-        n = ((800//par['dt']) - 1) - 400//par['dt']
-        # u_0, u_1, v_0, v_1, cov = [tf.placeholder(tf.float32, shape = n)]*5
-
-        # print(self.hidden_state_hist)
-
-        # u_0, v_0 = zip(*[tf.nn.moments(h, axes=[0,1]) for h in self.hidden_state_hist[(400//par['dt']):(800//par['dt'])-1]])
-        # u_1, v_1 = zip(*[tf.nn.moments(h, axes=[0,1]) for h in self.hidden_state_hist[(400//par['dt'])+1:(800//par['dt'])]])
-        desired_corr = np.zeros((40, 40))
-        for i,j in itertools.product(range(20), range(20)):
-            if i!=j:
-                desired_corr[i, j] = 0.25
-
-        desired_corr = tf.constant(desired_corr, dtype=tf.float32)
-
-        mse = []
-        for h_0, h_1 in zip(self.hidden_state_hist[(400//par['dt']):(800//par['dt'])-1], self.hidden_state_hist[(400//par['dt'])+1:(800//par['dt'])]):
-            u_0, v_0 = tf.nn.moments(h_0, axes=1)
-            u_1, v_1 = tf.nn.moments(h_1, axes=1)
-            cov = tf.matmul(h_0 - tf.tile(tf.reshape(u_0, (40,1)), (1,100)), tf.transpose(h_1 - tf.tile(tf.reshape(u_1, (40,1)), (1,100))))/(100*100)
-            b = tf.matmul(tf.reshape(v_0, (40,1)), tf.reshape(v_1, (1,40)))
-            mse.append(tf.pow((cov - (desired_corr * b)), 2))
-        """
-
         # Calculate omega loss
         # So far, only works if two rules/tasks
-        weight_tf_vars = []
-        with tf.variable_scope('rnn_cell', reuse=True):
+        weight_tf_vars = mu.get_vars_in_scope('parameters')
+
+
+        """weight_tf_vars = []
+        with tf.variable_scope('parameters', reuse=True):
             for name in par['working_weights'][:-1]:
-                weight_tf_vars.append(tf.get_variable(name))
-        with tf.variable_scope('output', reuse=True):
-            weight_tf_vars.append(tf.get_variable(par['working_weights'][-1]))
+                weight_tf_vars.append(tf.get_variable(name))"""
 
         weight_prev_vars = []
         for i in range(len(self.weights)):
             if i in self.split_indices:
                 weight_prev_vars.append(self.weights[i])
+
+        a = map(lambda w: print(w.shape), weight_tf_vars)
+        for b in a:
+            if b != None:
+                print('-')
+                print(type(b), '|', type(b[0]))
+        print('')
+
+        a = map(lambda w: print(w.shape), weight_prev_vars)
+        for b in a:
+            if b != None:
+                print(b)
+                print(type(b), '|', type(b[0]))
+        quit()
 
         omega_vars = []
         for i in range(len(self.omegas)):

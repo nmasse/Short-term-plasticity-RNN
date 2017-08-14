@@ -196,7 +196,11 @@ def split_list(l):
 
 
 def get_vars_in_scope(scope_name):
-    return list(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope_name))
+    return sort_tf_vars(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope_name))
+
+
+def sort_tf_vars(var_list):
+    return sorted(var_list, key=lambda var: var.name)
 
 
 #######################
