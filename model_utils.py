@@ -103,22 +103,26 @@ def append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, d
 
 def extract_weights():
 
-    with tf.variable_scope('rnn_cell', reuse=True):
+    with tf.variable_scope('parameters', reuse=True):
         if par['use_dendrites']:
-            W_stim_dend = tf.get_variable('W_stim_dend')
-            W_td_dend = tf.get_variable('W_td_dend')
-            W_rnn_dend = tf.get_variable('W_rnn_dend')
+            with tf.variable_scope('dendrite'):
+                W_rnn_dend  = tf.get_variable('W_rnn_dend')
+                W_stim_dend = tf.get_variable('W_stim_dend')
 
+                W_td_dend   = tf.get_variable('W_td_dend')
         if par['use_stim_soma']:
-            W_stim_soma = tf.get_variable('W_stim_soma')
-            W_td_soma = tf.get_variable('W_td_soma')
+            with tf.variable_scope('soma'):
+                W_rnn_soma  = tf.get_variable('W_rnn_soma')
+                W_stim_soma = tf.get_variable('W_stim_soma')
+                W_td_soma   = tf.get_variable('W_td_soma')
+        else:
+            W_stim_soma     = np.zeros([par['n_hidden'], par['num_stim_tuned']], dtype=np.float32)
+            W_td_soma       = np.zeros([par['n_hidden'], par['n_input'] - par['num_stim_tuned']], dtype=np.float32)
 
-        W_rnn_soma = tf.get_variable('W_rnn_soma')
-        b_rnn = tf.get_variable('b_rnn')
-
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
+        with tf.variable_scope('standard'):
+            W_out           = tf.get_variable('W_out')
+            b_out           = tf.get_variable('b_out')
+            b_rnn           = tf.get_variable('b_rnn')
 
     weights = {
         'w_rnn_soma': W_rnn_soma.eval(),
@@ -200,7 +204,20 @@ def get_vars_in_scope(scope_name):
 
 
 def sort_tf_vars(var_list):
-    return sorted(var_list, key=lambda var: var.name)
+    return sorted(var_list, key=lambda var: var.shape.as_list())
+
+
+def sort_grads_and_vars(var_list):
+    return sorted(var_list, key=lambda var: var[0].shape)
+
+
+def intersection_by_shape(l1, l2):
+    v1 = list(map(lambda w: w.shape.as_list(), l1))
+    v2 = list(map(lambda w: w.shape.as_list(), l2))
+    i1 = [i for i in range(len(v1)) if v1[i] in v2]
+    i2 = [i for i in range(len(v2)) if v2[i] in v1]
+    return [l1[n] for n in i1], [l2[n] for n in i2]
+
 
 
 #######################
@@ -222,8 +239,8 @@ def print_data(dirpath, model_results, analysis):
             + '\t{:0.4f}'.format(model_results['dend_loss'][-1]) \
             + '\t{:0.4f}'.format(model_results['omega_loss'][-1])
             + '\t{:0.4f}'.format(model_results['mean_hidden'][-1]) \
-            + '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
-            + '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
+            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['mod']) \
+            #+ '\t{:0.4f}'.format(model_results['modularity'][-1]['community']) \
             + '\t{:0.4f}'.format(model_results['accuracy'][-1]) \
             + rule_accuracies + '\n')
 
