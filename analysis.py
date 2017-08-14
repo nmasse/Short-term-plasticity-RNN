@@ -23,7 +23,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 100)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 2)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
@@ -43,7 +43,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 2)
 
 
     """
@@ -192,6 +192,8 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
     """
     if par['trial_type'] == 'dualDMS':
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']
+    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA' :
+        test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+5*par['ABBA_delay'])//par['dt']
     else:
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
 
@@ -206,7 +208,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
         # For ABBA/ABCA trials, will only analyze trials for which the first n-1
         # test stimuli, out of n, are non-matches
         if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-            trial_ind = np.where((np.sum(match[:,:-1],axis=1)==0)*(trial_info['rule']==r))[0]
+            trial_ind = np.where((np.sum(trial_info['match'][:,:-1],axis=1)==0)*(trial_info['rule']==r))[0]
         else:
             trial_ind = np.where(trial_info['rule']==r)[0]
         train_mask = trial_info['train_mask'][test_onset:,trial_ind]
