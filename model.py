@@ -290,15 +290,8 @@ class Model:
             W_rnn_soma  = tf.get_variable('W_rnn_soma')
         self.motif_loss = par['motif_cost']*tf.reduce_sum(mask*(tf.abs(tf.nn.relu(W_rnn_soma) - tf.transpose(tf.nn.relu(W_rnn_soma)))))
         """
+
         # Calculate omega loss
-        # So far, only works if two rules/tasks
-        weight_tf_vars = mu.sort_tf_vars(mu.get_vars_in_scope('parameters'))
-
-        """weight_tf_vars = []
-        with tf.variable_scope('parameters', reuse=True):
-            for name in par['working_weights'][:-1]:
-                weight_tf_vars.append(tf.get_variable(name))"""
-
         weight_prev_vars = []
         for i in range(len(self.weights)):
             if i in self.split_indices:
@@ -314,7 +307,7 @@ class Model:
         # Checks the omega and prev_weight vars, then restricts the tf vars
         # according to the allowed shapes
         omega_vars, weight_prev_vars = mu.intersection_by_shape(omega_vars, weight_prev_vars)
-        weight_tf_vars, omega_vars = mu.intersection_by_shape(weight_tf_vars, omega_vars)
+        weight_tf_vars, omega_vars = mu.intersection_by_shape(mu.get_vars_in_scope('parameters'), omega_vars)
 
         self.omega_loss = 0.
         for w1, w2, omega in zip(weight_prev_vars, weight_tf_vars, omega_vars):
