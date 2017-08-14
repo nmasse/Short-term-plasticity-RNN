@@ -24,14 +24,14 @@ par = {
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
-    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'      : 1.0,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
     'use_dendrites'     : False,
     'use_stim_soma'     : True,
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 80,
+    'n_hidden'          : 60,
     'den_per_unit'      : 4,
 
     # Timings and rates
@@ -48,8 +48,8 @@ par = {
     'clip_max_grad_val' : 0.25,
     'input_mean'        : 0,
     'input_sd'          : 0.1/10,
-    'internal_sd'       : 0.5,
-    'xi'                : 0.001,     # Value used in Ganguli paper is 1e-3
+    'internal_sd'       : 0.5/10,
+    'xi'                : 0.1,     # Value used in Ganguli paper is 1e-3
 
     # Tuning function data
     'tuning_height'     : 1,        # magnitutde scaling factor for von Mises
@@ -66,7 +66,7 @@ par = {
     'dend_cost'         : 1e-3,
     'wiring_cost'       : 5e-7,
     'motif_cost'        : 0e-2,
-    'omega_cost'        : 1.0,
+    'omega_cost'        : 0.0,
     'loss_function'     : 'cross_entropy',    # cross_entropy or MSE
 
     # Synaptic plasticity specs
@@ -104,13 +104,12 @@ par = {
     # Meta weights
     'num_mw'            : 3,
     'use_metaweights'   : False,
-    'mw_steps'          : 20,
-    'mw_dt'             : 0.001,  # Keep greater than one
-    'g_decay'           : 1.0,
+    'mw_steps'          : 200,
+    'mw_dt'             : 0.01,  # Keep greater than one
 
     # Disinhibition circuit
     'use_connectivity'  : False,
-    'use_disinhibition' : True
+    'use_disinhibition' : False
 }
 
 ##############################

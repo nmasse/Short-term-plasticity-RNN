@@ -211,12 +211,19 @@ def sort_grads_and_vars(var_list):
     return sorted(var_list, key=lambda var: var[0].shape)
 
 
-def intersection_by_shape(l1, l2):
-    v1 = list(map(lambda w: w.shape.as_list(), l1))
-    v2 = list(map(lambda w: w.shape.as_list(), l2))
-    i1 = [i for i in range(len(v1)) if v1[i] in v2]
-    i2 = [i for i in range(len(v2)) if v2[i] in v1]
-    return [l1[n] for n in i1], [l2[n] for n in i2]
+def intersection_by_shape(l1, l2, flag=None):
+    if flag == None:
+        v1 = list(map(lambda w: w.shape.as_list(), l1))
+        v2 = list(map(lambda w: w.shape.as_list(), l2))
+        i1 = [i for i in range(len(v1)) if v1[i] in v2]
+        i2 = [i for i in range(len(v2)) if v2[i] in v1]
+        return [l1[n] for n in i1], [l2[n] for n in i2]
+    elif flag == 'meta':
+        v1 = list(map(lambda w: w.shape.as_list(), l1))
+        v2 = list(map(lambda w: w.shape.as_list()[:-1], l2))
+        i1 = [i for i in range(len(v1)) if v1[i] in v2]
+        i2 = [i for i in range(len(v2)) if v2[i] in v1]
+        return [l1[n] for n in i1], [l2[n] for n in i2]
 
 
 

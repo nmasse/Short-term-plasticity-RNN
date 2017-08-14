@@ -251,7 +251,18 @@ class Model:
 
 
     def run_metaweights(self):
-        print('Metaweights function')
+        omega_vars = []
+        for i in range(len(self.omegas)):
+            if i in self.split_indices:
+                omega_vars.append(self.omegas[i])
+        omega_vars = mu.sort_tf_vars(omega_vars)
+        omega_vars, par_vars  = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('parameters'))
+        omega_vars, meta_vars = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('meta'), flag='meta')
+
+        for weight, U, g_scaling in zip(par_vars, meta_vars, omega_vars):
+            new_weight, new_U = tf.py_func(mw.adjust, [weight, U, g_scaling], [tf.float32, tf.float32], name='MWAdjust')
+            weight.assign(new_weight)
+            U.assign(new_U)
 
 
     def optimize(self):
@@ -456,10 +467,6 @@ def main():
                 # Train the model
                 _, perf_loss, grads_and_vars, *new_weights = sess.run([model.train_op, model.perf_loss, model.grads_and_vars, *weight_tf_vars], feed_dict)
 
-                # Calculate metaweight values if desired, then plug them back into the graph
-                if par['use_metaweights']:
-                    new_weights = sess.run(list(map((lambda u, v, n: u.assign(mw.adjust(v, n))), weight_tf_vars, new_weights, par['working_weights'])))
-
                 #Performance loss difference
                 loss_diff = np.abs(perf_loss - previous_loss)
                 previous_loss = perf_loss
@@ -549,8 +556,6 @@ def main():
 
             # Calculate this iteration's omega value and reset the previous weight values
             omegas, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
-            if par['use_metaweights']:
-                mw.set_g(omegas)
 
             # Analyze the data and save the results
             iteration_time = time.time() - t_start

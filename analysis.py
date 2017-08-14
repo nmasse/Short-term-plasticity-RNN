@@ -393,7 +393,7 @@ def get_analysis(test_data, weights, filename=None):
 
     #plot(test_data)
 
-    graph_plot(weights['w_rnn_soma'])
+    #graph_plot(weights['w_rnn_soma'])
 
     # Save analysis result
     # with open('.\savedir\dend_analysis_%s.pkl' % time.strftime('%H%M%S-%Y%m%d'), 'wb') as f:
