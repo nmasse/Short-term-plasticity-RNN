@@ -102,10 +102,11 @@ par = {
     'modul_vars'        : None,
 
     # Meta weights
+    'use_metaweights'   : True,
     'num_mw'            : 3,
-    'use_metaweights'   : False,
     'mw_steps'          : 200,
     'mw_dt'             : 0.01,
+    'g_multiplier'      : 1000,
 
     # Disinhibition circuit
     'use_connectivity'  : False,

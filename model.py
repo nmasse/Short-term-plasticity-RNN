@@ -56,10 +56,6 @@ class Model:
         # Build the TensorFlow graph
         self.run_model()
 
-        # Engage the metaweights
-        if par['use_metaweights']:
-            self.run_metaweights()
-
         # Train the model
         self.optimize()
 
@@ -115,6 +111,10 @@ class Model:
         # Setting the desired network output, considering only
         # excitatory RNN projections
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
+
+        # Engage the metaweights
+        if par['use_metaweights']:
+            self.run_metaweights()
 
 
     def rnn_cell_loop(self, x_unstacked, td_unstacked, h, d, syn_x, syn_u):
@@ -256,13 +256,28 @@ class Model:
             if i in self.split_indices:
                 omega_vars.append(self.omegas[i])
         omega_vars = mu.sort_tf_vars(omega_vars)
-        omega_vars, par_vars  = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('parameters'))
-        omega_vars, meta_vars = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('meta'), flag='meta')
+        #omega_vars, par_vars  = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('parameters'))
+        #omega_vars, meta_vars = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('meta'), flag='meta')
 
-        for weight, U, g_scaling in zip(par_vars, meta_vars, omega_vars):
-            new_weight, new_U = tf.py_func(mw.adjust, [weight, U, g_scaling], [tf.float32, tf.float32], name='MWAdjust')
+        par_vars, meta_vars = mu.intersection_by_shape(mu.get_vars_in_scope('parameters'), mu.get_vars_in_scope('meta'), flag='meta')
+        """
+        self.delta_mw = 0
+        for weight in meta_vars:
+            self.delta_mw += tf.reduce_sum(weight)
+
+        for weight, U, g_scaling in zip(par_vars, meta_vars, par['g_multiplier']*omega_vars):
+            new_weight, new_U = tf.py_func(mw.adjust, [weight, U, tf.ones(g_scaling.shape)], [tf.float32, tf.float32], name='MWAdjust')
             weight.assign(new_weight)
             U.assign(new_U)
+        """
+
+        self.delta_mw = tf.constant(0., dtype=tf.float32)
+        for weight, U in zip(par_vars, meta_vars):
+            delta_weight, delta_U = tf.py_func(mw.adjust, [weight, U, par['g_multiplier']*tf.ones_like(weight)], [tf.float32, tf.float32], name='MWAdjust')
+            weight += delta_weight
+            U += delta_U
+            self.delta_mw += tf.reduce_mean(delta_weight)
+
 
 
     def optimize(self):
@@ -465,7 +480,9 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Train the model
-                _, perf_loss, grads_and_vars, *new_weights = sess.run([model.train_op, model.perf_loss, model.grads_and_vars, *weight_tf_vars], feed_dict)
+                _, delta_mw, perf_loss, grads_and_vars, *new_weights = \
+                    sess.run([model.train_op, model.delta_mw, model.perf_loss, \
+                    model.grads_and_vars, *weight_tf_vars], feed_dict)
 
                 #Performance loss difference
                 loss_diff = np.abs(perf_loss - previous_loss)
@@ -502,7 +519,7 @@ def main():
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
                 bar = int(np.round(progress*20))
-                print("Training Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+                print("Training Model:\t [{}] ({:>3}%) --- Delta MW: {:.2f}\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress)), delta_mw), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
             # Allows all fields and rules for testing purposes

@@ -1,8 +1,8 @@
 import numpy as np
 from parameters import *
 
-g = np.power(2., -np.arange(1, par['num_mw']+1)-2)
-C = np.power(2., np.arange(2, par['num_mw']+2)-1)
+g = np.power(2., -np.arange(1., par['num_mw']+1.)-2.)
+C = np.power(2., np.arange(2., par['num_mw']+2.)-1.)
 
 def adjust(weight, U, g_scaling):
     """
@@ -14,6 +14,9 @@ def adjust(weight, U, g_scaling):
         g_set = np.einsum('ij,k->ijk', g_scaling, g)
     elif len(weight.shape) == 3:
         g_set = np.einsum('ijk,l->ijkl', g_scaling, g)
+
+    init_weight = np.copy(weight)
+    init_U      = np.copy(U)
 
     for j in range(par['mw_steps']):
         weight_prime = weight + g_set[...,0]*(U[...,0] - weight)*par['mw_dt']
@@ -28,4 +31,4 @@ def adjust(weight, U, g_scaling):
             weight = weight_prime
             U = U_prime
 
-    return weight_prime, U_prime
+    return np.float32(weight_prime - init_weight), np.float32(U_prime - init_U)
