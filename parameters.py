@@ -105,7 +105,7 @@ par = {
     'num_mw'            : 3,
     'use_metaweights'   : False,
     'mw_steps'          : 200,
-    'mw_dt'             : 0.01,  # Keep greater than one
+    'mw_dt'             : 0.01,
 
     # Disinhibition circuit
     'use_connectivity'  : False,
