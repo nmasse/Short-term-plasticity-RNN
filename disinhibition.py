@@ -10,20 +10,19 @@ def prune_connections(x, p):
     return x
 
 def get_dend(p2, p3, p_td, p_td2):
-    n_0, n_1, n_2, n_3 = 24, 160, 160, 1
-    c_1, c_2, c_3 = 1, 1, 1
-    p_2, p_3 = p2, p3  # 1, 0.15, 1 resulted in (0, 0.0001)
+    n_0, n_1, n_2, n_3 = 24, 80, 80, 1
+    p_vip, p_som = p2, p3
     beta = 1.0
-    scale = 5.4
+    scale = 1.2*(n_1/40)+0.55
 
     num_iters = 1000
     dend = np.zeros((num_iters, 2))
 
     for i in range(num_iters):
-        W_vip = np.ones((n_2, n_1)) * c_2
-        W_som = np.ones((n_3, n_2)) * c_3
-        W_vip = prune_connections(W_vip, p_2)
-        W_som = prune_connections(W_som, p_3)
+        W_vip = np.ones((n_2, n_1))
+        W_som = np.ones((n_3, n_2))
+        W_vip = prune_connections(W_vip, p_vip)
+        W_som = prune_connections(W_som, p_som)
 
 
         W_td = np.zeros((n_1, n_0))
