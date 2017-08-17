@@ -26,14 +26,21 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 2)
 
     """
+    Lesion weights
+    """
+    print('Lesioning weights...')
+    accuracy_lesion, _, neuronal_decoding_lesion, neuronal_pref_dir_lesion, neuronal_pev_lesion = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+
+    """
     Downsample neural activity in order to speed up decoding and tuning calculations
     """
-    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 10)
+    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 20)
 
 
     """
     Calculate neuronal and synaptic sample motion tuning
     """
+    print('Calculating motion direction tuning...')
     neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h_stacked, \
         syn_x_stacked, syn_u_stacked, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
 
@@ -44,6 +51,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
         trial_info['rule'], trial_info['match'], trial_time, num_reps = 2)
+
 
 
     """
@@ -62,7 +70,11 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'model_performance': model_performance,
         'parameters': par,
         'weights': weights,
-        'trial_time': trial_time}
+        'trial_time': trial_time,
+        'accuracy_lesion': accuracy_lesion,
+        'neuronal_decoding_lesion': neuronal_decoding_lesion,
+        'neuronal_pref_dir_lesion': neuronal_pref_dir_lesion,
+        'neuronal_pev_lesion': neuronal_pev_lesion}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -122,8 +134,14 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
     train_pct = 0.75
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
-    score_h = np.zeros((par['num_rules'], num_reps, num_time_steps))
-    score_syn_eff = np.zeros((par['num_rules'], num_reps, num_time_steps))
+    if par['trial_type'] == 'dualDMS':
+        # the dual DMS task has two sample stimuli
+        num_samples = 2
+    else:
+        num_samples = 1
+
+    score_h = np.zeros((par['num_rules'], num_samples, num_reps, num_time_steps))
+    score_syn_eff = np.zeros((par['num_rules'], num_samples, num_reps, num_time_steps))
 
     for r in range(par['num_rules']):
         ind_rule = np.where(rule==r)[0]
@@ -135,24 +153,32 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
             equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
             equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
 
-            for c in range(num_conds):
-                u = range(c*trials_per_cond, (c+1)*trials_per_cond)
-                # training indices for current condition number
-                ind = np.where(conds[train_ind] == c)[0]
-                q = np.random.randint(len(ind), size = trials_per_cond)
-                equal_train_ind[u] =  train_ind[ind[q]]
-                # testing indices for current condition number
-                ind = np.where(conds[test_ind] == c)[0]
-                q = np.random.randint(len(ind), size = trials_per_cond)
-                equal_test_ind[u] =  test_ind[ind[q]]
 
-            for t in range(num_time_steps):
-                if trial_time[t] <= par['dead_time']:
-                    # no need to analyze activity during dead time
-                    continue
+            for n in range(num_samples):
+                for c in range(num_conds):
+                    u = range(c*trials_per_cond, (c+1)*trials_per_cond)
+                    # training indices for current condition number
+                    if par['trial_type'] == 'dualDMS':
+                        ind = np.where(conds[train_ind, n] == c)[0]
+                    else:
+                        ind = np.where(conds[train_ind] == c)[0]
+                    q = np.random.randint(len(ind), size = trials_per_cond)
+                    equal_train_ind[u] =  train_ind[ind[q]]
+                    # testing indices for current condition number
+                    ind = np.where(conds[test_ind] == c)[0]
+                    q = np.random.randint(len(ind), size = trials_per_cond)
+                    equal_test_ind[u] =  test_ind[ind[q]]
 
-                score_h[r,rep,t] = calc_svm(lin_clf, h[:,t,:].T, conds, equal_train_ind, equal_test_ind)
-                score_syn_eff[r,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+                for t in range(num_time_steps):
+                    if trial_time[t] <= par['dead_time']:
+                        # no need to analyze activity during dead time
+                        continue
+
+                    score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+                    score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+
+    score_h = np.squeeze(score_h)
+    score_syn_eff = np.squeeze(score_syn_eff)
 
     return score_h, score_syn_eff
 
@@ -184,6 +210,82 @@ def calc_svm(lin_clf, y, conds, train_ind, test_ind):
             score += 1/len(test_ind)
 
     return score
+
+
+def lesion_weights(trial_info, h, syn_x, syn_u, weights):
+
+    N = weights['w_rnn'].shape[0]
+    num_reps = 10
+    accuracy_start = np.ones((N,N), dtype=np.float32)
+    accuracy_test = np.ones((N,N), dtype=np.float32)
+    trial_time = np.arange(0,h.shape[1]*par['dt'], par['dt'])
+
+    neuronal_decoding = np.zeros((N,N,par['num_rules'], num_reps, len(trial_time)))
+    neuronal_pref_dir = np.zeros((N,N,par['n_hidden'],  par['num_rules'],  len(trial_time)))
+    neuronal_pev = np.zeros((N,N,par['n_hidden'],  par['num_rules'],  len(trial_time)))
+
+
+    # network inputs/outputs
+    _, trial_length, batch_train_size = h.shape
+    x = np.split(trial_info['neural_input'],trial_length,axis=1)
+    y = trial_info['desired_output']
+    train_mask = trial_info['train_mask']
+
+
+    test_onset = 1
+    hidden_init = h[:,test_onset-1,:]
+    syn_x_init = syn_x[:,test_onset-1,:]
+    syn_u_init = syn_u[:,test_onset-1,:]
+
+    test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
+    hidden_init_test = h[:,test_onset-1,:]
+    syn_x_init_test = syn_x[:,test_onset-1,:]
+    syn_u_init_test = syn_u[:,test_onset-1,:]
+
+    x_test = np.split(trial_info['neural_input'][:,test_onset:,:],trial_length-test_onset,axis=1)
+    y_test = trial_info['desired_output'][:,test_onset:,:]
+    train_mask_test = trial_info['train_mask'][test_onset:,:]
+
+
+    # create new dict of weights
+    weights_new = {}
+    for k,v in weights.items():
+        weights_new[k] = v
+
+    for n1 in range(N):
+        for n2 in range(N):
+
+            if weights['w_rnn'][n1,n2] <= 0:
+                continue
+
+            # lesion weights
+            q = np.ones((N,N))
+            q[n1,n2] = 0
+            weights_new['w_rnn'] = weights['w_rnn']*q
+
+            # simulate network
+            y_hat, hidden_state_hist = run_model(x, y, hidden_init, syn_x, syn_u, weights_new)
+            accuracy_start[n1,n2] = get_perf(y, y_hat, train_mask)
+
+            if accuracy_start[n1,n2] < 0.6:
+
+                h_stacked = np.stack(hidden_state_hist, axis=1)
+
+                neuronal_decoding[n1,n2,:,:,:], _ = calculate_svms(h_stacked, syn_x, syn_u, trial_info['sample'], \
+                    trial_info['rule'], trial_info['match'], trial_time, num_reps = num_reps)
+
+                neuronal_pref_dir[n1,n2,:,:], neuronal_pev[n1,n2,:,:], _, _ = calculate_sample_tuning(h_stacked, \
+                    syn_x, syn_u, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
+
+            """
+            y_hat_test = run_model(x_test, y_test, hidden_init_test, syn_x_init_test, syn_u_init_test, weights_new)
+            accuracy_test[n1,n2] = get_perf(y_test, y_hat_test, train_mask_test)
+            """
+
+    return accuracy_start, accuracy_test, neuronal_decoding, neuronal_pref_dir, neuronal_pev
+
+
+
 
 def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
 
@@ -223,7 +325,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             hidden_init = h[:,test_onset-1,trial_ind]
             syn_x_init = syn_x[:,test_onset-1,trial_ind]
             syn_u_init = syn_u[:,test_onset-1,trial_ind]
-            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
             accuracy[r,n] = get_perf(y, y_hat, train_mask)
 
             """
@@ -232,7 +334,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             ind_shuffle = np.random.permutation(len(trial_ind))
 
             hidden_init = hidden_init[:,ind_shuffle]
-            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
             accuracy_neural_shuffled[r,n] = get_perf(y, y_hat, train_mask)
 
             """
@@ -241,7 +343,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             hidden_init = h[:,test_onset-1,trial_ind]
             syn_x_init = syn_x_init[:,ind_shuffle]
             syn_u_init = syn_u_init[:,ind_shuffle]
-            y_hat = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
             accuracy_syn_shuffled[r,n] = get_perf(y, y_hat, train_mask)
 
     return accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled
@@ -273,6 +375,10 @@ def calculate_sample_tuning(h, syn_x, syn_u, sample, rule, match, trial_time):
         rule = rule[ind]
         h = h[:,:,ind]
         syn_efficacy = syn_efficacy[:,:,ind]
+
+    elif par['trial_type'] == 'dualDMS':
+        # only analyze the first sample stimulus
+        sample = sample[:,0]
 
     # number of unique samples
     N = len(np.unique(sample))
@@ -324,7 +430,7 @@ def run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights):
     """
     y_hat = [np.dot(np.maximum(0,weights['w_out']), h) + weights['b_out'] for h in hidden_state_hist]
 
-    return y_hat
+    return y_hat, hidden_state_hist
 
 
 def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights):
