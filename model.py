@@ -59,6 +59,11 @@ class Model:
         # Train the model
         self.optimize()
 
+        # Engage the metaweights
+        self.delta_mw = tf.constant(0)
+        if par['use_metaweights']:
+            self.run_metaweights()
+
 
     def initialize_variables(self):
         with tf.variable_scope('parameters'):
@@ -111,10 +116,6 @@ class Model:
         # Setting the desired network output, considering only
         # excitatory RNN projections
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
-
-        # Engage the metaweights
-        if par['use_metaweights']:
-            self.run_metaweights()
 
 
     def rnn_cell_loop(self, x_unstacked, td_unstacked, h, d, syn_x, syn_u):
@@ -260,6 +261,8 @@ class Model:
         #omega_vars, meta_vars = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('meta'), flag='meta')
 
         par_vars, meta_vars = mu.intersection_by_shape(mu.get_vars_in_scope('parameters'), mu.get_vars_in_scope('meta'), flag='meta')
+        par_vars = mu.filter_adams(par_vars)
+
         """
         self.delta_mw = 0
         for weight in meta_vars:

@@ -226,6 +226,15 @@ def intersection_by_shape(l1, l2, flag=None):
         return [l1[n] for n in i1], [l2[n] for n in i2]
 
 
+def filter_adams(var_list):
+    new_list = []
+    for var in var_list:
+        if 'Adam' in var.name:
+            pass
+        else:
+            new_list.append(var)
+    return new_list
+
 
 #######################
 ### Console outputs ###
