@@ -155,17 +155,18 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
 
 
             for n in range(num_samples):
+                if par['trial_type'] == 'dualDMS':
+                    current_conds = conds[:,n]
+                else:
+                    current_conds = np.array(conds)
                 for c in range(num_conds):
                     u = range(c*trials_per_cond, (c+1)*trials_per_cond)
                     # training indices for current condition number
-                    if par['trial_type'] == 'dualDMS':
-                        ind = np.where(conds[train_ind, n] == c)[0]
-                    else:
-                        ind = np.where(conds[train_ind] == c)[0]
+                    ind = np.where(current_conds[train_ind] == c)[0]
                     q = np.random.randint(len(ind), size = trials_per_cond)
                     equal_train_ind[u] =  train_ind[ind[q]]
                     # testing indices for current condition number
-                    ind = np.where(conds[test_ind] == c)[0]
+                    ind = np.where(current_conds[test_ind] == c)[0]
                     q = np.random.randint(len(ind), size = trials_per_cond)
                     equal_test_ind[u] =  test_ind[ind[q]]
 
@@ -174,8 +175,8 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
                         # no need to analyze activity during dead time
                         continue
 
-                    score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, conds, equal_train_ind, equal_test_ind)
-                    score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, conds, equal_train_ind, equal_test_ind)
+                    score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_conds, equal_train_ind, equal_test_ind)
+                    score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_conds, equal_train_ind, equal_test_ind)
 
     score_h = np.squeeze(score_h)
     score_syn_eff = np.squeeze(score_syn_eff)
