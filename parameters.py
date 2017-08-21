@@ -24,7 +24,7 @@ par = {
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
-    'exc_inh_prop'      : 1.0,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'      : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'         : False,
     'use_dendrites'     : False,
     'use_stim_soma'     : True,
@@ -81,9 +81,9 @@ par = {
 
     # Training specs
     'batch_train_size'      : 100,
-    'num_train_batches'     : 500,
+    'num_train_batches'     : 100,
     'num_test_batches'      : 20,
-    'num_iterations'        : 2,
+    'num_iterations'        : 50,
     'switch_rule_iteration' : 1,
 
     # Save paths and other info
@@ -102,11 +102,11 @@ par = {
     'modul_vars'        : None,
 
     # Meta weights
-    'use_metaweights'   : True,
-    'num_mw'            : 3,
+    'use_metaweights'   : False,
+    'num_mw'            : 6,
     'mw_steps'          : 200,
-    'mw_dt'             : 0.01,
-    'g_multiplier'      : 1000,
+    'mw_dt'             : 0.2,
+    'g_multiplier'      : 10,
 
     # Disinhibition circuit
     'use_connectivity'  : False,
