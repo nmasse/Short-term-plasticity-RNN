@@ -83,7 +83,7 @@ par = {
     'batch_train_size'      : 100,
     'num_train_batches'     : 100,
     'num_test_batches'      : 20,
-    'num_iterations'        : 50,
+    'num_iterations'        : 60,
     'switch_rule_iteration' : 1,
 
     # Save paths and other info
@@ -103,14 +103,18 @@ par = {
 
     # Meta weights
     'use_metaweights'   : False,
-    'num_mw'            : 6,
+    'num_mw'            : 3,
     'mw_steps'          : 200,
     'mw_dt'             : 0.2,
     'g_multiplier'      : 10,
 
     # Disinhibition circuit
     'use_connectivity'  : False,
-    'use_disinhibition' : False
+    'use_disinhibition' : False,
+
+    # Lesion
+    'use_lesion'        : True,
+    'lesion_iter'       : 6
 }
 
 ##############################
@@ -156,10 +160,10 @@ def set_task_profile():
 
         par['permutation_id']        = 0
 
-        par['num_stim_tuned']        = 36 * par['num_RFs']
+        par['num_stim_tuned']        = 4 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 12 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 12 * par['num_RFs']
+        par['num_rule_tuned']        = 4 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 4 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
@@ -604,7 +608,8 @@ def update_dependencies():
                                        ('mask',                 [par['num_time_steps'], par['batch_train_size']]),
                                        ('learning_rate',        [])]
 
-    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']])]
+    par['other_placeholder_info']   = [('dendrite_template',    [par['n_hidden'], par['den_per_unit'], par['batch_train_size']]),
+                                        ('lesion_template',     par['hidden_to_hidden_soma_dims'])]
 
     par['external_placeholder_info']  = [
                                         ('W_stim_dend',          par['input_to_hidden_dend_dims']),

@@ -263,6 +263,9 @@ def graph_plot(weights):
         width=[gr.edge[i][j]['weight'] for (i,j) in gr.edges_iter()])
     modularity = modul_analysis(weights)
 
+    i
+
+
     plt.title('graph'+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community']))
     plt.savefig('./analysis/graph'+"_iter_"+str(iteration)+"_mod_"+str(modularity['mod'])+"_com_"+str(modularity['community'])+'.png')
     plt.clf()

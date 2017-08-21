@@ -14,6 +14,7 @@ import dendrite_functions as df
 import metaweight as mw
 import stimulus
 import analysis
+import network_analysis as na
 
 import os
 import time
@@ -24,7 +25,7 @@ import time
 
 class Model:
 
-    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, *external):
+    def __init__(self, input_data, td_data, target_data, mask, learning_rate, template, lesion, *external):
 
         # Load the input activity, the target data, and the training mask
         # for this batch of trials
@@ -34,6 +35,7 @@ class Model:
         self.mask           = tf.unstack(mask, axis=0)
         self.learning_rate  = learning_rate
         self.template       = template
+        self.lesion         = lesion
         self.weights, self.omegas   = mu.split_list(external)
         self.split_indices, _       = mu.split_list(par['external_index_feed'])
 
@@ -50,6 +52,7 @@ class Model:
 
         # Initialize all variables
         self.initialize_variables()
+        self.delta_mw = tf.constant(0)
 
         # Build the TensorFlow graph
         self.run_model()
@@ -179,9 +182,9 @@ class Model:
         # negative outgoing weights.  Dendritic EI is taken care of in the
         # dendrite functions.
         if par['EI']:
-            W_rnn_soma_effective = tf.matmul(tf.nn.relu(W_rnn_soma), W_ei)
+            W_rnn_soma_effective = tf.multiply(tf.matmul(tf.nn.relu(W_rnn_soma), W_ei), self.lesion)
         else:
-            W_rnn_soma_effective = W_rnn_soma
+            W_rnn_soma_effective = tf.multiply(W_rnn_soma, self.lesion)
 
         # Update the synaptic plasticity parameters
         if par['synapse_config'] == 'std_stf':
@@ -236,6 +239,7 @@ class Model:
         # Apply, in order: alpha decay, dendritic input, soma recurrence,
         # bias terms, and Gaussian randomness.  This generates the output of
         # the hidden layer.
+
         h_soma_out = tf.nn.relu(h_soma*(1-par['alpha_neuron']) \
                      + par['alpha_neuron']*(h_soma_in + tf.matmul(W_rnn_soma_effective, h_post_syn) \
                      + tf.matmul(tf.nn.relu(W_stim_soma), tf.nn.relu(stim_in)) \
@@ -414,6 +418,12 @@ def main():
     o = mu.create_placeholders(par['other_placeholder_info'])
     e = mu.create_placeholders(par['external_placeholder_info'], True)
 
+    lesion_results = {
+        'accuracy_test' : [],
+        'accuracy_diff' : [],
+        'imp_synapse'   : []
+    }
+
     # Create the TensorFlow session
     with tf.Session() as sess:
         # Create the model in TensorFlow and start running the session
@@ -442,9 +452,15 @@ def main():
 
         # Ensure that the correct task settings are in place
         set_task_profile()
+        
+        if par['use_lesion']:
+            accuracy_diff = np.zeros((par['num_iterations']//par['lesion_iter'], par['n_hidden'],par['n_hidden'],par['num_rules']), dtype=np.float32)
+            accuracy_test = np.zeros((par['num_iterations']//par['lesion_iter'], par['n_hidden'],par['n_hidden'],par['num_rules']), dtype=np.float32)                
+            imp_synapse = np.zeros((par['num_iterations']//par['lesion_iter'], par['num_rules'], 2))
 
         # Loop through the desired number of iterations
         for i in range(par['num_iterations']):
+            q = np.ones((par['n_hidden'],par['n_hidden']))
             # Print iteration header
             print('='*40 + '\n' + '=== Iteration {:>3}'.format(i) + ' '*20 + '===\n' + '='*40 + '\n')
 
@@ -468,7 +484,7 @@ def main():
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Build feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, q]
                 feed_places = [*g, *o]
 
                 e_feed_stream = []
@@ -540,7 +556,7 @@ def main():
                 template = set_template(trial_info['rule_index'], trial_info['location_index'])
 
                 # Build feed_dict
-                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template]
+                feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], par['learning_rate'], template, q]
                 feed_places = [*g, *o]
 
                 e_feed_stream = []
@@ -586,12 +602,71 @@ def main():
 
             mu.print_data(dirpath, model_results, analysis_val)
 
+
+            # LESION WEIGHTS
+            if par['use_lesion'] and (i%par['lesion_iter']==(par['lesion_iter']-1)):
+                for n1 in range(par['n_hidden']):
+                    for n2 in range(par['n_hidden']):
+                        # simulate network
+                        stim = stimulus.Stimulus()
+                        test_data = mu.initialize_test_data()
+
+                        # lesion weights
+                        q = np.ones((par['n_hidden'],par['n_hidden']))
+                        q[n1,n2] = 0
+                        for j in range(par['num_test_batches']):
+                            trial_info = stim.generate_trial(par['batch_train_size'])
+                            trial_stim  = trial_info['neural_input'][:par['num_stim_tuned'],:,:]
+                            trial_td    = trial_info['neural_input'][par['num_stim_tuned']:,:,:]
+
+                            # Allow for special dendrite functions
+                            template = set_template(trial_info['rule_index'], trial_info['location_index'])
+
+                            # Build feed_dict
+                            feed_stream = [trial_stim, trial_td, trial_info['desired_output'], trial_info['train_mask'], 0, template, q]
+                            feed_places = [*g, *o]
+
+                            feed_dict = mu.zip_to_dict(feed_places, feed_stream)
+
+                            # Run the model
+                            test_data['y'][j], state_hist_batch, dend_hist_batch,\
+                            = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist], feed_dict)
+
+                            # Aggregate the test data for analysis
+                            test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
+                            test_data['y_hat'][j] = trial_info['desired_output']
+                            test_data['train_mask'][j] = trial_info['train_mask']
+                            test_data['mean_hidden'][j] = np.mean(state_hist_batch)
+
+                        _, accuracy_test[i//par['lesion_iter'], n1,n2] = analysis.get_perf(test_data)
+                        
+                        # Show lesion progress
+                        progress = (n1*par['n_hidden']+n2+1)/(par['n_hidden']*par['n_hidden'])
+                        bar = int(np.round(progress*20))
+                        print("Lesioning Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
+
+                        # print("Lesioning weight: ("+str(n1)+", "+str(n2)+")\r")
+                        accuracy_diff[i//par['lesion_iter'], n1, n2] = (analysis_val['rule_accuracy'][0] - accuracy_test[i//par['lesion_iter'], n1,n2][0], \
+                                                                        analysis_val['rule_accuracy'][1] - accuracy_test[i//par['lesion_iter'], n1,n2][1])
+                
+                for rule in range(par['num_rules']):
+                    temp = np.argmax(accuracy_diff[i//par['lesion_iter'],:,:,rule])
+                    imp_synapse[i//par['lesion_iter'], rule] = (temp//par['n_hidden'], temp%par['n_hidden'])
+
             testing_conditions = {'stimulus_type': par['stimulus_type'], 'allowed_fields' : par['allowed_fields'], 'allowed_rules' : par['allowed_rules']}
             json_save([testing_conditions, analysis_val], dirpath + '/iter{}_results.json'.format(i))
             json_save(model_results, dirpath + '/model_results.json')
 
             if par['use_checkpoints']:
                 saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
+
+        lesion_results['accuracy_test'] = accuracy_test
+        lesion_results['accuracy_diff'] = accuracy_diff
+        lesion_results['imp_synapse'] = imp_synapse
+
+        if par['use_lesion']:
+            print(lesion_results)
+            json_save(lesion_results, dirpath+'/lesion_weights.json')
 
     print('\nModel execution complete.\n')
 
