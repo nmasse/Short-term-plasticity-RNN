@@ -444,16 +444,15 @@ def plot_figure5(fig_params):
 
         good_model_count = 0
         count = 0
-        while good_model_count < fig_params['models_per_task']:
+        while good_model_count < fig_params['models_per_task'] and count < 49:
             count += 1
             try:
-                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
+                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '_mask.pkl', 'rb'))
             except:
-                print(count)
                 continue
 
-            #if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
-            if 1 >  fig_params['accuracy_th']:
+            if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
+            #if 1 >  fig_params['accuracy_th']:
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
                 if tasks[n] == 'DMS':
@@ -465,7 +464,7 @@ def plot_figure5(fig_params):
                 good_model_count +=1
 
         if good_model_count < fig_params['models_per_task']:
-            print('Too few accurately trained models')
+            print('Too few accurately trained models, good models = ', good_model_count)
 
         model_signficance[n, 0] = np.sum(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2) \
             >chance_level,axis=1)>1-p_val_th)
@@ -511,10 +510,10 @@ def plot_figure5(fig_params):
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
-        ax.set_xticks([0,500,1500-10])
+        ax.set_xticks([0,500,1500,2500,3500])
         ax.set_ylim([0,1.02])
-        ax.set_xlim([-500,1500-10])
-        ax.plot([-900,2000],[chance_level,chance_level],'k--')
+        ax.set_xlim([-500,4000-10])
+        ax.plot([-900,4000],[chance_level,chance_level],'k--')
         ax.plot([0,0],[0,1],'k--')
         ax.plot([500,500],[0,1],'k--')
         ax.set_ylabel('Decoding accuracy')
@@ -538,7 +537,7 @@ def plot_figure5(fig_params):
         ax.set_ylabel('Task accuracy')
         ax.set_xlabel('Delay neuronal decoding')
     plt.tight_layout()
-    plt.savefig('Fig3.pdf', format='pdf')
+    plt.savefig('Fig5.pdf', format='pdf')
     plt.show()
 
     print('Number of models with delay neuronal decoding accuracy signficantly greater than chance')

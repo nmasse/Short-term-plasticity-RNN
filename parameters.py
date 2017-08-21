@@ -17,20 +17,20 @@ par = {
     'analyze_model'         : False,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
+    'var_delay'             : True,
     'catch_trials'          : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 200,
+    'n_hidden'              : 100,
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 10,
+    'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -47,7 +47,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.01,
+    'spike_cost'            : 0.01/1000,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -56,7 +56,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Performance thresholds
-    'stop_perf_th'          : 1,
+    'stop_perf_th'          : 0.99,
     'stop_error_th'         : 0,
 
     # Training specs
@@ -68,8 +68,8 @@ par = {
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 400,
-    'fix_time'              : 500,
+    'dead_time'             : 200,
+    'fix_time'              : 200,
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
@@ -97,7 +97,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 10,
+    'dt'                    : 20,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -111,10 +111,11 @@ revert_analysis_par = {
     'num_iterations'        : 1000,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
-    'var_delay'             : False,
-    'dt'                    : 10,
+    'var_delay'             : True,
+    'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'catch_trial_pct'       : 0.15,
+    'delay_time'            : 1000
 }
 
 
@@ -272,6 +273,25 @@ def update_dependencies():
     # If not, initializes with a diagonal matrix
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
+
+        ring_exc = np.exp(1j*2*np.pi*np.arange(par['num_exc_units'])/par['num_exc_units'])
+        ring_inh = np.exp(1j*2*np.pi*np.arange(par['num_inh_units'])/par['num_inh_units'])
+        for n1 in range(par['n_hidden']):
+            for n2 in range(par['n_hidden']):
+                if par['EI_list'][n1] == 1:
+                    r1 = ring_exc[n1]
+                else:
+                    r1 = ring_inh[n1-par['num_exc_units']]
+                if par['EI_list'][n2] == 1:
+                    r2 = ring_exc[n2]
+                else:
+                    r2 = ring_inh[n2-par['num_exc_units']]
+
+                connect_prob = np.real(r1*np.conjugate(r2))
+                if np.random.rand() < connect_prob:
+                    par['w_rnn0'][n2,n1] = np.random.gamma(shape=0.25, scale=1.0)
+
+
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])

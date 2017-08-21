@@ -402,7 +402,7 @@ class Stimulus:
             Generate up to max_num_tests test stimuli
             Sequential test stimuli are identical with probability repeat_pct
             """
-            stim_dirs = []
+            stim_dirs = [sample_dir]
             test_stim_code = 0
             while len(stim_dirs) < par['max_num_tests']:
                 if np.random.rand() < par['match_test_prob']:
@@ -410,14 +410,14 @@ class Stimulus:
                     test_stim_code += sample_dir*(10**len(stim_dirs)-1)
                     break
                 else:
-                    if len(stim_dirs) > 0  and np.random.rand() < par['repeat_pct']:
+                    if len(stim_dirs) > 1  and np.random.rand() < par['repeat_pct']:
                         #repeat last stimulus
                         stim_dirs.append(stim_dirs[-1])
                         trial_info['repeat_test_stim'][t] = 1
                         test_stim_code += stim_dirs[-1]*(10**len(stim_dirs)-1)
                     else:
-                        possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), [sample_dir])
-                        distractor_dir = possible_dirs[np.random.randint(par['num_motion_dirs']-1)]
+                        possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), [stim_dirs])
+                        distractor_dir = possible_dirs[np.random.randint(len(possible_dirs))]
                         stim_dirs.append(distractor_dir)
                         test_stim_code += distractor_dir*(10**len(stim_dirs)-1)
 
@@ -430,7 +430,8 @@ class Stimulus:
             trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
 
             # TEST stimuli
-            for i, stim_dir in enumerate(stim_dirs):
+            # first element of stim_dirs is the original sample stimulus
+            for i, stim_dir in enumerate(stim_dirs[1:]):
                 trial_info['test'][t,i] = stim_dir
                 test_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
                 trial_info['neural_input'][:emt, test_rng, t] += np.reshape(self.motion_tuning[:,stim_dir],(-1,1))

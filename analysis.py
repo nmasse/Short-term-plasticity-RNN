@@ -29,7 +29,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Lesion weights
     """
     print('Lesioning weights...')
-    accuracy_lesion, _, neuronal_decoding_lesion, neuronal_pref_dir_lesion, neuronal_pev_lesion = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+    accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
@@ -71,10 +71,9 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'parameters': par,
         'weights': weights,
         'trial_time': trial_time,
-        'accuracy_lesion': accuracy_lesion,
-        'neuronal_decoding_lesion': neuronal_decoding_lesion,
-        'neuronal_pref_dir_lesion': neuronal_pref_dir_lesion,
-        'neuronal_pev_lesion': neuronal_pev_lesion}
+        'accuracy_rnn_start': accuracy_rnn_start,
+        'accuracy_rnn_test': accuracy_rnn_test,
+        'accuracy_out': accuracy_out}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -134,14 +133,13 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
     train_pct = 0.75
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
-    if par['trial_type'] == 'dualDMS':
-        # the dual DMS task has two sample stimuli
-        num_samples = 2
-    else:
-        num_samples = 1
 
-    score_h = np.zeros((par['num_rules'], num_samples, num_reps, num_time_steps))
-    score_syn_eff = np.zeros((par['num_rules'], num_samples, num_reps, num_time_steps))
+    if par['trial_type'] == 'dualDMS':
+        rule = rule[:,0] + 2*rule[:,1]
+        par['num_rules'] = 4
+
+    score_h = np.zeros((par['num_rules'], par['num_receptive_fields'], num_reps, num_time_steps))
+    score_syn_eff = np.zeros((par['num_rules'], par['num_receptive_fields'], num_reps, num_time_steps))
 
     for r in range(par['num_rules']):
         ind_rule = np.where(rule==r)[0]
@@ -154,7 +152,7 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
             equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
 
 
-            for n in range(num_samples):
+            for n in range(par['num_receptive_fields']):
                 if par['trial_type'] == 'dualDMS':
                     current_conds = conds[:,n]
                 else:
@@ -217,8 +215,9 @@ def lesion_weights(trial_info, h, syn_x, syn_u, weights):
 
     N = weights['w_rnn'].shape[0]
     num_reps = 10
-    accuracy_start = np.ones((N,N), dtype=np.float32)
-    accuracy_test = np.ones((N,N), dtype=np.float32)
+    accuracy_rnn_start = np.ones((N,N), dtype=np.float32)
+    accuracy_rnn_test = np.ones((N,N), dtype=np.float32)
+    accuracy_out = np.ones((3,N), dtype=np.float32)
     trial_time = np.arange(0,h.shape[1]*par['dt'], par['dt'])
 
     neuronal_decoding = np.zeros((N,N,par['num_rules'], num_reps, len(trial_time)))
@@ -253,6 +252,21 @@ def lesion_weights(trial_info, h, syn_x, syn_u, weights):
     for k,v in weights.items():
         weights_new[k] = v
 
+    for n1 in range(3):
+        for n2 in range(N):
+
+            if weights['w_out'][n1,n2] <= 0:
+                continue
+
+            # lesion weights
+            q = np.ones((3,N))
+            q[n1,n2] = 0
+            weights_new['w_out'] = weights['w_out']*q
+
+            # simulate network
+            y_hat, hidden_state_hist = run_model(x_test, y_test, hidden_init_test, syn_x_init_test, syn_u_init_test, weights_new)
+            accuracy_out[n1,n2] = get_perf(y_test, y_hat, train_mask_test)
+
     for n1 in range(N):
         for n2 in range(N):
 
@@ -266,9 +280,12 @@ def lesion_weights(trial_info, h, syn_x, syn_u, weights):
 
             # simulate network
             y_hat, hidden_state_hist = run_model(x, y, hidden_init, syn_x, syn_u, weights_new)
-            accuracy_start[n1,n2] = get_perf(y, y_hat, train_mask)
+            accuracy_rnn_start[n1,n2] = get_perf(y, y_hat, train_mask)
 
-            if accuracy_start[n1,n2] < 0.6:
+            y_hat, hidden_state_hist = run_model(x_test, y_test, hidden_init_test, syn_x_init_test, syn_u_init_test, weights_new)
+            accuracy_rnn_test[n1,n2] = get_perf(y_test, y_hat, train_mask_test)
+
+            if accuracy_rnn_start[n1,n2] < -1:
 
                 h_stacked = np.stack(hidden_state_hist, axis=1)
 
@@ -283,7 +300,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, weights):
             accuracy_test[n1,n2] = get_perf(y_test, y_hat_test, train_mask_test)
             """
 
-    return accuracy_start, accuracy_test, neuronal_decoding, neuronal_pref_dir, neuronal_pev
+    return accuracy_rnn_start, accuracy_rnn_test, accuracy_out
 
 
 
