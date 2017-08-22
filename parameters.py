@@ -83,9 +83,9 @@ par = {
     'batch_train_size'  : 50,
     'num_train_batches' : 100,
     'num_test_batches'  : 20,
-    'num_iterations'    : 4,
+    'num_iterations'    : 10,
     'iterations_between_outputs'    : 1,        # Ususally 500
-    'switch_rule_iteration'         : 2,
+    'switch_rule_iteration'         : 4,
 
     # Save paths and other info
     'save_notes'        : '',
@@ -590,29 +590,34 @@ def apply_prob(mat, y0, y1, x0, x1, p):
 
 
 def get_dend():
-
-    n_0, n_1, n_2, n_3 = 24, 10, 10, 1
-    c_1, c_2, c_3 = 1,1,1
-    p_1, p_2, p_3 = 1, 0.25, 1
+    n_0, n_1, n_2, n_3 = 24, 80, 80, 1
+    p_vip, p_som = 0.275, 0.35
     beta = 1.0
+    scale = 1.2*(n_1/40)+0.5
 
     num_iters = 1000
     dend = np.zeros((num_iters, 2))
 
     for i in range(num_iters):
+        W_vip = np.ones((n_2, n_1))
+        W_som = np.ones((n_3, n_2))
+        W_vip = prune_connections(W_vip, p_vip)
+        W_som = prune_connections(W_som, p_som)
 
-        W_td = np.ones((n_1, n_0)) * c_1
-        W_vip = np.ones((n_2, n_1)) * c_2
-        W_som = np.ones((n_3, n_2)) * c_3
-        W_td = prune_connections(W_td, p_1)
-        W_vip = prune_connections(W_vip, p_2)
-        W_som = prune_connections(W_som, p_3)
 
         W_td = np.zeros((n_1, n_0))
-        for k in range(12):
-            for m in range(5):
+        W_td2 = np.zeros((n_2, n_0))
+        for k in range(n_0//2):
+            for m in range(n_1//2):
                 W_td[m,k] = 1
-                W_td[m+5,k+12] = 1
+                W_td[m+(n_1//2),k+(n_0//2)] = 1
+        for k in range(n_0//2):
+            for m in range(n_2//2):
+                W_td2[m,k] = 1
+                W_td2[m+(n_2//2),k+(n_0//2)] = 1
+        W_td = prune_connections(W_td, 0.2)
+        W_td2 = prune_connections(W_td2, 0.5)
+
 
         for j in range(2):
             if j == 0:
@@ -623,12 +628,13 @@ def get_dend():
                 td[n_0//2:,0] = 2
 
             VIP = np.matmul(W_td, td)
-            SOM = np.maximum(0,beta - np.matmul(W_vip, VIP))
+            vip = np.matmul(W_vip, VIP)
+            td2 = np.matmul(W_td2, td)
+            SOM = np.maximum(0,beta - vip/scale + td2)
             dend[i,j] = np.matmul(W_som, SOM)<1
 
     print('Dendrite analysis...')
     print(np.mean(dend[:,0]), np.mean(dend[:,1]), np.mean(dend[:,0]*dend[:,1]), np.mean(dend[:,0])*np.mean(dend[:,1]))
-    quit()
 
 def prune_connections(x, p):
 
@@ -915,14 +921,41 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-    # if par['use_disinhibition']:
-        # np.set_printoptions(threshold=np.nan)
-        # print(par['w_rnn_dend0'])
-#get_dend()
+
+def set_disinhibitory_path():
+    td = par['n_input'] - par['num_stim_tuned']
+    n = par['num_inh_units']//4
+    beta = 1.0
+    # np.set_printoptions(threshold=np.nan)
+
+    # set up td weight matrices
+    # 1) td to VIP
+    # 2) td to SOM
+    par['w_td_soma0'][par['num_exc_units']+2*n:,:] = 0
+    par['w_td_soma0'][(par['num_exc_units']+2*n):(par['num_exc_units']+int(2.5*n)),:(td//2)] = 1
+    par['w_td_soma0'][(par['num_exc_units']+int(2.5*n)):(par['num_exc_units']+3*n),(td//2):] = 1
+    par['w_td_soma0'][(par['num_exc_units']+3*n):(par['num_exc_units']+int(3.5*n)),:(td//2)] = 1
+    par['w_td_soma0'][(par['num_exc_units']+int(3.5*n)):,(td//2):] = 1
+
+    # prune connections for td to VIP & td to SOM based on their connection probabilities
+    par['w_td_soma0'][(par['num_exc_units']+2*n):(par['num_exc_units']+3*n),:] = prune_connections(par['w_td_soma0'][(par['num_exc_units']+2*n):(par['num_exc_units']+3*n),:], 0.2)
+    par['w_td_soma0'][(par['num_exc_units']+3*n):,:] = prune_connections(par['w_td_soma0'][(par['num_exc_units']+3*n):,:], 0.5)
+    
+    # connection from VIP to SOM
+    par['w_rnn_soma0'][(par['num_exc_units']+3*n):,(par['num_exc_units']+2*n):(par['num_exc_units']+3*n)] = prune_connections(np.ones([n, n]), 0.275)
+    
+    # connection from SOM to EXC (?)
+    par['w_rnn_dend0'][:par['num_exc_units'],:,(par['num_exc_units']+3*n):] = prune_connections(np.ones([par['num_exc_units'], par['den_per_unit'], n]), 1)
+
+    # print(par['w_td_soma0'])
+    # print(par['w_td_dend0'])
+
+get_dend()
 set_task_profile()
 neuron_type = define_neuron_type()
 create_weights_masks_biases()
 define_connectivity()
 fill_masks_weights_biases(neuron_type)
 update_dependencies()
+set_disinhibitory_path()
 print("--> Parameters successfully loaded.\n")

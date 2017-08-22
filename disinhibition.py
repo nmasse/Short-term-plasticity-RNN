@@ -10,21 +10,23 @@ def prune_connections(x, p):
     return x
 
 def get_dend(p2, p3, p_td, p_td2):
+    # disinhibition pathway variables
     n_0, n_1, n_2, n_3 = 24, 80, 80, 1
     p_vip, p_som = p2, p3
     beta = 1.0
-    scale = 1.2*(n_1/40)+0.55
+    scale = 1.2*(n_1/40)+0.5
 
     num_iters = 1000
     dend = np.zeros((num_iters, 2))
 
     for i in range(num_iters):
+        # Create W_vip and W_som
         W_vip = np.ones((n_2, n_1))
         W_som = np.ones((n_3, n_2))
         W_vip = prune_connections(W_vip, p_vip)
         W_som = prune_connections(W_som, p_som)
 
-
+        # Create W_td (td to VIP) and W_td2 (td to SOM)
         W_td = np.zeros((n_1, n_0))
         W_td2 = np.zeros((n_2, n_0))
         for k in range(n_0//2):
@@ -38,7 +40,7 @@ def get_dend(p2, p3, p_td, p_td2):
         W_td = prune_connections(W_td, p_td)
         W_td2 = prune_connections(W_td2, p_td2)
 
-
+        # Make td (j=0 for task 0; j=1 for task 1)
         for j in range(2):
             if j == 0:
                 td = np.zeros((n_0,1))
@@ -47,6 +49,7 @@ def get_dend(p2, p3, p_td, p_td2):
                 td = np.zeros((n_0,1))
                 td[n_0//2:,0] = 2
 
+            # Follow down the pathway
             VIP = np.matmul(W_td, td)
             vip = np.matmul(W_vip, VIP)
             td2 = np.matmul(W_td2, td)
@@ -56,7 +59,7 @@ def get_dend(p2, p3, p_td, p_td2):
     print('Dendrite analysis...')
     print(np.mean(dend[:,0]), np.mean(dend[:,1]), np.mean(dend[:,0]*dend[:,1]), np.mean(dend[:,0])*np.mean(dend[:,1]))
 
-# p2, p3, p_td, p_td2
+# p2,       p3,        p_td,    p_td2
 # vip->som, som->dend, td->vip, td->som
 get_dend(0.275, 0.35, 0.2, 0.5)
 
