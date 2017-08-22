@@ -14,7 +14,6 @@ import dendrite_functions as df
 import metaweight as mw
 import stimulus
 import analysis
-import network_analysis as na
 
 import os
 import time
@@ -452,10 +451,10 @@ def main():
 
         # Ensure that the correct task settings are in place
         set_task_profile()
-        
+
         if par['use_lesion']:
             accuracy_diff = np.zeros((par['num_iterations']//par['lesion_iter'], par['n_hidden'],par['n_hidden'],par['num_rules']), dtype=np.float32)
-            accuracy_test = np.zeros((par['num_iterations']//par['lesion_iter'], par['n_hidden'],par['n_hidden'],par['num_rules']), dtype=np.float32)                
+            accuracy_test = np.zeros((par['num_iterations']//par['lesion_iter'], par['n_hidden'],par['n_hidden'],par['num_rules']), dtype=np.float32)
             imp_synapse = np.zeros((par['num_iterations']//par['lesion_iter'], par['num_rules'], 2))
 
         # Loop through the desired number of iterations
@@ -632,14 +631,8 @@ def main():
                             test_data['y'][j], state_hist_batch, dend_hist_batch,\
                             = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist], feed_dict)
 
-                            # Aggregate the test data for analysis
-                            test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
-                            test_data['y_hat'][j] = trial_info['desired_output']
-                            test_data['train_mask'][j] = trial_info['train_mask']
-                            test_data['mean_hidden'][j] = np.mean(state_hist_batch)
-
                         _, accuracy_test[i//par['lesion_iter'], n1,n2] = analysis.get_perf(test_data)
-                        
+
                         # Show lesion progress
                         progress = (n1*par['n_hidden']+n2+1)/(par['n_hidden']*par['n_hidden'])
                         bar = int(np.round(progress*20))
@@ -648,7 +641,7 @@ def main():
                         # print("Lesioning weight: ("+str(n1)+", "+str(n2)+")\r")
                         accuracy_diff[i//par['lesion_iter'], n1, n2] = (analysis_val['rule_accuracy'][0] - accuracy_test[i//par['lesion_iter'], n1,n2][0], \
                                                                         analysis_val['rule_accuracy'][1] - accuracy_test[i//par['lesion_iter'], n1,n2][1])
-                
+
                 for rule in range(par['num_rules']):
                     temp = np.argmax(accuracy_diff[i//par['lesion_iter'],:,:,rule])
                     imp_synapse[i//par['lesion_iter'], rule] = (temp//par['n_hidden'], temp%par['n_hidden'])
@@ -660,11 +653,10 @@ def main():
             if par['use_checkpoints']:
                 saver.save(sess, os.path.join(dirpath, par['ckpt_save_fn']), i)
 
-        lesion_results['accuracy_test'] = accuracy_test
-        lesion_results['accuracy_diff'] = accuracy_diff
-        lesion_results['imp_synapse'] = imp_synapse
-
         if par['use_lesion']:
+            lesion_results['accuracy_test'] = accuracy_test
+            lesion_results['accuracy_diff'] = accuracy_diff
+            lesion_results['imp_synapse'] = imp_synapse
             print(lesion_results)
             json_save(lesion_results, dirpath+'/lesion_weights.json')
 
