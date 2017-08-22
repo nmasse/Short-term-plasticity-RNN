@@ -5,6 +5,12 @@ g = np.power(2., -np.arange(1., par['num_mw']+1.)-2.)
 C = np.power(2., np.arange(2., par['num_mw']+2.)-1.)
 
 def adjust(weight, U, g_scaling):
+    print(np.shape(weight))
+    print(np.shape(U))
+    print(np.shape(g_scaling))
+    print('-'*40)
+
+
     """
     Takes in a weight matrix, U metaweight set (for that weight matrix), and a
     scaling factor or matrix for g.  Performs the metaweight operation, then
@@ -31,4 +37,5 @@ def adjust(weight, U, g_scaling):
             weight = weight_prime
             U = U_prime
 
+    print('Ending adjustment.')
     return np.float32(weight_prime - init_weight), np.float32(U_prime - init_U)
