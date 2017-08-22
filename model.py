@@ -14,7 +14,6 @@ import dendrite_functions as df
 import metaweight as mw
 import stimulus
 import analysis
-import network_analysis as na
 
 import os
 import time
