@@ -17,20 +17,20 @@ par = {
     'analyze_model'         : False,
 
     # Network configuration
-    'synapse_config'        : None, # Full is 'std_stf'
+    'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : True,
+    'var_delay'             : False,
     'catch_trials'          : False,     # Note that turning on var_delay implies catch_trials
 
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 200,
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 20,
+    'dt'                    : 10,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -47,7 +47,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.01/1000,
+    'spike_cost'            : 0.01,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -62,14 +62,14 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 15,
     'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 200,
-    'fix_time'              : 200,
+    'dead_time'             : 400,
+    'fix_time'              : 500,
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
@@ -97,7 +97,7 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 20,
+    'dt'                    : 10,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -108,11 +108,11 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 1500,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : True,
-    'dt'                    : 20,
+    'dt'                    : 10,
     'learning_rate'         : 5e-3,
     'catch_trial_pct'       : 0.15,
     'delay_time'            : 1000
@@ -130,6 +130,7 @@ def update_parameters(updates):
     """
     for key, val in updates.items():
         par[key] = val
+        print(key, val)
 
     update_trial_params()
     update_dependencies()
@@ -158,10 +159,11 @@ def update_trial_params():
         par['num_receptive_fields'] = 2
         par['num_rules'] = 2
         par['probe_trial_pct'] = 0
-        par['probe_time'] = 20
+        par['probe_time'] = 10
         par['num_rule_tuned'] = 12
+        par['spike_cost'] = 0.005
+        #par['num_iterations'] = 1500
         analysis_par['probe_trial_pct'] = 0.5
-        analysis_par['batch_train_size'] = 2048
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
@@ -229,12 +231,6 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
-    def initialize(dims, connection_prob):
-        w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
-        w *= (np.random.rand(*dims) < connection_prob)
-        return np.float32(w)
-
-
     # General event profile info
     #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
@@ -253,10 +249,6 @@ def update_dependencies():
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
-
-    def spectral_radius(A):
-
-        return np.max(abs(np.linalg.eigvals(A)))
 
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
@@ -362,6 +354,16 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+def initialize(dims, connection_prob):
+    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    w *= (np.random.rand(*dims) < connection_prob)
+    return np.float32(w)
+
+
+def spectral_radius(A):
+
+    return np.max(abs(np.linalg.eigvals(A)))
 
 update_trial_params()
 update_dependencies()
