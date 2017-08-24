@@ -62,7 +62,7 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 15,
+    'num_iterations'        : 100,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -97,7 +97,6 @@ analysis_par = {
     'num_batches'           : 1,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'dt'                    : 10,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
 }
@@ -112,7 +111,6 @@ revert_analysis_par = {
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : True,
-    'dt'                    : 10,
     'learning_rate'         : 5e-3,
     'catch_trial_pct'       : 0.15,
     'delay_time'            : 1000
@@ -266,24 +264,6 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
 
-        ring_exc = np.exp(1j*2*np.pi*np.arange(par['num_exc_units'])/par['num_exc_units'])
-        ring_inh = np.exp(1j*2*np.pi*np.arange(par['num_inh_units'])/par['num_inh_units'])
-        for n1 in range(par['n_hidden']):
-            for n2 in range(par['n_hidden']):
-                if par['EI_list'][n1] == 1:
-                    r1 = ring_exc[n1]
-                else:
-                    r1 = ring_inh[n1-par['num_exc_units']]
-                if par['EI_list'][n2] == 1:
-                    r2 = ring_exc[n2]
-                else:
-                    r2 = ring_inh[n2-par['num_exc_units']]
-
-                connect_prob = np.real(r1*np.conjugate(r2))
-                if np.random.rand() < connect_prob:
-                    par['w_rnn0'][n2,n1] = np.random.gamma(shape=0.25, scale=1.0)
-
-
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -314,8 +294,6 @@ def update_dependencies():
     1 = facilitating
     2 = depressing
     """
-
-
     par['synapse_type'] = np.zeros(par['n_hidden'], dtype=np.int8)
 
     # only facilitating synapses
