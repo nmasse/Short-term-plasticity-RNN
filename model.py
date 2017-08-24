@@ -152,22 +152,22 @@ class Model:
         """
         Calculate the loss functions and optimize the weights
         """
-        """
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
 
         """
         cross_entropy
         """
+        """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        """
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
 
-
+        """
         with tf.variable_scope('rnn_cell', reuse=True):
             W_rnn = tf.get_variable('W_rnn')
             W_in = tf.get_variable('W_in')
@@ -187,19 +187,22 @@ class Model:
             tf.tensordot(W_in,x,axes=[[1],[0]]),[par['n_hidden'],-1])
 
         self.dend_loss0 = 0.1*tf.reduce_mean(tf.square(tf.reduce_mean(neural_input,axis=1)))
+        """
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h,x in zip(self.hidden_state_hist, self.input_data)]
 
-
+        """
         with tf.variable_scope('output', reuse=True):
             W_out = tf.get_variable('W_out')
         self.dend_loss = 0.05*(tf.reduce_mean(tf.nn.relu(W_rnn)) + tf.reduce_mean(tf.nn.relu(W_in)) + tf.reduce_mean(tf.nn.relu(W_out)))
+        """
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.dend_loss + self.dend_loss0
+
+        self.loss = self.perf_loss + self.spike_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
@@ -231,10 +234,10 @@ def train_and_analyze():
 
     main()
     update_parameters(analysis_par)
-    save_fn_org = '' + par['save_fn']
-    save_fn = 'decode_' + save_fn_org
-    updates = {'save_fn': save_fn}
-    update_parameters(updates)
+    #save_fn_org = '' + par['save_fn']
+    #save_fn = 'decode_' + save_fn_org
+    #updates = {'save_fn': save_fn}
+    #update_parameters(updates)
     tf.reset_default_graph()
     main()
 
@@ -311,12 +314,12 @@ def main():
                 if learning rate = 0, then skip optimizer
                 """
                 if par['learning_rate']>0:
-                    _, loss[j], perf_loss[j], spike_loss[j], dend_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                        sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.dend_loss, model.y_hat, \
+                    _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                        sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
                         model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
                 else:
-                    loss[j], perf_loss[j], spike_loss[j], dend_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                        sess.run([model.loss, model.perf_loss, model.spike_loss, model.dend_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
+                    loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                        sess.run([model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
 
                 accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
 
