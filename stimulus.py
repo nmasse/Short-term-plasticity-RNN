@@ -436,13 +436,14 @@ class Stimulus:
                 test_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
                 trial_info['neural_input'][:emt, test_rng, t] += np.reshape(self.motion_tuning[:,stim_dir],(-1,1))
                 trial_info['train_mask'][eos+(2*i+1)*ABBA_delay:eos+(2*i+1)*ABBA_delay+mask_duration, t] = 0
+                trial_info['desired_output'][0, test_rng, t] = 0
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
                     trial_info['match'][t,i] = 1
                     #trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
-
+                    
             trial_info['sample'][t] = sample_dir
 
         return trial_info
