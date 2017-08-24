@@ -263,6 +263,8 @@ def update_dependencies():
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
+    print('REMOVE RING')
+    quit()
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
 
