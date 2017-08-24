@@ -23,13 +23,13 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 2)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 3)
 
     """
     Lesion weights
     """
-    print('Lesioning weights...')
-    accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+    #print('Lesioning weights...')
+    #accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
 
     """
     Downsample neural activity in order to speed up decoding and tuning calculations
@@ -50,7 +50,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 2)
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 3)
 
 
 
@@ -70,10 +70,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'model_performance': model_performance,
         'parameters': par,
         'weights': weights,
-        'trial_time': trial_time,
-        'accuracy_rnn_start': accuracy_rnn_start,
-        'accuracy_rnn_test': accuracy_rnn_test,
-        'accuracy_out': accuracy_out}
+        'trial_time': trial_time}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -165,6 +162,7 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
                     equal_train_ind[u] =  train_ind[ind[q]]
                     # testing indices for current condition number
                     ind = np.where(current_conds[test_ind] == c)[0]
+                    #print(len(ind), trials_per_cond, n, c)
                     q = np.random.randint(len(ind), size = trials_per_cond)
                     equal_test_ind[u] =  test_ind[ind[q]]
 
