@@ -18,6 +18,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     syn_x_stacked = np.stack(syn_x, axis=1)
     syn_u_stacked = np.stack(syn_u, axis=1)
     h_stacked = np.stack(h, axis=1)
+    trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
 
     """
     Calculate the neuronal and synaptic contributions towards solving the task
@@ -30,12 +31,6 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     #print('Lesioning weights...')
     #accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
-
-    """
-    Downsample neural activity in order to speed up decoding and tuning calculations
-    """
-    h_stacked, syn_x_stacked, syn_u_stacked, trial_time = downsample_activity(h_stacked, syn_x_stacked, syn_u_stacked, target_dt = 20)
-
 
     """
     Calculate neuronal and synaptic sample motion tuning
@@ -512,23 +507,6 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights):
                    + np.random.normal(0, par['noise_rnn'],size=(par['n_hidden'], h.shape[1])))
 
     return h, syn_x, syn_u
-
-def downsample_activity(h, syn_x, syn_u, target_dt = 10):
-
-    # downsample activity
-    df = target_dt//par['dt']
-    if df > 1:
-        rng = range(0,h.shape[1], df)
-        h = h[:, rng, :]
-        syn_x = syn_x[:, rng, :]
-        syn_u = syn_u[:, rng, :]
-    elif df < 1:
-        print('Cannot sample at higher temproal resolution!!!')
-        quit()
-
-    trial_time = np.arange(0,h.shape[1]*target_dt, target_dt)
-
-    return h, syn_x, syn_u, trial_time
 
 
 def get_perf(y, y_hat, mask):
