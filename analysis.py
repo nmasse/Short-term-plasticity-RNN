@@ -24,18 +24,11 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 3)
-
-    """
-    Lesion weights
-    """
-    #print('Lesioning weights...')
-    #accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 100)
 
     """
     Calculate neuronal and synaptic sample motion tuning
     """
-    print('Calculating motion direction tuning...')
     neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev = calculate_sample_tuning(h_stacked, \
         syn_x_stacked, syn_u_stacked, trial_info['sample'], trial_info['rule'], trial_info['match'], trial_time)
 
@@ -45,9 +38,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     using support vector machhines
     """
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 3)
-
-
+        trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
 
     """
     Save the results
@@ -516,10 +507,8 @@ def get_perf(y, y_hat, mask):
     only examine time points when test stimulus is on
     in another words, when y[0,:,:] is not 0
     """
-
     y_hat = np.stack(y_hat, axis=1)
     mask *= y[0,:,:]==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
-
     return np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
