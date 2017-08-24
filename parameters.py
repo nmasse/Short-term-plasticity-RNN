@@ -9,6 +9,9 @@ global par, analysis_par
 """
 Independent parameters
 """
+
+rnd_save_suffix = np.random.randint(10000)
+
 par = {
     # Setup parameters
     'save_dir'              : 'C:/Users/nicol/Projects/RNN STP Analysis/',
@@ -62,8 +65,8 @@ par = {
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
-    'num_iterations'        : 100,
-    'iters_between_outputs' : 100,
+    'num_iterations'        : 1000,
+    'iters_between_outputs' : 10,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -83,8 +86,8 @@ par = {
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
-    'ckpt_save_fn'          : 'model.ckpt',
-    'ckpt_load_fn'          : 'model.ckpt'
+    'ckpt_save_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
+    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt'
 }
 
 """
@@ -161,7 +164,7 @@ def update_trial_params():
         par['num_rule_tuned'] = 12
         par['spike_cost'] = 0.005
         #par['num_iterations'] = 1500
-        analysis_par['probe_trial_pct'] = 0.5
+
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
