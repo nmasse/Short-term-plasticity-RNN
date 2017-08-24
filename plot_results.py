@@ -447,7 +447,7 @@ def plot_figure5(fig_params):
         while good_model_count < fig_params['models_per_task'] and count < 49:
             count += 1
             try:
-                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '_mask.pkl', 'rb'))
+                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '_.pkl', 'rb'))
             except:
                 continue
 
