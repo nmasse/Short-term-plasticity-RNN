@@ -240,8 +240,12 @@ def train_and_analyze():
     #update_parameters(updates)
     tf.reset_default_graph()
     main()
-
-
+    save_fn_org = '' + par['save_fn']
+    save_fn = 'probe_' + save_fn_org
+    update = {'probe_trial_pct': 1, 'save_fn': save_fn}
+    update_parameters(update)
+    tf.reset_default_graph()
+    main()
     update_parameters(revert_analysis_par)
 
 
