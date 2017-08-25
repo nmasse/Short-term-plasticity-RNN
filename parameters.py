@@ -110,7 +110,8 @@ par = {
 
     # Disinhibition circuit
     'use_connectivity'  : True,
-    'use_disinhibition' : False
+    'use_disinhibition' : False,
+    'som_scale'         : 1.2*(10/40)+0.5
 }
 
 ##############################
@@ -322,20 +323,14 @@ def define_connectivity():
 
     if par['use_connectivity']:
 
-        par['connection_prob'][0, 1, 4] = 0.05 # td to VIP
-        par['connection_prob'][0, 4, 5] = 0.15 # VIP to SOM
+        # stim has ID=0, td has ID=1, EXC will have ID=2, PV will have ID=3, VIP will have ID=4, SOM will have ID=5
         par['connection_prob'][0, 2:4, 2:4] = 0 # EXC,PV to EXC, PV
-        par['connection_prob'][0, 2, 6] = 0.25 # EXC to output
-        par['connection_prob'][1, 0, 2:4] = 0.25 # stim to dendrites of EXC, PV
-        par['connection_prob'][1, 5, 2:4] = 1 # SOM to dendrites of EXC, PV
-
         par['connection_type'][0, 2:4, 2:4] = 0 # EXC,PV to EXC, PV
-        par['connection_type'][1, 0, 2:4] = 0 # stim to dendrites of EXC, PV
+        par['connection_prob'][0, 2, 6] = 0.25 # EXC to output
+        par['connection_prob'][0, :, 5] = 0
 
-        par['connection_type'][0, 1, 4] = 1
-        par['connection_type'][0, 4, 5] = 1
-        par['connection_type'][1, 5, 2:4] = 1
-
+        par['connection_prob'][1, 0, 2:4] = 0.25 # stim to dendrites of EXC, PV
+        par['connection_prob'][1, :, 2] = 0
 
         par['baseline_type'][5] = 1
     else:
@@ -433,12 +428,12 @@ def fill_masks_weights_biases(neuron_type):
 
             if weight_name == 'w_stimXXX':
                 print('w_sim sum ', ' ', s, ' ', t, ' ',np.sum(par[weight_name + '_dend0']))
-    if par['EI']:
-        for n in range(par['n_hidden']):
-            par['w_rnn_soma0'][n,n] = 0
-            par['w_rnn_dend0'][n,:,n] = 0
-            par['w_rnn_soma_mask'][n,n] = 0
-            par['w_rnn_dend_mask'][n,:,n] = 0
+    #if par['EI']:
+        # for n in range(par['n_hidden']):
+            # par['w_rnn_soma0'] = 0
+            # par['w_rnn_dend0'] = 0
+            # par['w_rnn_soma_mask'] = 0
+            # par['w_rnn_dend_mask'] = 0
 
 
 def generate_masks():
@@ -690,8 +685,6 @@ def update_dependencies():
 
     par['EI_matrix'] = np.diag(par['EI_list'])
 
-    print('EI_mat', par['EI_matrix'])
-
     par['EI_list_d_exc'] = np.ones(par['n_hidden'], dtype=np.float32)
     par['EI_list_d_inh'] = np.ones(par['n_hidden'], dtype=np.float32)
 
@@ -928,6 +921,15 @@ def set_disinhibitory_path():
     beta = 1.0
     # np.set_printoptions(threshold=np.nan)
 
+    # print("w_td_soma:", par['w_td_soma0'], "\n")
+    # print(np.count_nonzero(par['w_td_soma0']))
+
+    # print("w_rnn_dend:", par['w_rnn_dend0'], "\n")
+    # print(np.count_nonzero(par['w_rnn_dend0']))
+
+    # print("w_rnn_soma:", par['w_rnn_soma0'], "\n")
+    # print(np.count_nonzero(par['w_rnn_soma0']))
+
     # set up td weight matrices
     # 1) td to VIP
     # 2) td to SOM
@@ -942,15 +944,21 @@ def set_disinhibitory_path():
     par['w_td_soma0'][(par['num_exc_units']+3*n):,:] = prune_connections(par['w_td_soma0'][(par['num_exc_units']+3*n):,:], 0.5)
     
     # connection from VIP to SOM
-    par['w_rnn_soma0'][(par['num_exc_units']+3*n):,(par['num_exc_units']+2*n):(par['num_exc_units']+3*n)] = prune_connections(np.ones([n, n]), 0.275)
+    par['w_rnn_soma0'][(par['num_exc_units']+3*n):,(par['num_exc_units']+2*n):(par['num_exc_units']+3*n)] = prune_connections(np.ones([n, n]), 0.275)/par['som_scale']
     
-    # connection from SOM to EXC (?)
-    par['w_rnn_dend0'][:par['num_exc_units'],:,(par['num_exc_units']+3*n):] = prune_connections(np.ones([par['num_exc_units'], par['den_per_unit'], n]), 1)
+    # connection from SOM to EXC
+    par['w_rnn_dend0'][:par['num_exc_units'],:,(par['num_exc_units']+3*n):] = prune_connections(np.ones([par['num_exc_units'], par['den_per_unit'], n]), 0.35)
 
-    # print(par['w_td_soma0'])
-    # print(par['w_td_dend0'])
+    # print("w_td_soma:", par['w_td_soma0'], "\n")
+    # print(np.count_nonzero(par['w_td_soma0']))
 
-get_dend()
+    # print("w_rnn_dend:", par['w_rnn_dend0'], "\n")
+    # print(np.count_nonzero(par['w_rnn_dend0']))
+
+    # print("w_rnn_soma:", par['w_rnn_soma0'], "\n")
+    # print(np.count_nonzero(par['w_rnn_soma0']))
+
+#get_dend()
 set_task_profile()
 neuron_type = define_neuron_type()
 create_weights_masks_biases()

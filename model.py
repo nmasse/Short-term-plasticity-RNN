@@ -83,13 +83,13 @@ class Model:
         with tf.variable_scope('rnn_cell'):
             if par['use_dendrites']:
 
-                W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=True)
+                W_rnn_dend = tf.get_variable('W_rnn_dend', initializer = np.float32(par['w_rnn_dend0']), trainable=False)
                 W_stim_dend = tf.get_variable('W_stim_dend', initializer = np.float32(par['w_stim_dend0']), trainable=True)
                 W_td_dend = tf.get_variable('W_td_dend', initializer = np.float32(par['w_td_dend0']), trainable=True)
 
             if par['use_stim_soma']:
                 W_stim_soma = tf.get_variable('W_stim_soma', initializer = np.float32(par['w_stim_soma0']), trainable=True)
-                W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=True)
+                W_td_soma = tf.get_variable('W_td_soma', initializer = np.float32(par['w_td_soma0']), trainable=False)
 
             W_rnn_soma = tf.get_variable('W_rnn_soma', initializer = np.float32(par['w_rnn_soma0']), trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = np.float32(par['b_rnn0']), trainable=True)
@@ -505,17 +505,43 @@ def main():
                     model.loss, model.perf_loss, model.spike_loss, model.dend_loss,\
                     model.omega_loss], feed_dict)
 
-                # Aggregate the test data for analysis
                 test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
                 test_data['y_hat'][j] = trial_info['desired_output']
                 test_data['train_mask'][j] = trial_info['train_mask']
                 test_data['mean_hidden'][j] = np.mean(state_hist_batch)
+
+                # test_data['y'][j] = sess.run(model.y_hat, feed_dict)
+
+                # # Aggregate the test data for analysis
+                # trial_ind = range(j*par['batch_train_size'], (j+1)*par['batch_train_size'])
+                # test_data['rule_index'][trial_ind] = trial_info['rule_index']
+                # test_data['y_hat'][j] = trial_info['desired_output']
+                # test_data['train_mask'][j] = trial_info['train_mask']
 
                 # Show model progress
                 progress = (j+1)/par['num_test_batches']
                 bar = int(np.round(progress*20))
                 print("Testing Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
             print("\nTesting session {:} complete.\n".format(i))
+
+            dendrite_activity = []
+            length = [0, 0]
+            for rule in range(2):
+                task_index = (test_data['rule_index'][:,0] == rule)
+                length[rule] = np.count_nonzero(task_index)
+                dendrite_activity.append(test_data['dend_hist'][:,:,:,np.where(task_index)])
+
+            print("dend_hist: ", np.shape(test_data['dend_hist']))
+            min_len = length[0] if length[0]<length[1] else length[1]
+            print("len: ", min_len)
+            print(np.shape(dendrite_activity[0]))
+            print(np.shape(dendrite_activity[1]))
+            dendrite_activity.append(np.mean(dendrite_activity[0][:,:,:,:,:min_len]*dendrite_activity[1][:,:,:,:,:min_len]))
+            dendrite_activity.append(np.mean(dendrite_activity[0])*np.mean(dendrite_activity[1]))
+            dendrite_activity[0] = np.mean(dendrite_activity[0])
+            dendrite_activity[1] = np.mean(dendrite_activity[1])
+
+            print("Dendrite activity: ", dendrite_activity)
 
             # Calculate this iteration's omega value and reset the previous weight values
             omega, previous_weights = calculate_omega(w_k, new_weights, previous_weights)
