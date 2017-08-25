@@ -11,8 +11,6 @@ def adjust(weight, U, g_scaling, C_scaling, R):
     returns values for the weights and metaweights.
     """
 
-    print(np.shape(weight), np.shape(U), np.shape(g_scaling), np.shape(C_scaling), np.shape(R))
-
     if len(weight.shape) == 2:
         g_set = np.einsum('ij,k->ijk', g_scaling, g)
         C_set = np.einsum('ij,k->ijk', C_scaling, C)
