@@ -646,6 +646,11 @@ def main():
                             # Run the model
                             test_data['y'][j], state_hist_batch, dend_hist_batch,\
                             = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist], feed_dict)
+                            test_data['y_hat'][j] = trial_info['desired_output']
+                            test_data['train_mask'][j] = trial_info['train_mask']
+                            
+                            trial_ind = range(j*par['batch_train_size'], (j+1)*par['batch_train_size'])
+                            test_data['rule_index'][trial_ind] = trial_info['rule_index']
 
                         _, accuracy_test[i//par['lesion_iter'], n1,n2] = analysis.get_perf(test_data)
 
@@ -654,7 +659,6 @@ def main():
                         bar = int(np.round(progress*20))
                         print("Lesioning Model:\t [{}] ({:>3}%)\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress))), end='\r')
 
-                        # print("Lesioning weight: ("+str(n1)+", "+str(n2)+")\r")
                         accuracy_diff[i//par['lesion_iter'], n1, n2] = (analysis_val['rule_accuracy'][0] - accuracy_test[i//par['lesion_iter'], n1,n2][0], \
                                                                         analysis_val['rule_accuracy'][1] - accuracy_test[i//par['lesion_iter'], n1,n2][1])
 
@@ -673,7 +677,6 @@ def main():
             lesion_results['accuracy_test'] = accuracy_test
             lesion_results['accuracy_diff'] = accuracy_diff
             lesion_results['imp_synapse'] = imp_synapse
-            print(lesion_results)
             json_save(lesion_results, dirpath+'/lesion_weights.json')
 
     print('\nModel execution complete.\n')
