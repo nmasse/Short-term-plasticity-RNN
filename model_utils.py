@@ -208,8 +208,9 @@ def sort_tf_vars(var_list):
 
 
 def print_tf_var_list(var_list):
+    print('-'*40)
     for v in var_list:
-        print(v)
+        print(v.name.ljust(36), 'shape =', v.shape)
     print('')
     return 0
 
