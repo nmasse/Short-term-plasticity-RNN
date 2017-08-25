@@ -369,6 +369,8 @@ class Model:
         self.capped_gvs = []
         if par['use_metaweights'] and par['use_mw_engine']:
             eng = mu.get_vars_in_scope('engine')
+        else:
+            eng = [0]*len(self.grads_and_vars)
         for (grad, var), R in zip(self.grads_and_vars, eng):
 
             if par['use_metaweights'] and par['use_mw_engine']:
@@ -648,7 +650,7 @@ def main():
                             = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist], feed_dict)
                             test_data['y_hat'][j] = trial_info['desired_output']
                             test_data['train_mask'][j] = trial_info['train_mask']
-                            
+
                             trial_ind = range(j*par['batch_train_size'], (j+1)*par['batch_train_size'])
                             test_data['rule_index'][trial_ind] = trial_info['rule_index']
 
