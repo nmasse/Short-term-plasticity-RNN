@@ -198,10 +198,13 @@ class Model:
         # have only positive outgoing weights, and that I neurons have only
         # negative outgoing weights.  Dendritic EI is taken care of in the
         # dendrite functions.
-        if par['EI']:
-            W_rnn_soma_effective = tf.multiply(tf.matmul(tf.nn.relu(W_rnn_soma), W_ei), self.lesion)
+        if par['use_stim_soma']:
+            if par['EI']:
+                W_rnn_soma_effective = tf.multiply(tf.matmul(tf.nn.relu(W_rnn_soma), W_ei), self.lesion)
+            else:
+                W_rnn_soma_effective = tf.multiply(W_rnn_soma, self.lesion)
         else:
-            W_rnn_soma_effective = tf.multiply(W_rnn_soma, self.lesion)
+            W_rnn_soma_effective = tf.constant(np.zeros_like(par['w_rnn_soma0']))
 
         # Update the synaptic plasticity parameters
         if par['synapse_config'] == 'std_stf':

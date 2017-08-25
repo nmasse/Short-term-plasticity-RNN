@@ -11,6 +11,8 @@ def adjust(weight, U, g_scaling, C_scaling, R):
     returns values for the weights and metaweights.
     """
 
+    print(np.shape(weight), np.shape(U), np.shape(g_scaling), np.shape(C_scaling), np.shape(R))
+
     if len(weight.shape) == 2:
         g_set = np.einsum('ij,k->ijk', g_scaling, g)
         C_set = np.einsum('ij,k->ijk', C_scaling, C)
@@ -46,6 +48,6 @@ def adjust(weight, U, g_scaling, C_scaling, R):
     print('\n' + mw_string + '\n' + str(np.mean(weight_prime - np.mean(U_prime, -1))) + '\n----------')
     """
 
-    R_prime = weight_prime - np.sum(U_prime, axis=2)
+    R_prime = weight_prime - np.sum(U_prime, axis=-1)
 
     return np.float32(weight_prime - init_weight), np.float32(U_prime - init_U), np.float32(R_prime - R)
