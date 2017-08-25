@@ -207,8 +207,18 @@ def sort_tf_vars(var_list):
     return sorted(var_list, key=lambda var: var.shape.as_list())
 
 
+def print_tf_var_list(var_list):
+    for v in var_list:
+        print(v)
+    print('')
+    return 0
+
+
 def sort_grads_and_vars(var_list):
     return sorted(var_list, key=lambda var: var[0].shape)
+
+def sort_tf_grads_and_vars(var_list):
+    return sorted(var_list, key=lambda var: var[0].shape.as_list())
 
 
 def intersection_by_shape(l1, l2, flag=None):

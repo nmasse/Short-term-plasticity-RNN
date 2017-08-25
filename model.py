@@ -17,6 +17,7 @@ import analysis
 
 import os
 import time
+import ctypes
 
 #################################
 ### Model setup and execution ###
@@ -98,6 +99,23 @@ class Model:
                     tf.get_variable('W_out',            initializer=np.float32(par['U_out0']),          trainable=False)
                     tf.get_variable('b_rnn',            initializer=np.float32(par['U_brnn0']),         trainable=False)
                     tf.get_variable('b_out',            initializer=np.float32(par['U_bout0']),         trainable=False)
+
+        if par['use_metaweights']:
+            with tf.variable_scope('engine'):
+                if par['use_stim_soma']:
+                    with tf.variable_scope('soma'):
+                        tf.get_variable('W_stim_soma',  initializer=np.float32(par['U_stim_soma0'][...,0]),    trainable=False)
+                        tf.get_variable('W_td_soma',    initializer=np.float32(par['U_td_soma0'][...,0]),      trainable=False)
+                        tf.get_variable('W_rnn_soma',   initializer=np.float32(par['U_rnn_soma0'][...,0]),     trainable=False)
+                if par['use_dendrites']:
+                    with tf.variable_scope('dendrite'):
+                        tf.get_variable('W_stim_dend',  initializer=np.float32(par['U_stim_dend0'][...,0]),    trainable=False)
+                        tf.get_variable('W_td_dend',    initializer=np.float32(par['U_td_dend0'][...,0]),      trainable=False)
+                        tf.get_variable('W_rnn_dend',   initializer=np.float32(par['U_rnn_dend0'][...,0]),     trainable=False)
+                with tf.variable_scope('standard'):
+                    tf.get_variable('W_out',            initializer=np.float32(par['U_out0'][...,0]),          trainable=False)
+                    tf.get_variable('b_rnn',            initializer=np.float32(par['U_brnn0'][...,0]),         trainable=False)
+                    tf.get_variable('b_out',            initializer=np.float32(par['U_bout0'][...,0]),         trainable=False)
 
 
     def run_model(self):
@@ -253,35 +271,21 @@ class Model:
 
 
     def run_metaweights(self):
-        omega_vars = []
-        for i in range(len(self.omegas)):
-            if i in self.split_indices:
-                omega_vars.append(self.omegas[i])
-        omega_vars = mu.sort_tf_vars(omega_vars)
-        #omega_vars, par_vars  = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('parameters'))
-        #omega_vars, meta_vars = mu.intersection_by_shape(omega_vars, mu.get_vars_in_scope('meta'), flag='meta')
-
-        par_vars, meta_vars = mu.intersection_by_shape(mu.get_vars_in_scope('parameters'), mu.get_vars_in_scope('meta'), flag='meta')
+        omega_vars, par_vars = mu.intersection_by_shape(mu.sort_tf_vars(self.omegas), mu.get_vars_in_scope('parameters'))
+        par_vars, meta_vars  = mu.intersection_by_shape(par_vars, mu.get_vars_in_scope('meta'), flag='meta')
+        par_vars, eng_vars   = mu.intersection_by_shape(par_vars, mu.get_vars_in_scope('engine'))
         par_vars = mu.filter_adams(par_vars)
 
-        """
-        self.delta_mw = 0
-        for weight in meta_vars:
-            self.delta_mw += tf.reduce_sum(weight)
-
-        for weight, U, g_scaling in zip(par_vars, meta_vars, par['g_multiplier']*omega_vars):
-            new_weight, new_U = tf.py_func(mw.adjust, [weight, U, tf.ones(g_scaling.shape)], [tf.float32, tf.float32], name='MWAdjust')
-            weight.assign(new_weight)
-            U.assign(new_U)
-        """
-
         self.delta_mw = tf.constant(0., dtype=tf.float32)
-        for weight, U in zip(par_vars, meta_vars):
-            delta_weight, delta_U = tf.py_func(mw.adjust, [weight, U, par['g_multiplier']*tf.ones_like(weight)], [tf.float32, tf.float32], name='MWAdjust')
+        R = []
+        for weight, U, omega, R in zip(par_vars, meta_vars, omega_vars, eng_vars):
+            delta_weight, delta_U, delta_R = tf.py_func(mw.adjust, [weight, U, tf.ones_like(omega), par['C_multiplier']*omega+1, R], [tf.float32, tf.float32, tf.float32], name='MWAdjust')
             weight += delta_weight
             U += delta_U
-            self.delta_mw += tf.reduce_mean(delta_weight)
 
+            R += delta_R
+
+            self.delta_mw += tf.reduce_mean(weight - tf.reduce_mean(U, -1))
 
 
     def optimize(self):
@@ -353,7 +357,7 @@ class Model:
 
         # Use TensorFlow's Adam optimizer, and then apply the results
         opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
-        self.grads_and_vars = opt.compute_gradients(self.loss)
+        self.grads_and_vars = mu.sort_tf_grads_and_vars(opt.compute_gradients(self.loss))
 
         # Print out the active, trainable TensorFlow variables
         print('Active TensorFlow variables:')
@@ -363,7 +367,13 @@ class Model:
         #Apply any applicable weights masks to the gradient and clip
         print('\nWeight masks:')
         self.capped_gvs = []
-        for grad, var in self.grads_and_vars:
+        if par['use_metaweights'] and par['use_mw_engine']:
+            eng = mu.get_vars_in_scope('engine')
+        for (grad, var), R in zip(self.grads_and_vars, eng):
+
+            if par['use_metaweights'] and par['use_mw_engine']:
+                grad /= (2/(1+tf.exp(5*R)))
+
             if var.name == "parameters/soma/W_rnn_soma:0":
                 grad *= par['w_rnn_soma_mask']
                 print('   Applied weight mask to w_rnn_soma.')
@@ -535,7 +545,7 @@ def main():
                 # Show model progress
                 progress = (j+1)/par['num_train_batches']
                 bar = int(np.round(progress*20))
-                print("Training Model:\t [{}] ({:>3}%) --- Delta MW: {:.2f}\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress)), delta_mw), end='\r')
+                print("Training Model:\t [{}] ({:>3}%) --- Delta MW: {:.4f}\r".format("#"*bar + " "*(20-bar), int(np.round(100*progress)), delta_mw), end='\r')
             print("\nTraining session {:} complete.\n".format(i))
 
             # Allows all fields and rules for testing purposes
@@ -568,12 +578,18 @@ def main():
                 feed_dict = mu.zip_to_dict(feed_places + e_feed_places, feed_stream + e_feed_stream)
 
                 # Run the model
-                test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
-                test_data['loss'][j], test_data['perf_loss'], test_data['spike_loss'], test_data['dend_loss'], test_data['omega_loss']\
-                = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
-                    model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist,\
-                    model.loss, model.perf_loss, model.spike_loss, model.dend_loss,\
-                    model.omega_loss], feed_dict)
+                if par['test_with_optimizer']:
+                    test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
+                    test_data['loss'][j], test_data['perf_loss'], test_data['spike_loss'], test_data['dend_loss'], test_data['omega_loss']\
+                    = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
+                        model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist,\
+                        model.loss, model.perf_loss, model.spike_loss, model.dend_loss,\
+                        model.omega_loss], feed_dict)
+                else:
+                    test_data['y'][j], state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch,\
+                    = sess.run([model.y_hat, model.hidden_state_hist, model.dendrites_hist,\
+                                model.dendrites_inputs_exc_hist, model.dendrites_inputs_inh_hist], feed_dict)
+
 
                 # Aggregate the test data for analysis
                 test_data = mu.append_test_data(test_data, trial_info, state_hist_batch, dend_hist_batch, dend_exc_hist_batch, dend_inh_hist_batch, j)
@@ -661,6 +677,9 @@ def main():
             json_save(lesion_results, dirpath+'/lesion_weights.json')
 
     print('\nModel execution complete.\n')
+
+    if par['notify_on_completion']:
+        ctypes.windll.user32.MessageBoxW(0, 'Model execution complete.', 'NN Notification', 1)
 
 
 def set_rule(iteration):

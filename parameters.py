@@ -21,6 +21,8 @@ par = {
     'debug_model'           : False,
     'load_previous_model'   : False,
     'processor_affinity'    : [0, 1],   # Default is [], for no preference
+    'notify_on_completion'  : False,
+    'test_with_optimizer'   : False,
 
     # Network configuration
     'synapse_config'    : None,      # Full is 'std_stf'
@@ -31,7 +33,7 @@ par = {
     'df_num'            : '0008',    # Designates which dendrite function to use
 
     # hidden layer shape
-    'n_hidden'          : 60,
+    'n_hidden'          : 40,
     'den_per_unit'      : 4,
 
     # Timings and rates
@@ -75,15 +77,23 @@ par = {
     'U_stf'             : 0.15,
     'U_std'             : 0.45,
 
+    # Meta weights
+    'use_metaweights'   : False,
+    'use_mw_engine'     : False,
+    'num_mw'            : 3,
+    'mw_steps'          : 1000,
+    'mw_dt'             : 0.5,
+    'C_multiplier'      : 50,
+
     # Performance thresholds
     'stop_perf_th'      : 1,
     'stop_error_th'     : 1,
 
     # Training specs
     'batch_train_size'      : 100,
-    'num_train_batches'     : 100,
+    'num_train_batches'     : 300,
     'num_test_batches'      : 20,
-    'num_iterations'        : 60,
+    'num_iterations'        : 2,
     'switch_rule_iteration' : 1,
 
     # Save paths and other info
@@ -101,19 +111,12 @@ par = {
     'tuning_vars'       : None, #['state_hist', 'dend_hist', 'dend_exc_hist', 'dend_inh_hist'],
     'modul_vars'        : None,
 
-    # Meta weights
-    'use_metaweights'   : False,
-    'num_mw'            : 3,
-    'mw_steps'          : 200,
-    'mw_dt'             : 0.2,
-    'g_multiplier'      : 10,
-
     # Disinhibition circuit
     'use_connectivity'  : False,
     'use_disinhibition' : False,
 
     # Lesion
-    'use_lesion'        : True,
+    'use_lesion'        : False,
     'lesion_iter'       : 6
 }
 
@@ -160,10 +163,10 @@ def set_task_profile():
 
         par['permutation_id']        = 0
 
-        par['num_stim_tuned']        = 4 * par['num_RFs']
+        par['num_stim_tuned']        = 36 * par['num_RFs']
         par['num_fix_tuned']         = 0
-        par['num_rule_tuned']        = 4 * par['num_rules']
-        par['num_spatial_cue_tuned'] = 4 * par['num_RFs']
+        par['num_rule_tuned']        = 12 * par['num_rules']
+        par['num_spatial_cue_tuned'] = 12 * par['num_RFs']
         par['n_output']              = 3
 
         par['num_samples']           = 12     # Number of motion directions
