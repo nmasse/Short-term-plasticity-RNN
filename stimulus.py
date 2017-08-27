@@ -404,7 +404,7 @@ class Stimulus:
             """
             stim_dirs = [sample_dir]
             test_stim_code = 0
-            while len(stim_dirs) < par['max_num_tests']:
+            while len(stim_dirs) <= par['max_num_tests']:
                 if np.random.rand() < par['match_test_prob']:
                     stim_dirs.append(sample_dir)
                     test_stim_code += sample_dir*(10**len(stim_dirs)-1)
@@ -440,10 +440,10 @@ class Stimulus:
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
                     trial_info['match'][t,i] = 1
-                    #trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
+                    trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
-                    
+
             trial_info['sample'][t] = sample_dir
 
         return trial_info

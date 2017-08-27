@@ -19,12 +19,13 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     syn_u_stacked = np.stack(syn_u, axis=1)
     h_stacked = np.stack(h, axis=1)
     trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+    num_reps = 100
 
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
-        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = 100)
+        simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = num_reps)
 
     """
     Calculate neuronal and synaptic sample motion tuning
@@ -37,8 +38,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machhines
     """
-    neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['sample'], \
-        trial_info['rule'], trial_info['match'], trial_time, num_reps = 100)
+    neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, \
+        syn_u_stacked, trial_info, trial_time, num_reps = num_reps)
 
     """
     Save the results
@@ -56,13 +57,15 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'model_performance': model_performance,
         'parameters': par,
         'weights': weights,
-        'trial_time': trial_time}
+        'trial_time': trial_time,
+        'trial_info': trial_info,
+        'y_hat': y_hat}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
     print('Analysis results saved in ', save_fn)
 
-def calculate_svms(h, syn_x, syn_u, sample, rule, match, trial_time, num_reps = 20):
+def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20):
 
     """
     Calculates neuronal and synaptic decoding accuracies uisng support vector machines
@@ -88,18 +91,23 @@ def calculate_svms(h, syn_x, syn_u, sample, rule, match, trial_time, num_reps = 
         the sample direction belong to category 1, and the second half belong to category 2
         """
         num_motion_dirs = len(np.unique(sample))
-        sample = np.floor(sample/(num_motion_dirs/2)*np.ones_like(sample))
+        sample = np.floor(trial_info['sample']/(num_motion_dirs/2)*np.ones_like(sample))
+        rule = trial_info['rule']
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         """
         For ABBA/ABCA trials, will only analyze trials for which the first n-1
         test stimuli, out of n, are non-matches
         """
-        ind = np.where(np.sum(match[:,:-1],axis=1)==0)[0]
-        sample = sample[ind]
-        rule = rule[ind]
+        ind = np.where(np.sum(trial_info['match'][:,:-1],axis=1)==0)[0]
+        sample = trial_info['sample'][ind]
+        rule = trial_info['rule'][ind]
         h = h[:,:,ind]
         syn_efficacy = syn_efficacy[:,:,ind]
+
+    else:
+        sample = trial_info['sample']
+        rule = trial_info['rule']
 
     # number of unique samples
     N = len(np.unique(sample))
@@ -160,9 +168,6 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
                     score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_conds, equal_train_ind, equal_test_ind)
                     score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_conds, equal_train_ind, equal_test_ind)
 
-    score_h = np.squeeze(score_h)
-    score_syn_eff = np.squeeze(score_syn_eff)
-
     return score_h, score_syn_eff
 
 
@@ -170,20 +175,12 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
 def calc_svm(lin_clf, y, conds, train_ind, test_ind):
 
     # normalize values between 0 and 1
-    # only include feature (i.e neurons or synapses) whose min and max values differ
-
-    """
-    feature_ind = []
     for i in range(y.shape[1]):
         m1 = y[:,i].min()
         m2 = y[:,i].max()
         y[:,i] -= m1
         if m2>m1:
             y[:,i] /=(m2-m1)
-            feature_ind.append(i)
-
-    y = y[:, feature_ind]
-    """
 
     lin_clf.fit(y[train_ind,:], conds[train_ind])
     dec = lin_clf.predict(y[test_ind,:])
@@ -318,6 +315,13 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
         train_mask = trial_info['train_mask'][test_onset:,trial_ind]
         x = np.split(trial_info['neural_input'][:,test_onset:,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:,trial_ind]
+
+        print('trial_ind', trial_ind)
+        print('mean y0', np.sum(y[0,:,:]==0))
+        print('sum y1', np.sum(y[1,:,:]))
+        print('sum y2', np.sum(y[2,:,:]))
+        print('sum y1', np.sum(trial_info['desired_output'][1,:,trial_ind]))
+        print('sum y2', np.sum(trial_info['desired_output'][2,:,trial_ind]))
 
         for n in range(num_reps):
 
@@ -506,6 +510,8 @@ def get_perf(y, y_hat, mask):
     Calculate task accuracy by comparing the actual network output to the desired output
     only examine time points when test stimulus is on
     in another words, when y[0,:,:] is not 0
+    y is the desired output
+    y_hat is the actual output
     """
     y_hat = np.stack(y_hat, axis=1)
     mask *= y[0,:,:]==0

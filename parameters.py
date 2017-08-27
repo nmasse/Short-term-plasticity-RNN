@@ -58,15 +58,11 @@ par = {
     'U_stf'                 : 0.15,
     'U_std'                 : 0.45,
 
-    # Performance thresholds
-    'stop_perf_th'          : 0.99,
-    'stop_error_th'         : 0,
-
     # Training specs
     'batch_train_size'      : 128,
     'num_batches'           : 8,
     'num_iterations'        : 1000,
-    'iters_between_outputs' : 10,
+    'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -98,7 +94,7 @@ analysis_par = {
     'load_previous_model'   : True,
     'num_iterations'        : 1,
     'num_batches'           : 1,
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 2048,
     'var_delay'             : False,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
@@ -110,12 +106,12 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : False,
     'load_previous_model'   : False,
-    'num_iterations'        : 1500,
+    'num_iterations'        : 1000,
     'num_batches'           : 8,
     'batch_train_size'      : 128,
     'var_delay'             : True,
     'learning_rate'         : 5e-3,
-    'catch_trial_pct'       : 0.15,
+    'catch_trial_pct'       : 0,
     'delay_time'            : 1000
 }
 
@@ -264,8 +260,6 @@ def update_dependencies():
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
-    print('REMOVE RING')
-    quit()
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
 

@@ -1,14 +1,13 @@
 import numpy as np
 from parameters import *
 import model
+import sys
 
-task_list = ['DMC']
-models_per_task = 25
+task_list = ['ABCA']
 
 for task in task_list:
-    for j in range(4,models_per_task):
-        print('Training network on ', task,' task, network model number ', j)
-        save_fn = task + '_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
-        update_parameters(updates)
-        model.train_and_analyze()
+    j = sys.argv[1]
+    print('Training network on ', task,' task, network model number ', j)
+
+    update_parameters(updates)
+    model.train_and_analyze()
