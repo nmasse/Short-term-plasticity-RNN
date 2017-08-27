@@ -237,14 +237,14 @@ def train_and_analyze():
     tf.reset_default_graph()
     main()
 
-    if par['trial_type'] = 'dualDMS':
+    if par['trial_type'] == 'dualDMS':
         # run an additional session with probe stimuli
         save_fn_org = 'probe_' + par['save_fn']
         update = {'probe_trial_pct': 1, 'save_fn': save_fn}
         update_parameters(update)
         tf.reset_default_graph()
         main()
-    
+
     update_parameters(revert_analysis_par)
 
 
