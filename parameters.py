@@ -75,15 +75,18 @@ par = {
     'rule_onset_time'       : 1900,
     'rule_offset_time'      : 2100,
     'variable_delay_max'    : 500,
-    'mask_duration'         : 80,  # duration of traing mask after test onset
-    'catch_trial_pct'       : 0.15,
+    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'catch_trial_pct'       : 0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
     'ckpt_save_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
-    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt'
+    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
+
+    # Analysis
+    'svm_normalize'         : True
 }
 
 """
@@ -94,7 +97,7 @@ analysis_par = {
     'load_previous_model'   : True,
     'num_iterations'        : 1,
     'num_batches'           : 1,
-    'batch_train_size'      : 2048,
+    'batch_train_size'      : 1024,
     'var_delay'             : False,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0,
@@ -173,13 +176,15 @@ def update_trial_params():
             par['repeat_pct'] = 0.5
 
     elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
-        par['rotation_match'] = [0, 90]
+
         par['num_rules'] = 2
         par['num_rule_tuned'] = 12
         if par['trial_type'] == 'DMS+DMRS':
+            par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
             par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 700
         else:
+            par['rotation_match'] = [0, 45]
             par['rule_onset_time'] = par['dead_time']
             par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']
 
