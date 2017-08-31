@@ -11,17 +11,95 @@ plt.rcParams["font.family"] = "arial"
 def plot_all_figures():
 
     fig_params = {
-        'data_dir'              : 'C:/Users/nicol/Projects/RNN_STP_analysis/',
+        'data_dir'              : 'C:/Users/nicol/Projects/RNN_STP_Analysis/',
         'dt'                    : 10,
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
-    #plot_supp_figure(fig_params)
-    #plot_figure3(fig_params)
+    #plot_SF1(fig_params)
+    #plot_SF2(fig_params)
+    plot_F3(fig_params)
     #plot_figure4(fig_params)
-    plot_figure5(fig_params)
+    #plot_F5(fig_params)
 
-def plot_supp_figure(fig_params):
+def plot_SF2(fig_params):
+
+    task_name = 'DMRS45_51'
+    x = pickle.load(open(fig_params['data_dir'] + task_name + '.pkl', 'rb'))
+    t = range(-900,2000,fig_params['dt'])
+
+    early_sample_time = 40+50+5 # 100 ms into sample epoch
+    late_sample_time = 40+50+50 # 500 ms into sample epoch
+    test_time = 40+50+50+100+5
+
+    f = plt.figure(figsize=(7,5))
+    chance_level = 1/8
+
+    # plot neuronal decoding accuracy of the DMS and DMRs90 tasks
+    ax = f.add_subplot(2, 2, 1)
+    ax.plot(t,np.mean(x['neuronal_decoding'][0,0,:,:],axis=0),'g')
+    ax.plot(t,np.mean(x['synaptic_decoding'][0,0,:,:],axis=0),'m')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
+    ax.set_xticks([0,500,1500-10])
+    ax.set_ylim([0,1.02])
+    ax.set_xlim([-500,1500-10])
+    ax.plot([-900,2000],[chance_level,chance_level],'k--')
+    ax.plot([0,0],[0,1],'k--')
+    ax.plot([500,500],[0,1],'k--')
+    ax.set_ylabel('Decoding accuracy')
+    ax.set_xlabel('Time relative to sample onset (ms)')
+
+    # select neurons that are selective for both tasks
+    ind = np.where((x['neuronal_pev'][:,0,early_sample_time]>0.1)*(x['neuronal_pev'][:,0,early_sample_time]<1))[0]
+
+    # calculate the angular differences between the preferred directiosn measured in each tasks
+    diff_early = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,early_sample_time] \
+        -1j*x['neuronal_pref_dir'][ind,0,late_sample_time]))/np.pi*180
+    #diff_late = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind_late,0,late_sample_time] \
+    #    -1j*x['neuronal_pref_dir'][ind_late,1,late_sample_time]))/np.pi*180
+
+    diff_early_test = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,early_sample_time] \
+        -1j*x['neuronal_pref_dir_test'][ind,0,test_time]))/np.pi*180
+    diff_late_test = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,late_sample_time] \
+        -1j*x['neuronal_pref_dir_test'][ind,0,test_time]))/np.pi*180
+
+    bins = np.arange(-180,180,30)
+    ax = f.add_subplot(2, 2, 2)
+    ax.hist(diff_early, bins = bins)
+    ax.set_xticks([-180,-90,0,90,180])
+    ax.set_ylim([0,20])
+    ax.set_ylabel('Count')
+    ax.set_xlabel('Difference in preferred direction')
+
+    ax = f.add_subplot(2, 2, 3)
+    ax.hist(diff_early_test, bins = bins)
+    ax.set_xticks([-180,-90,0,90,180])
+    ax.set_ylim([0,20])
+    ax.set_ylabel('Count')
+
+    ax = f.add_subplot(2, 2, 4)
+    ax.hist(diff_late_test, bins = bins)
+    ax.set_xticks([-180,-90,0,90,180])
+    ax.set_ylim([0,20])
+    ax.set_ylabel('Count')
+    ax.set_xlabel('Difference in preferred direction')
+
+    #x = f.add_subplot(2, 3, 5)
+    #ax.hist(diff_late_test, bins = bins)
+    #ax.set_xticks([-180,-90,0,90,180])
+    #ax.set_ylim([0,20])
+    #ax.set_ylabel('Count')
+
+    plt.tight_layout()
+    plt.savefig('FigS2.pdf', format='pdf')
+    plt.show()
+
+
+def plot_SF1(fig_params):
 
     num_tasks = 3
     chance_level = 1/8
@@ -90,7 +168,7 @@ def plot_supp_figure(fig_params):
 
     print(model_signficance)
 
-def plot_figure4(fig_params):
+def plot_F4(fig_params):
 
     task = 'DMS+DMRS'
     t = range(-900,2000,fig_params['dt'])
@@ -227,7 +305,7 @@ def plot_figure4(fig_params):
     print(np.mean(np.reshape(accuracy_syn_shuffled,(2,-1)),axis=1))
 
 
-def plot_figure3(fig_params):
+def plot_F3(fig_params):
 
     tasks = ['DMS', 'DMRS180','DMRS45','DMRS90','DMC']
     num_tasks = len(tasks)
@@ -397,7 +475,7 @@ def plot_figure3(fig_params):
     print(decoding_p_val)
 
 
-def plot_figure5(fig_params):
+def plot_F5(fig_params):
 
     tasks = ['ABCA', 'ABBA']
     num_tasks = len(tasks)
@@ -444,15 +522,18 @@ def plot_figure5(fig_params):
 
         good_model_count = 0
         count = 0
-        while good_model_count < fig_params['models_per_task'] and count < 49:
+        while good_model_count < fig_params['models_per_task'] and count < 30:
             count += 1
             try:
-                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '_.pkl', 'rb'))
+                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
             except:
+                print('not found: ',  tasks[n] + '_' + str(count) + '.pkl')
                 continue
-
+            print(tasks[n] + '_' + str(count) + '.pkl', np.mean(x['accuracy']))
             if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
             #if 1 >  fig_params['accuracy_th']:
+                x['neuronal_decoding'] = np.reshape(x['neuronal_decoding'],(1,100,490))
+                x['synaptic_decoding'] = np.reshape(x['synaptic_decoding'],(1,100,490))
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
                 if tasks[n] == 'DMS':
@@ -463,6 +544,7 @@ def plot_figure5(fig_params):
                 accuracy_syn_shuffled[good_model_count,:] = x['accuracy_syn_shuffled']
                 good_model_count +=1
 
+        print('COUNT ', count)
         if good_model_count < fig_params['models_per_task']:
             print('Too few accurately trained models, good models = ', good_model_count)
 
