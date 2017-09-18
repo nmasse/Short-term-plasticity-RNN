@@ -21,23 +21,38 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
     num_reps = 100
 
+    if par['trial_type'] == 'dualDMS':
+        trial_info['rule'] = trial_info['rule'][:,0] + 2*trial_info['rule'][:,1]
+        par['num_rules'] = 4
+
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
+    print('simulating network...')
     accuracy, accuracy_neural_shuffled, accuracy_syn_shuffled = \
         simulate_network(trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_reps = num_reps)
 
+    print('lesioning weights...')
+    """
+    accuracy_rnn_start, accuracy_rnn_test, accuracy_out = lesion_weights(trial_info, \
+        h_stacked, syn_x_stacked, syn_u_stacked, weights)
+    """
+    accuracy_rnn_start = []
+    accuracy_rnn_test = []
+    accuracy_out = []
     """
     Calculate neuronal and synaptic sample motion tuning
     """
+
+    print('calculate tuning...')
     neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev, neuronal_pev_test, neuronal_pref_dir_test, neuronal_sample_tuning \
         = calculate_tuning(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, calculate_test = True)
-
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machhines
     """
+    print('decoding activity...')
     neuronal_decoding, synaptic_decoding = calculate_svms(h_stacked, syn_x_stacked, \
         syn_u_stacked, trial_info, trial_time, num_reps = num_reps)
 
@@ -60,7 +75,10 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'weights': weights,
         'trial_time': trial_time,
         'neuronal_pev_test': neuronal_pev_test,
-        'neuronal_pref_dir_test': neuronal_pref_dir_test}
+        'neuronal_pref_dir_test': neuronal_pref_dir_test,
+        'accuracy_rnn_start': accuracy_rnn_start,
+        'accuracy_rnn_test': accuracy_rnn_test,
+        'accuracy_out': accuracy_out}
 
     save_fn = par['save_dir'] + par['save_fn']
     pickle.dump(results, open(save_fn, 'wb') )
@@ -91,8 +109,8 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20):
         Will also calculate the category decoding accuracies, assuming the first half of
         the sample direction belong to category 1, and the second half belong to category 2
         """
-        num_motion_dirs = len(np.unique(sample))
-        sample = np.floor(trial_info['sample']/(num_motion_dirs/2)*np.ones_like(sample))
+        num_motion_dirs = len(np.unique(trial_info['sample']))
+        sample = np.floor(trial_info['sample']/(num_motion_dirs/2)*np.ones_like(trial_info['sample']))
         rule = trial_info['rule']
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
@@ -125,10 +143,6 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
     train_pct = 0.75
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
-
-    if par['trial_type'] == 'dualDMS':
-        rule = rule[:,0] + 2*rule[:,1]
-        par['num_rules'] = 4
 
     score_h = np.zeros((par['num_rules'], par['num_receptive_fields'], num_reps, num_time_steps))
     score_syn_eff = np.zeros((par['num_rules'], par['num_receptive_fields'], num_reps, num_time_steps))
@@ -198,7 +212,7 @@ def calc_svm(lin_clf, y, conds, train_ind, test_ind):
 def lesion_weights(trial_info, h, syn_x, syn_u, weights):
 
     N = weights['w_rnn'].shape[0]
-    num_reps = 10
+    num_reps = 5
     accuracy_rnn_start = np.ones((N,N), dtype=np.float32)
     accuracy_rnn_test = np.ones((N,N), dtype=np.float32)
     accuracy_out = np.ones((3,N), dtype=np.float32)
