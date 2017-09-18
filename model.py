@@ -157,8 +157,7 @@ class Model:
 
         """
         cross_entropy
-        """
-        """
+
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
@@ -167,40 +166,8 @@ class Model:
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
 
-        """
-        with tf.variable_scope('rnn_cell', reuse=True):
-            W_rnn = tf.get_variable('W_rnn')
-            W_in = tf.get_variable('W_in')
-        if par['EI']:
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
-        else:
-            W_rnn_effective = W_rnn
-
-        h = tf.stack(self.hidden_state_hist, axis = 1)
-        x = tf.stack(self.input_data, axis = 1)
-        print(x)
-        print(h)
-        print(W_rnn_effective)
-        print(W_in)
-
-        neural_input = tf.reshape(tf.tensordot(W_rnn_effective,h,axes=[[1],[0]]) + \
-            tf.tensordot(W_in,x,axes=[[1],[0]]),[par['n_hidden'],-1])
-
-        self.dend_loss0 = 0.1*tf.reduce_mean(tf.square(tf.reduce_mean(neural_input,axis=1)))
-        """
-
-        # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h,x in zip(self.hidden_state_hist, self.input_data)]
-
-        """
-        with tf.variable_scope('output', reuse=True):
-            W_out = tf.get_variable('W_out')
-        self.dend_loss = 0.05*(tf.reduce_mean(tf.nn.relu(W_rnn)) + tf.reduce_mean(tf.nn.relu(W_in)) + tf.reduce_mean(tf.nn.relu(W_out)))
-        """
-
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-
 
         self.loss = self.perf_loss + self.spike_loss
 
@@ -287,7 +254,7 @@ def main():
             print('Model ' +  par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'dend_loss': [], 'trial': [], 'time': []}
+        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
 
         for i in range(par['num_iterations']):
 
@@ -298,7 +265,6 @@ def main():
             loss = np.zeros((par['num_batches']))
             perf_loss = np.zeros((par['num_batches']))
             spike_loss = np.zeros((par['num_batches']))
-            dend_loss = np.zeros((par['num_batches']))
             accuracy = np.zeros((par['num_batches']))
 
             for j in range(par['num_batches']):
@@ -327,13 +293,13 @@ def main():
                 accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
 
             iteration_time = time.time() - t_start
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, dend_loss, (i+1)*N, iteration_time)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
 
             """
             Save the network model and output model performance to screen
             """
             if (i+1)%par['iters_between_outputs']==0 or i+1==par['num_iterations']:
-                print_results(i, N, iteration_time, perf_loss, spike_loss, dend_loss, state_hist, accuracy)
+                print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
                 save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
 
         """
@@ -343,12 +309,11 @@ def main():
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights)
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, dend_loss, spike_loss, trial_num, iteration_time):
+def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
 
     model_performance['accuracy'].append(np.mean(accuracy))
     model_performance['loss'].append(np.mean(loss))
     model_performance['perf_loss'].append(np.mean(perf_loss))
-    model_performance['dend_loss'].append(np.mean(dend_loss))
     model_performance['spike_loss'].append(np.mean(spike_loss))
     model_performance['trial'].append(trial_num)
     model_performance['time'].append(iteration_time)
@@ -376,8 +341,8 @@ def eval_weights():
 
     return weights
 
-def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, dend_loss, state_hist, accuracy):
+def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
 
     print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
       ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
-      ' | Dend loss {:0.4f}'.format(np.mean(dend_loss)) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
+      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
