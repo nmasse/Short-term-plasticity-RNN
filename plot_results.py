@@ -11,16 +11,17 @@ plt.rcParams["font.family"] = "arial"
 def plot_all_figures():
 
     fig_params = {
-        'data_dir'              : 'C:/Users/nicol/Projects/RNN_STP_Analysis/',
+        'data_dir'              : 'C:/Users/nicol/Projects/STP_Analysis_Test/',
         'dt'                    : 10,
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
     #plot_SF1(fig_params)
     #plot_SF2(fig_params)
-    plot_F3(fig_params)
-    #plot_figure4(fig_params)
+    #plot_F3(fig_params)
+    plot_F4(fig_params)
     #plot_F5(fig_params)
+    #plot_F6(fig_params)
 
 def plot_SF2(fig_params):
 
@@ -171,9 +172,9 @@ def plot_SF1(fig_params):
 def plot_F4(fig_params):
 
     task = 'DMS+DMRS'
-    t = range(-900,2000,fig_params['dt'])
-    delay_epoch = range(2300//fig_params['dt'],2400//fig_params['dt'])
-    f = plt.figure(figsize=(6,4.25))
+    t = range(-750,2000,fig_params['dt'])
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
+    f = plt.figure(figsize=(6,3.75))
     chance_level = 1/8
 
     # for each task, we will measure model significance with respect to:
@@ -203,14 +204,16 @@ def plot_F4(fig_params):
 
     good_model_count = 0
     count = 0
-    while good_model_count < fig_params['models_per_task']:
-        x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count+1) + '.pkl', 'rb'))
+    while good_model_count < fig_params['models_per_task'] and count < 21:
+        x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count) + '.pkl', 'rb'))
         count += 1
+        print(np.mean(x['accuracy'][0,:]), np.mean(x['accuracy'][1,:]))
         if np.mean(x['accuracy'][0,:]) > fig_params['accuracy_th'] and np.mean(x['accuracy'][1,:]) > fig_params['accuracy_th']:
-            for j in  range(2):
-                delay_accuracy[j, good_model_count] = np.mean(x['neuronal_decoding'][j,:,delay_epoch])
-                neuronal_decoding[j, good_model_count,:,:] = x['neuronal_decoding'][j,:,:]
-                synaptic_decoding[j, good_model_count,:,:] = x['synaptic_decoding'][j,:,:]
+
+            for j in range(2):
+                delay_accuracy[j, good_model_count] = np.mean(x['neuronal_decoding'][j,0,:,delay_epoch])
+                neuronal_decoding[j, good_model_count,:,:] = x['neuronal_decoding'][j,0,:,:]
+                synaptic_decoding[j, good_model_count,:,:] = x['synaptic_decoding'][j,0,:,:]
                 accuracy[j, good_model_count,:] = x['accuracy'][j,:]
                 accuracy_neural_shuffled[j, good_model_count,:] = x['accuracy_neural_shuffled'][j, :]
                 accuracy_syn_shuffled[j, good_model_count,:] = x['accuracy_syn_shuffled'][j, :]
@@ -307,14 +310,15 @@ def plot_F4(fig_params):
 
 def plot_F3(fig_params):
 
-    tasks = ['DMS', 'DMRS180','DMRS45','DMRS90','DMC']
+    tasks = [ 'DMS','DMRS180','DMRS90', 'DMC']
     num_tasks = len(tasks)
 
-    t = range(-900,2000,fig_params['dt'])
-    delay_epoch = range(2300//fig_params['dt'],2400//fig_params['dt'])
+    #t = range(-900,2000,fig_params['dt'])
+    t = range(-750,2000,fig_params['dt'])
+    #delay_epoch = range(2300//fig_params['dt'],2400//fig_params['dt'])
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
 
-    f = plt.figure(figsize=(6,8.5))
-    chance_level = 1/8
+    f = plt.figure(figsize=(6,7.5))
 
     # for each task, we will measure model significance with respect to:
     # dim 1 = 0, neuronal decoding during delay_accuracy
@@ -337,7 +341,7 @@ def plot_F3(fig_params):
 
     decoding_p_val =  np.zeros((num_tasks))
 
-    p_val_th = 0.01
+    p_val_th = 0.05
 
     # will use DMS decoding results for comparison
     neuronal_decoding_DMS  = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
@@ -353,6 +357,8 @@ def plot_F3(fig_params):
         delay_accuracy = np.zeros((fig_params['models_per_task']), dtype=np.float32)
         neuronal_decoding = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
         synaptic_decoding = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
+        mean_resp = np.zeros((fig_params['models_per_task'], len(t)), dtype=np.float32)
+
         accuracy = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
         accuracy_neural_shuffled = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
         accuracy_syn_shuffled = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
@@ -360,22 +366,44 @@ def plot_F3(fig_params):
 
         good_model_count = 0
         count = 0
-        while good_model_count < fig_params['models_per_task']:
-            x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count+1) + '.pkl', 'rb'))
+        while good_model_count < fig_params['models_per_task'] and count<20:
+            x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
             count += 1
+            print(count, np.mean(x['accuracy']))
             if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
-                delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,:,delay_epoch])
-                neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
+
+                delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,0,:,delay_epoch])
+                neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,0,:,:]
+                #delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,:,delay_epoch])
+                #neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
+                print(good_model_count, x['neuronal_decoding'].shape)
+
+
+                #mean_resp[good_model_count,:] = np.mean(np.reshape(x['neuronal_sample_tuning'],(-1,len(t))),axis=0)
                 if tasks[n] == 'DMS':
-                    neuronal_decoding_DMS[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
-                synaptic_decoding[good_model_count,:,:] = x['synaptic_decoding'][0,:,:]
+                    neuronal_decoding_DMS[good_model_count,:,:] = x['neuronal_decoding'][0,0,:,:]
+                    #neuronal_decoding_DMS[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
+
+                synaptic_decoding[good_model_count,:,:] = x['synaptic_decoding'][0,0,:,:]
+                #synaptic_decoding[good_model_count,:,:] = x['synaptic_decoding'][0,:,:]
+
+
                 accuracy[good_model_count,:] = x['accuracy']
                 accuracy_neural_shuffled[good_model_count,:] = x['accuracy_neural_shuffled']
                 accuracy_syn_shuffled[good_model_count,:] = x['accuracy_syn_shuffled']
                 good_model_count +=1
 
+
         if good_model_count < fig_params['models_per_task']:
             print('Too few accurately trained models')
+        """
+        print(mean_resp.shape)
+        plt.imshow(mean_resp)
+        plt.colorbar()
+        plt.show()
+        quit()
+        """
+
 
         model_signficance[n, 0] = np.sum(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2) \
             >chance_level,axis=1)>1-p_val_th)
@@ -390,11 +418,9 @@ def plot_F3(fig_params):
         sig_decrease_syn_shuffling[n,:] =  np.mean(accuracy-accuracy_syn_shuffled>0,axis=1)>1-p_val_th
         sig_syn_shuffling[n,:] = np.mean(accuracy_syn_shuffled>0.5,axis=1)>1-p_val_th
 
-
-        N = 100
-        a = np.reshape(np.tile(accuracy,(1,1,N)),(20,N**2))
-        b = np.tile(accuracy_neural_shuffled,(1,1,N))
-        b = np.reshape(np.transpose(b,(0,2,1)),(20,N**2))
+        a = np.reshape(np.tile(accuracy,(1,1,fig_params['N'])),(20,fig_params['N']**2))
+        b = np.tile(accuracy_neural_shuffled,(1,1,fig_params['N']))
+        b = np.reshape(np.transpose(b,(0,2,1)),(20,fig_params['N']**2))
         #print(tasks[n], np.mean(a-b>0,axis=1))
         ind = np.where(np.mean(accuracy_neural_shuffled,axis=1)<0.9)[0]
         print(tasks[n], ind)
@@ -411,6 +437,8 @@ def plot_F3(fig_params):
 
         decoding_p_val[n] = scipy.stats.ttest_ind(np.mean(np.mean(neuronal_decoding_DMS[:,:,delay_epoch],axis=2),axis=1), \
             np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1))[1]
+
+
         ax = f.add_subplot(num_tasks, 2, 2*n+1)
         plt.hold(True)
 
@@ -439,7 +467,7 @@ def plot_F3(fig_params):
         ax.plot(delay_accuracy, np.mean(accuracy_neural_shuffled,axis=1),'r.')
         ax.plot(delay_accuracy, np.mean(accuracy_syn_shuffled,axis=1),'c.')
         ax.plot([chance_level,chance_level],[0,1],'k--')
-        ax.set_aspect(1/0.62)
+        ax.set_aspect(1.02/0.62)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.xaxis.set_ticks_position('bottom')
@@ -447,6 +475,7 @@ def plot_F3(fig_params):
         ax.set_yticks([0,0.5,0.6,0.7,0.8,0.9,1])
         ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
         ax.set_ylim([0.4,1.02])
+        ax.set_xlim([0,1.02])
         ax.set_ylabel('Task accuracy')
         ax.set_xlabel('Delay neuronal decoding')
     plt.tight_layout()
@@ -475,13 +504,71 @@ def plot_F3(fig_params):
     print(decoding_p_val)
 
 
+def plot_F6(fig_params):
+
+
+    t = range(-750,3500,fig_params['dt'])
+    p_val_th = 0.01
+    chance_level = 1/8
+    x = pickle.load(open(fig_params['data_dir'] + 'dualDMS_2.pkl', 'rb'))
+    print('Shape')
+    print(x['neuronal_decoding'].shape)
+    print(len(t))
+
+    f = plt.figure(figsize=(6,4))
+
+    for j in range(4):
+        ax = f.add_subplot(2, 2, j+1)
+        ax.plot(t,np.mean(x['neuronal_decoding'][j,0,:,:],axis=0),'g')
+        ax.plot(t,np.mean(x['neuronal_decoding'][j,1,:,:],axis=0),'m')
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
+        ax.set_xticks([0,500,1500,2500,3500])
+        ax.set_ylim([0,1.02])
+        ax.set_xlim([-500,4000-10])
+        ax.plot([-900,4000],[chance_level,chance_level],'k--')
+        ax.plot([0,0],[0,1],'k--')
+        ax.plot([500,500],[0,1],'k--')
+        ax.set_ylabel('Decoding accuracy')
+        ax.set_xlabel('Time relative to sample onset (ms)')
+
+    plt.show()
+
+    f = plt.figure(figsize=(8,6))
+    for j in range(2):
+        ax = f.add_subplot(1, 2, j+1)
+        ax.plot(t,np.mean(x['neuronal_decoding'][0,j,:,:],axis=0),'g')
+        ax.plot(t,np.mean(x['neuronal_decoding'][1,j,:,:],axis=0),'m')
+        ax.plot(t,np.mean(x['neuronal_decoding'][2,j,:,:],axis=0),'b')
+        ax.plot(t,np.mean(x['neuronal_decoding'][3,j,:,:],axis=0),'c')
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
+        ax.set_xticks([0,500,1500,2500,3500])
+        ax.set_ylim([0,1.02])
+        ax.set_xlim([-500,4000-10])
+        ax.plot([-900,4000],[chance_level,chance_level],'k--')
+        ax.plot([0,0],[0,1],'k--')
+        ax.plot([500,500],[0,1],'k--')
+        ax.set_ylabel('Decoding accuracy')
+        ax.set_xlabel('Time relative to sample onset (ms)')
+
+    plt.show()
+
 def plot_F5(fig_params):
 
-    tasks = ['ABCA', 'ABBA']
+    tasks = ['ABCA','ABBA']
     num_tasks = len(tasks)
 
-    t = range(-900,4000,fig_params['dt'])
-    delay_epoch = range(4300//fig_params['dt'],4400//fig_params['dt'])
+    #t = range(-900,4000,fig_params['dt'])
+    t = range(-750,3300,fig_params['dt'])
+    #delay_epoch = range(4300//fig_params['dt'],4400//fig_params['dt'])
+    delay_epoch = range(3350//fig_params['dt'],3450//fig_params['dt'])
 
     f = plt.figure(figsize=(6,4))
     chance_level = 1/8
@@ -521,19 +608,19 @@ def plot_F5(fig_params):
         accuracy_syn_shuffled = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
 
         good_model_count = 0
-        count = 0
-        while good_model_count < fig_params['models_per_task'] and count < 30:
+        count = -1
+        while good_model_count < fig_params['models_per_task'] and count < 11:
             count += 1
             try:
-                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
+                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '_long.pkl', 'rb'))
             except:
                 print('not found: ',  tasks[n] + '_' + str(count) + '.pkl')
                 continue
             print(tasks[n] + '_' + str(count) + '.pkl', np.mean(x['accuracy']))
-            if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
+            if np.mean(x['accuracy']) >  0*fig_params['accuracy_th']:
             #if 1 >  fig_params['accuracy_th']:
-                x['neuronal_decoding'] = np.reshape(x['neuronal_decoding'],(1,100,490))
-                x['synaptic_decoding'] = np.reshape(x['synaptic_decoding'],(1,100,490))
+                x['neuronal_decoding'] = np.reshape(x['neuronal_decoding'],(1,fig_params['N'],len(t)))
+                x['synaptic_decoding'] = np.reshape(x['synaptic_decoding'],(1,fig_params['N'],len(t)))
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_decoding'][0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
                 if tasks[n] == 'DMS':
