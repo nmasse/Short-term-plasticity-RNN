@@ -45,8 +45,9 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
 
     print('calculate tuning...')
-    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev, neuronal_pev_test, neuronal_pref_dir_test, neuronal_sample_tuning \
-        = calculate_tuning(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, calculate_test = True)
+    neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev, neuronal_pev_test, neuronal_pref_dir_test, \
+        neuronal_sample_tuning,synaptic_sample_tuning = calculate_tuning(h_stacked, syn_x_stacked, syn_u_stacked, \
+        trial_info, trial_time, calculate_test = True)
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
@@ -65,6 +66,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         'neuronal_pref_dir': neuronal_pref_dir,
         'neuronal_pev': neuronal_pev,
         'neuronal_sample_tuning': neuronal_sample_tuning,
+        'synaptic_sample_tuning' : synaptic_sample_tuning,
         'synaptic_pref_dir': synaptic_pref_dir,
         'synaptic_pev': synaptic_pev,
         'accuracy': accuracy,
@@ -373,6 +375,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, calculate_test = F
     neuronal_pref_dir = np.zeros((par['n_hidden'],  par['num_rules'], num_time_steps))
     synaptic_pref_dir = np.zeros((par['n_hidden'],  par['num_rules'], num_time_steps))
     neuronal_sample_tuning = np.zeros((par['n_hidden'],  par['num_rules'], par['num_motion_dirs'], num_time_steps))
+    synaptic_sample_tuning = np.zeros((par['n_hidden'],  par['num_rules'], par['num_motion_dirs'], num_time_steps))
     neuronal_pev = np.zeros((par['n_hidden'],  par['num_rules'], num_time_steps))
     synaptic_pev = np.zeros((par['n_hidden'],  par['num_rules'], num_time_steps))
 
@@ -430,6 +433,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, calculate_test = F
                 for md in range(par['num_motion_dirs']):
                     ind_motion_dir = ind = np.where((rule==r)*(sample==md))[0]
                     neuronal_sample_tuning[n,r,md,t] = np.mean(h[n,t,ind_motion_dir])
+                    synaptic_sample_tuning[n,r,md,t] = np.mean(syn_efficacy[n,t,ind_motion_dir])
 
                 # Neuronal sample tuning
                 weights = np.linalg.lstsq(sample_dir[ind,:], h[n,t,ind])
@@ -459,7 +463,8 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, calculate_test = F
                 synaptic_pev[n,r,t] = 1 - mse/(response_var+1e-9)
                 synaptic_pref_dir[n,r,t] = np.arctan2(weights[2,0],weights[1,0])
 
-    return neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev, neuronal_pev_test, neuronal_pref_dir_test, neuronal_sample_tuning
+    return neuronal_pref_dir, neuronal_pev, synaptic_pref_dir, synaptic_pev, neuronal_pev_test, neuronal_pref_dir_test, \
+        neuronal_sample_tuning, synaptic_sample_tuning
 
 
 def run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights):
