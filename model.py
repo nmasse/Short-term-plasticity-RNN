@@ -151,16 +151,16 @@ class Model:
 
         """
         Calculate the loss functions and optimize the weights
-        """
+
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
+        """
         """
         cross_entropy
-
+        """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
+
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
@@ -193,25 +193,8 @@ class Model:
 
 def train_and_analyze():
 
-    """
-    Train the network model given the paramaters, then re-run the model at finer
-    temporal resoultion and with more trials, and then analyze the model results.
-    Paramaters used for analysis purposes found in analysis_par.
-    """
-
-    main()
-    update_parameters(analysis_par)
     tf.reset_default_graph()
     main()
-
-    if par['trial_type'] == 'dualDMS':
-        # run an additional session with probe stimuli
-        save_fn_org = 'probe_' + par['save_fn']
-        update = {'probe_trial_pct': 1, 'save_fn': save_fn}
-        update_parameters(update)
-        tf.reset_default_graph()
-        main()
-
     update_parameters(revert_analysis_par)
 
 
@@ -228,7 +211,7 @@ def main():
     stim = stimulus.Stimulus()
 
     n_input, n_hidden, n_output = par['shape']
-    N = par['batch_train_size'] * par['num_batches'] # trials per iteration, calculate gradients after batch_train_size
+    N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
 
     """
     Define all placeholder
@@ -258,39 +241,18 @@ def main():
 
         for i in range(par['num_iterations']):
 
-            # generate batch of N (batch_train_size X num_batches) trials
+            # generate batch of batch_train_size
             trial_info = stim.generate_trial()
 
-            # keep track of the model performance for this batch
-            loss = np.zeros((par['num_batches']))
-            perf_loss = np.zeros((par['num_batches']))
-            spike_loss = np.zeros((par['num_batches']))
-            accuracy = np.zeros((par['num_batches']))
+            """
+            Run the model
+            """
+            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
+                model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
+                y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
-            for j in range(par['num_batches']):
-
-                """
-                Select batches of size batch_train_size
-                """
-                ind = range(j*par['batch_train_size'],(j+1)*par['batch_train_size'])
-                target_data = trial_info['desired_output'][:,:,ind]
-                input_data = trial_info['neural_input'][:,:,ind]
-                train_mask = trial_info['train_mask'][:,ind]
-
-                """
-                Run the model
-                If learning rate > 0, then also run the optimizer;
-                if learning rate = 0, then skip optimizer
-                """
-                if par['learning_rate']>0:
-                    _, loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                        sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
-                        model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
-                else:
-                    loss[j], perf_loss[j], spike_loss[j], y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                        sess.run([model.loss, model.perf_loss, model.spike_loss, model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: input_data, y: target_data, mask: train_mask})
-
-                accuracy[j] = analysis.get_perf(target_data, y_hat, train_mask)
+            accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
             iteration_time = time.time() - t_start
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
@@ -300,21 +262,47 @@ def main():
             """
             if (i+1)%par['iters_between_outputs']==0 or i+1==par['num_iterations']:
                 print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
-                save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
+
 
         """
-        Analyze the network model and save the results
+        Save model, analyze the network model and save the results
         """
+        save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights)
+            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
+                simulation = True, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+
+            # Generate another batch of trials with decoding_test_mode = True (sample and test stimuli
+            # are independently drawn), and then perform tuning and decoding analysis
+            update = {'decoding_test_mode': True}
+            update_parameters(update)
+            trial_info = stim.generate_trial()
+            y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
+                {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
+            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
+                simulation = False, tuning = True, decoding = True, load_previous_file = True, save_raw_data = True)
+
+            if par['trial_type'] == 'dualDMS':
+                # run an additional session with probe stimuli
+                save_fn = 'probe_' + par['save_fn']
+                update = {'probe_trial_pct': 1, 'save_fn': save_fn}
+                update_parameters(update)
+                trial_info = stim.generate_trial()
+                y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                    sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
+                    {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
+                analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, \
+                    syn_u_hist, model_performance, weights)
+
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
 
-    model_performance['accuracy'].append(np.mean(accuracy))
-    model_performance['loss'].append(np.mean(loss))
-    model_performance['perf_loss'].append(np.mean(perf_loss))
-    model_performance['spike_loss'].append(np.mean(spike_loss))
+    model_performance['accuracy'].append(accuracy)
+    model_performance['loss'].append(loss)
+    model_performance['perf_loss'].append(perf_loss)
+    model_performance['spike_loss'].append(spike_loss)
     model_performance['trial'].append(trial_num)
     model_performance['time'].append(iteration_time)
 
