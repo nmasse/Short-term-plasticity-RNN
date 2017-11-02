@@ -9,7 +9,7 @@ class Stimulus:
 
         # generate tuning functions
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
-        self.num_trials = par['num_batches']*par['batch_train_size']
+        self.num_trials = par['batch_train_size']
 
 
     def generate_trial(self):
@@ -58,6 +58,16 @@ class Stimulus:
         eod2 = (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']
         trial_length = (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time'])//par['dt']
 
+        # rule cue time
+        """
+        rule_onset1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_onset_time'])//par['dt']
+        rule_offset1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_offset_time'])//par['dt']
+        rule_onset2 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']\
+            +par['test_time']+par['rule_onset_time'])//par['dt']
+        rule_offset2 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']\
+            +par['test_time']+par['rule_offset_time'])//par['dt']
+        """
+
         cue_time1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']//2)//par['dt']
         cue_time2 = (par['dead_time']+par['fix_time']+par['sample_time']+3*par['delay_time']//2+par['test_time'])//par['dt']
 
@@ -103,27 +113,31 @@ class Stimulus:
             # determine test stimulu based on sample and match status
             for i in range(2):
 
-                # if trial is not a catch, the upcoming test modality (what the network should be attending to)
-                # is given by the rule cue
-                if not trial_info['catch'][t,i]:
-                    trial_info['test_mod'][t,i] = trial_info['rule'][t,i]
+                if par['decoding_test_mode']:
+                    trial_info['test'][t,i,0] = np.random.randint(par['num_motion_dirs'])
+                    trial_info['test'][t,i,1] = np.random.randint(par['num_motion_dirs'])
                 else:
-                    trial_info['test_mod'][t,i] = (trial_info['rule'][t,i]+1)%2
+                    # if trial is not a catch, the upcoming test modality (what the network should be attending to)
+                    # is given by the rule cue
+                    if not trial_info['catch'][t,i]:
+                        trial_info['test_mod'][t,i] = trial_info['rule'][t,i]
+                    else:
+                        trial_info['test_mod'][t,i] = (trial_info['rule'][t,i]+1)%2
 
-                # cued test stimulus
-                if trial_info['match'][t,i] == 1:
-                    trial_info['test'][t,i,0] = trial_info['sample'][t,trial_info['test_mod'][t,i]]
-                else:
-                    sample = trial_info['sample'][t,trial_info['test_mod'][t,i]]
-                    #bad_directions = [(i+sample+par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in range(1)]
-                    #bad_directions.append(sample_dir)
-                    bad_directions = [sample]
-                    #possible_stim = np.setdiff1d(list(range(self.num_stim)), sample)
-                    possible_stim = np.setdiff1d(list(range(par['num_motion_dirs'])), bad_directions)
-                    trial_info['test'][t,i,0] = possible_stim[np.random.randint(len(possible_stim))]
+                    # cued test stimulus
+                    if trial_info['match'][t,i] == 1:
+                        trial_info['test'][t,i,0] = trial_info['sample'][t,trial_info['test_mod'][t,i]]
+                    else:
+                        sample = trial_info['sample'][t,trial_info['test_mod'][t,i]]
+                        #bad_directions = [(i+sample+par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in range(1)]
+                        #bad_directions.append(sample_dir)
+                        bad_directions = [sample]
+                        #possible_stim = np.setdiff1d(list(range(self.num_stim)), sample)
+                        possible_stim = np.setdiff1d(list(range(par['num_motion_dirs'])), bad_directions)
+                        trial_info['test'][t,i,0] = possible_stim[np.random.randint(len(possible_stim))]
 
-                # non-cued test stimulus
-                trial_info['test'][t,i,1] = np.random.randint(par['num_motion_dirs'])
+                    # non-cued test stimulus
+                    trial_info['test'][t,i,1] = np.random.randint(par['num_motion_dirs'])
 
 
             """
@@ -192,7 +206,6 @@ class Stimulus:
         Goal is to determine whether the sample stimulus, possibly manipulated by a rule, is
         identicical to a test stimulus
         Sample and test stimuli are separated by a delay
-        Rule = 0,1,2, or 3
         """
 
         # range of variable delay, in time steps
@@ -213,8 +226,8 @@ class Stimulus:
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
 
         # rule cue time
-        rule_onset = par['rule_onset_time']//par['dt']
-        rule_offset = par['rule_offset_time']//par['dt']
+        rule_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_onset_time'])//par['dt']
+        rule_offset = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_offset_time'])//par['dt']
 
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
@@ -244,6 +257,8 @@ class Stimulus:
             Generate trial paramaters
             """
             sample_dir = np.random.randint(par['num_motion_dirs'])
+            if par['decoding_test_mode']:
+                test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
             match = np.random.randint(2)
             catch = np.random.rand() < par['catch_trial_pct']
@@ -261,7 +276,7 @@ class Stimulus:
             The total trial length is kept constant, so a shorter delay implies a longer test stimulus
             """
             if par['var_delay']:
-                s = np.int_(np.random.exponential(scale=par['variable_delay_max']/par['dt']))
+                s = int(np.random.exponential(scale=par['variable_delay_max']/par['dt']))
                 if s <= par['variable_delay_max']:
                     eod_current = eod - var_delay_max + s
                 else:
@@ -277,25 +292,26 @@ class Stimulus:
             Generate the sample and test stimuli based on the rule
             """
             # DMC
-            if par['trial_type'] == 'DMC': # categorize between two equal size, contiguous zones
-                sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
-                if match == 1: # match trial
-                    # do not use sample_dir as a match test stimulus
-                    dir0 = int(sample_cat*par['num_motion_dirs']//2)
-                    dir1 = int(par['num_motion_dirs']//2 + sample_cat*par['num_motion_dirs']//2)
-                    possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
-                    test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+            if not par['decoding_test_mode']:
+                if par['trial_type'] == 'DMC': # categorize between two equal size, contiguous zones
+                    sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
+                    if match == 1: # match trial
+                        # do not use sample_dir as a match test stimulus
+                        dir0 = int(sample_cat*par['num_motion_dirs']//2)
+                        dir1 = int(par['num_motion_dirs']//2 + sample_cat*par['num_motion_dirs']//2)
+                        possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
+                        test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+                    else:
+                        test_dir = sample_cat*(par['num_motion_dirs']//2) + np.random.randint(par['num_motion_dirs']//2)
+                        test_dir = np.int_((test_dir+par['num_motion_dirs']//2)%par['num_motion_dirs'])
+                # DMS or DMRS
                 else:
-                    test_dir = sample_cat*(par['num_motion_dirs']//2) + np.random.randint(par['num_motion_dirs']//2)
-                    test_dir = np.int_((test_dir+par['num_motion_dirs']//2)%par['num_motion_dirs'])
-            # DMS or DMRS
-            else:
-                matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
-                if match == 1: # match trial
-                    test_dir = matching_dir
-                else:
-                    possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
-                    test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+                    matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
+                    if match == 1: # match trial
+                        test_dir = matching_dir
+                    else:
+                        possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
+                        test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
 
 
             """
@@ -404,22 +420,27 @@ class Stimulus:
             """
             stim_dirs = [sample_dir]
             test_stim_code = 0
-            while len(stim_dirs) <= par['max_num_tests']:
-                if np.random.rand() < par['match_test_prob']:
-                    stim_dirs.append(sample_dir)
-                    test_stim_code += sample_dir*(10**len(stim_dirs)-1)
-                    break
-                else:
-                    if len(stim_dirs) > 1  and np.random.rand() < par['repeat_pct']:
-                        #repeat last stimulus
-                        stim_dirs.append(stim_dirs[-1])
-                        trial_info['repeat_test_stim'][t] = 1
-                        test_stim_code += stim_dirs[-1]*(10**len(stim_dirs)-1)
+
+            if par['decoding_test_mode']:
+                # used to analyze how sample and test neuronal and synaptic tuning relate
+                # not used to evaluate task accuracy
+                while len(stim_dirs) <= par['max_num_tests']:
+                    q = np.random.randint(par['num_motion_dirs'])
+                    stim_dirs.append(q)
+            else:
+                while len(stim_dirs) <= par['max_num_tests']:
+                    if np.random.rand() < par['match_test_prob']:
+                        stim_dirs.append(sample_dir)
+                        break
                     else:
-                        possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), [stim_dirs])
-                        distractor_dir = possible_dirs[np.random.randint(len(possible_dirs))]
-                        stim_dirs.append(distractor_dir)
-                        test_stim_code += distractor_dir*(10**len(stim_dirs)-1)
+                        if len(stim_dirs) > 1  and np.random.rand() < par['repeat_pct']:
+                            #repeat last stimulus
+                            stim_dirs.append(stim_dirs[-1])
+                            trial_info['repeat_test_stim'][t] = 1
+                        else:
+                            possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), [stim_dirs])
+                            distractor_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+                            stim_dirs.append(distractor_dir)
 
             trial_info['num_test_stim'][t] = len(stim_dirs)
 
@@ -440,7 +461,7 @@ class Stimulus:
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
                     trial_info['match'][t,i] = 1
-                    trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
+                    #trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
 
@@ -481,7 +502,7 @@ class Stimulus:
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
                 if n%par['num_rules'] == i:
-                    rule_tuning[n,i] = par['tuning_height']
+                    rule_tuning[n,i] = par['tuning_height']/2
 
 
         return np.squeeze(motion_tuning), fix_tuning, rule_tuning
