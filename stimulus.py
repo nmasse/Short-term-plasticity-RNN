@@ -408,6 +408,7 @@ class Stimulus:
 
         # set fixation equal to 1 for all times; will then change
         trial_info['desired_output'][0, :, :] = 1
+        rep_num = 0
 
         for t in range(self.num_trials):
 
@@ -431,7 +432,7 @@ class Stimulus:
                 while len(stim_dirs) <= par['max_num_tests']:
                     if np.random.rand() < par['match_test_prob']:
                         stim_dirs.append(sample_dir)
-                        break
+                        #break
                     else:
                         if len(stim_dirs) > 1  and np.random.rand() < par['repeat_pct']:
                             #repeat last stimulus
@@ -497,7 +498,7 @@ class Stimulus:
         for n in range(par['num_fix_tuned']):
             for i in range(2):
                 if n%2 == i:
-                    fix_tuning[n,i] = par['tuning_height']
+                    fix_tuning[n,i] = par['tuning_height']/2
 
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
