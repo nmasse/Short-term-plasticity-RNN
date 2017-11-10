@@ -36,10 +36,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         results['syn_x'] = np.array(syn_x)
         results['syn_u'] = np.array(syn_u)
         results['y_hat'] = np.array(y_hat)
-        results['trial_info'] = np.array(trial_info)
+        results['trial_info'] = trial_info
 
-    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-        trial_info['test'] = trial_info['test'][:,0]
 
     """
     Calculate the neuronal and synaptic contributions towards solving the task
@@ -58,13 +56,13 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     if tuning:
         print('calculate tuning...')
         tuning_results = calculate_tuning(h_stacked, syn_x_stacked, syn_u_stacked, \
-            trial_info, trial_time, weights, calculate_test = par['analyze_test'])
+            trial_info, trial_time, weights, calculate_test = par['decode_test'])
         for key, val in tuning_results.items():
             results[key] = val
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
-    using support vector machhines
+    using support vector machines
     """
     if decoding:
         print('decoding activity...')
@@ -73,8 +71,6 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
             decode_sample_vs_test = par['decode_sample_vs_test'])
         for key, val in decoding_results.items():
             results[key] = val
-
-
 
     pickle.dump(results, open(save_fn, 'wb') )
     print('Analysis results saved in ', save_fn)
@@ -116,6 +112,11 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         sample = trial_info['sample']
         rule = trial_info['rule']
 
+    if trial_info['test'].ndim == 2:
+        test = trial_info['test'][:,0]
+    else:
+        test = np.array(trial_info['test'])
+
 
     # number of unique samples
     N = len(np.unique(sample))
@@ -131,7 +132,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     if decode_test:
         print('test decoding...')
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, trial_info['test'], rule, num_reps, N, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, N, trial_time)
 
     if decode_rule:
         print('rule decoding...')
@@ -350,7 +351,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, weights):
 
 
 
-def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
+def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20):
 
     """
     Simulation will start from the start of the test period until the end of trial
@@ -391,7 +392,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             hidden_init = h[:,test_onset-1,trial_ind]
             syn_x_init = syn_x[:,test_onset-1,trial_ind]
             syn_u_init = syn_u[:,test_onset-1,trial_ind]
-            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy'][r,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
             """
@@ -400,7 +401,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             ind_shuffle = np.random.permutation(len(trial_ind))
 
             hidden_init = hidden_init[:,ind_shuffle]
-            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy_neural_shuffled'][r,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
             """
@@ -409,8 +410,82 @@ def simulate_network(trial_info, h, syn_x, syn_u, weights, num_reps = 20):
             hidden_init = h[:,test_onset-1,trial_ind]
             syn_x_init = syn_x_init[:,ind_shuffle]
             syn_u_init = syn_u_init[:,ind_shuffle]
-            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, weights)
+            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy_syn_shuffled'][r,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
+
+        if par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA':
+
+            simulation_results['ABBA_test2_acc_shuffled'] = np.zeros((7,18,3))
+            _, trial_length, batch_train_size = h.shape
+            trial_ind = range(batch_train_size)
+
+            if par['suppress_analysis']:
+
+                trial_onset = (par['dead_time'])//par['dt']
+                test_onset = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
+                test_length = trial_length - trial_onset
+                x = np.split(trial_info['neural_input'][:,trial_onset:,trial_ind],test_length,axis=1)
+                y = trial_info['desired_output'][:,trial_onset:,trial_ind]
+                train_mask = trial_info['train_mask'][trial_onset:,trial_ind]
+                train_mask[test_onset + par['ABBA_delay']//par['dt']:, :] = 0
+                syn_x_init = syn_x[:,trial_onset-1,trial_ind]
+                syn_u_init = syn_u[:,trial_onset-1,trial_ind]
+                hidden_init = h[:,trial_onset-1,trial_ind]
+
+                y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
+                acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
+                simulation_results['ABBA_test2_acc'] = np.array([acc, acc_non_match, acc_match])
+
+                time_range = []
+                for k in range(9):
+                    time_range.append(range(test_onset-k*5, test_onset))
+                for k in range(9):
+                    time_range.append(range(test_onset-k*5+20, test_onset+20))
+
+                for k in range(18):
+                    for k1 in range(7):
+
+                        suppress_activity = np.ones((par['n_hidden'], test_length))
+                        if k1 == 0:
+                            for m2 in time_range[k]:
+                                suppress_activity[:,m2] = 0
+                        elif k1 == 1:
+                            for m1 in range(par['num_exc_units']):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        elif k1 == 2:
+                            for m1 in range(par['num_exc_units'], par['n_hidden']):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        elif k1 == 3:
+                            for m1 in range(0, par['num_exc_units'], 2):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        elif k1 == 4:
+                            for m1 in range(1, par['num_exc_units'], 2):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        elif k1 == 5:
+                            for m1 in range(par['num_exc_units'], par['n_hidden'], 2):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        elif k1 == 6:
+                            for m1 in range(par['num_exc_units']+1, par['n_hidden'], 2):
+                                for m2 in time_range[k]:
+                                    suppress_activity[m1,m2] = 0
+
+                        suppress_activity = np.split(suppress_activity, test_length, axis=1)
+
+                        y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
+                            syn_u_init, network_weights, suppress_activity = suppress_activity)
+                        acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
+                        simulation_results['ABBA_test2_acc_shuffled'][k1,k,:] = np.array([acc, acc_non_match, acc_match])
+
 
     return simulation_results
 
@@ -431,8 +506,8 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
         'synaptic_pref_dir_test': np.zeros((par['n_hidden'],  par['num_rules'], num_time_steps), dtype=np.float32),
         'neuronal_sample_tuning': np.zeros((par['n_hidden'],  par['num_rules'], par['num_motion_dirs'], num_time_steps), dtype=np.float32),
         'synaptic_sample_tuning': np.zeros((par['n_hidden'],  par['num_rules'], par['num_motion_dirs'], num_time_steps), dtype=np.float32),
-        'synaptic_pev_test_shuffled' : np.zeros((3,21,par['n_hidden'],  par['num_rules'], num_time_steps), dtype=np.float32),
-        'synaptic_pref_dir_test_shuffled' : np.zeros((3,21,par['n_hidden'],  par['num_rules'], num_time_steps), dtype=np.float32)}
+        'synaptic_pev_test_shuffled' : np.zeros((7,18,par['n_hidden'],  par['num_rules'], num_time_steps), dtype=np.float32),
+        'synaptic_pref_dir_test_shuffled' : np.zeros((7,18,par['n_hidden'],  par['num_rules'], num_time_steps), dtype=np.float32)}
 
 
 
@@ -442,15 +517,17 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
     """
     syn_efficacy = syn_x*syn_u
 
-    if par['trial_type'] == 'dualDMS':
-        # only analyze the first sample stimulus
-        sample = trial_info['sample'][:,0]
-        test = trial_info['test'][:,0]
-        rule = trial_info['rule']
-    else:
-        sample = trial_info['sample']
-        test = trial_info['test']
-        rule = trial_info['rule']
+    sample = np.array(trial_info['sample'])
+    test = np.array(trial_info['test'])
+    rule = np.array(trial_info['rule'])
+    if sample.ndim == 2:
+        sample = sample[:, 0]
+    if test.ndim == 2:
+        test = test[:, 0]
+    if test.ndim == 3:
+        test = test[:, 0, 0]
+
+
 
     # number of unique samples
     N = len(np.unique(sample))
@@ -517,16 +594,12 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
     if par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA':
 
-        shuffle_analysis = False
-        suppress_analysis = True
 
-        tuning_results['ABBA_test2_acc'] = []
-        tuning_results['ABBA_test2_acc_shuffled'] = []
         trial_ind = np.where((rule==r))[0]
         _, trial_length, batch_train_size = h.shape
 
 
-        if suppress_analysis and par['decoding_reps'] > 0:
+        if par['suppress_analysis']:
 
             trial_onset = (par['dead_time'])//par['dt']
             test_onset = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
@@ -539,33 +612,53 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
             syn_u_init = syn_u[:,trial_onset-1,trial_ind]
             hidden_init = h[:,trial_onset-1,trial_ind]
 
-            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
-            acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-            tuning_results['ABBA_test2_acc'].append([acc, acc_non_match, acc_match])
+            time_range = []
+            for k in range(9):
+                time_range.append(range(test_onset-k*5, test_onset))
+            for k in range(9):
+                time_range.append(range(test_onset-k*5+20, test_onset+20))
 
-            for k in range(21):
-                for k1 in range(3):
-                    print(k,k1)
+            for k in range(18):
+                for k1 in range(7):
 
                     suppress_activity = np.ones((par['n_hidden'], test_length))
                     if k1 == 0:
-                        suppress_activity[:, test_onset-k*2: test_onset] = 0
+                        for m2 in time_range[k]:
+                            suppress_activity[:,m2] = 0
                     elif k1 == 1:
                         for m1 in range(par['num_exc_units']):
-                            for m2 in range(test_onset-k*2, test_onset):
+                            for m2 in time_range[k]:
                                 suppress_activity[m1,m2] = 0
 
                     elif k1 == 2:
                         for m1 in range(par['num_exc_units'], par['n_hidden']):
-                            for m2 in range(test_onset-k*2, test_onset):
+                            for m2 in time_range[k]:
+                                suppress_activity[m1,m2] = 0
+
+                    elif k1 == 3:
+                        for m1 in range(0, par['num_exc_units'], 2):
+                            for m2 in time_range[k]:
+                                suppress_activity[m1,m2] = 0
+
+                    elif k1 == 4:
+                        for m1 in range(1, par['num_exc_units'], 2):
+                            for m2 in time_range[k]:
+                                suppress_activity[m1,m2] = 0
+
+                    elif k1 == 5:
+                        for m1 in range(par['num_exc_units'], par['n_hidden'], 2):
+                            for m2 in time_range[k]:
+                                suppress_activity[m1,m2] = 0
+
+                    elif k1 == 6:
+                        for m1 in range(par['num_exc_units']+1, par['n_hidden'], 2):
+                            for m2 in time_range[k]:
                                 suppress_activity[m1,m2] = 0
 
                     suppress_activity = np.split(suppress_activity, test_length, axis=1)
 
                     y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
                         syn_u_init, network_weights, suppress_activity = suppress_activity)
-                    acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                    tuning_results['ABBA_test2_acc_shuffled'].append([acc, acc_non_match, acc_match])
 
                     syn_efficacy = syn_x_sim*syn_u_sim
 
@@ -579,57 +672,6 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                             response_var = np.var(syn_efficacy[n,t,ind])
                             tuning_results['synaptic_pev_test_shuffled'][k1,k,n,r,t+trial_onset] = 1 - mse/(response_var+1e-9)
                             tuning_results['synaptic_pref_dir_test_shuffled'][k1,k,n,r,t+trial_onset] = np.arctan2(weights[2,0],weights[1,0])
-
-
-        if shuffle_analysis:
-
-            for k in range(21):
-                for k1 in range(3):
-                    #print(k,k1)
-                    test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+\
-                        par['ABBA_delay'])//par['dt'] + k
-
-                    test_length = trial_length - test_onset
-                    x = np.split(trial_info['neural_input'][:,test_onset:,trial_ind],test_length,axis=1)
-                    y = trial_info['desired_output'][:,test_onset:,trial_ind]
-                    train_mask = trial_info['train_mask'][test_onset:,trial_ind]
-                    # only looks at the second test stimulus
-                    train_mask[-k + par['ABBA_delay']//par['dt']:, :] = 0
-
-                    ind_shuffle = np.random.permutation(len(trial_ind))
-                    hidden_init = h[:,test_onset-1,trial_ind] # shuffle neural activity
-                    if k1 == 0:
-                        hidden_init_shuffled = h[:,test_onset-1,ind_shuffle] # shuffle neural activity
-                    elif k1==1:
-                        hidden_init_shuffled = np.array(h[:,test_onset,:])
-                        hidden_init_shuffled[:par['num_exc_units'],:] = hidden_init_shuffled[:par['num_exc_units'],ind_shuffle]
-                    elif k1==2:
-                        hidden_init_shuffled = np.array(h[:,test_onset,:])
-                        hidden_init_shuffled[par['num_exc_units']:,:] = hidden_init_shuffled[par['num_exc_units']:,ind_shuffle]
-
-                    syn_x_init = syn_x[:,test_onset-1,trial_ind]
-                    syn_u_init = syn_u[:,test_onset-1,trial_ind]
-
-                    y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
-                    acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                    tuning_results['ABBA_test2_acc'].append([acc, acc_non_match, acc_match])
-
-                    y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init_shuffled, syn_x_init, syn_u_init, network_weights)
-                    acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                    tuning_results['ABBA_test2_acc_shuffled'].append([acc, acc_non_match, acc_match])
-
-                    syn_efficacy = syn_x_sim*syn_u_sim
-
-                    for n in range(par['n_hidden']):
-                        for t in range(num_time_steps-test_onset):
-
-                            weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[n,t,trial_ind])
-                            weights = np.reshape(weights[0],(3,1))
-                            pred_err = syn_efficacy[n,t,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
-                            mse = np.mean(pred_err**2)
-                            response_var = np.var(syn_efficacy[n,t,ind])
-                            tuning_results['synaptic_pev_test_shuffled'][k1,k,n,r,t+test_onset] = 1 - mse/(response_var+1e-9)
-                            tuning_results['synaptic_pref_dir_test_shuffled'][k1,k,n,r,t+test_onset] = np.arctan2(weights[2,0],weights[1,0])
 
 
     return tuning_results
