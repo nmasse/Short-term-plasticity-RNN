@@ -33,7 +33,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 4e-2,
+    'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -59,7 +59,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 4000,
+    'num_iterations'        : 2000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -91,6 +91,8 @@ par = {
     'decode_test'           : True,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
+    'suppress_analysis'     : True,
+    'analyze_tuning'        : True,
 }
 
 """
@@ -112,7 +114,7 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-    'num_iterations'        : 4000,
+    'num_iterations'        : 2000,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
     'learning_rate'         : 2e-2,
