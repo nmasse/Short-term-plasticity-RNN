@@ -267,8 +267,10 @@ def main():
         """
         Save model, analyze the network model and save the results
         """
-        save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
+        #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
+            update = {'decoding_reps': 100, 'simulation_reps' : 100}
+            update_parameters(update)
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = True, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
@@ -282,7 +284,7 @@ def main():
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, tuning = True, decoding = True, load_previous_file = True, save_raw_data = True)
+                simulation = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = True)
 
             if par['trial_type'] == 'dualDMS':
                 # run an additional session with probe stimuli
@@ -294,7 +296,8 @@ def main():
                     sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                     {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
                 analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, \
-                    syn_u_hist, model_performance, weights)
+                    syn_u_hist, model_performance, weights, simulation = False, tuning = False, decoding = True, \
+                    load_previous_file = False, save_raw_data = False)
 
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
