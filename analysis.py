@@ -56,7 +56,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     if tuning:
         print('calculate tuning...')
         tuning_results = calculate_tuning(h_stacked, syn_x_stacked, syn_u_stacked, \
-            trial_info, trial_time, weights, calculate_test = par['decode_test'])
+            trial_info, trial_time, weights, calculate_test = True)
         for key, val in tuning_results.items():
             results[key] = val
 
@@ -363,10 +363,15 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     else:
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
 
+    suppression_time_range = []
+    for k in range(17):
+        suppression_time_range.append(range(test_onset-k*10, test_onset))
+
     simulation_results = {
         'accuracy'                  : np.zeros((par['num_rules'], num_reps)),
         'accuracy_neural_shuffled'  : np.zeros((par['num_rules'], num_reps)),
-        'accuracy_syn_shuffled'     : np.zeros((par['num_rules'], num_reps))}
+        'accuracy_syn_shuffled'     : np.zeros((par['num_rules'], num_reps)),
+        'accuracy_suppression'      : np.zeros((par['num_rules'], len(suppression_time_range), 3))}
 
     _, trial_length, batch_train_size = h.shape
     test_length = trial_length - test_onset
@@ -413,78 +418,43 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
             y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy_syn_shuffled'][r,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
-        if par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA':
+        if par['suppress_analysis']:
 
-            simulation_results['ABBA_test2_acc_shuffled'] = np.zeros((7,18,3))
             _, trial_length, batch_train_size = h.shape
-            trial_ind = range(batch_train_size)
 
-            if par['suppress_analysis']:
-
-                trial_onset = (par['dead_time'])//par['dt']
+            if par['trial_type'] == 'ABBA' or  par['trial_type'] == 'ABCA':
                 test_onset = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
-                test_length = trial_length - trial_onset
-                x = np.split(trial_info['neural_input'][:,trial_onset:,trial_ind],test_length,axis=1)
-                y = trial_info['desired_output'][:,trial_onset:,trial_ind]
-                train_mask = trial_info['train_mask'][trial_onset:,trial_ind]
+            elif par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC' or \
+                par['trial_type'] == 'DMRS90' or par['trial_type'] == 'DMRS180':
+                test_onset = (par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
+
+            x = np.split(trial_info['neural_input'][:,:,trial_ind],trial_length,axis=1)
+            y = trial_info['desired_output'][:,:,trial_ind]
+            train_mask = trial_info['train_mask'][:,trial_ind]
+            if par['trial_type'] == 'ABBA' or  par['trial_type'] == 'ABCA':
                 train_mask[test_onset + par['ABBA_delay']//par['dt']:, :] = 0
-                syn_x_init = syn_x[:,trial_onset-1,trial_ind]
-                syn_u_init = syn_u[:,trial_onset-1,trial_ind]
-                hidden_init = h[:,trial_onset-1,trial_ind]
 
-                y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
+            syn_x_init = syn_x[:,0,trial_ind]
+            syn_u_init = syn_u[:,0,trial_ind]
+            hidden_init = h[:,0,trial_ind]
+
+            y_hat, _, _, _ = run_model(x, y, hidden_init, syn_x_init, syn_u_init, network_weights)
+            acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
+            simulation_results['accuracy_no_suppression'] = np.array([acc, acc_non_match, acc_match])
+
+
+
+            for k in range(len(suppression_time_range)):
+
+                suppress_activity = np.ones((par['n_hidden'], trial_length))
+                suppress_activity[:,suppression_time_range[k]] = 0
+
+                suppress_activity = np.split(suppress_activity, trial_length, axis=1)
+
+                y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
+                    syn_u_init, network_weights, suppress_activity = suppress_activity)
                 acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                simulation_results['ABBA_test2_acc'] = np.array([acc, acc_non_match, acc_match])
-
-                time_range = []
-                for k in range(9):
-                    time_range.append(range(test_onset-k*5, test_onset))
-                for k in range(9):
-                    time_range.append(range(test_onset-k*5+20, test_onset+20))
-
-                for k in range(18):
-                    for k1 in range(7):
-
-                        suppress_activity = np.ones((par['n_hidden'], test_length))
-                        if k1 == 0:
-                            for m2 in time_range[k]:
-                                suppress_activity[:,m2] = 0
-                        elif k1 == 1:
-                            for m1 in range(par['num_exc_units']):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        elif k1 == 2:
-                            for m1 in range(par['num_exc_units'], par['n_hidden']):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        elif k1 == 3:
-                            for m1 in range(0, par['num_exc_units'], 2):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        elif k1 == 4:
-                            for m1 in range(1, par['num_exc_units'], 2):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        elif k1 == 5:
-                            for m1 in range(par['num_exc_units'], par['n_hidden'], 2):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        elif k1 == 6:
-                            for m1 in range(par['num_exc_units']+1, par['n_hidden'], 2):
-                                for m2 in time_range[k]:
-                                    suppress_activity[m1,m2] = 0
-
-                        suppress_activity = np.split(suppress_activity, test_length, axis=1)
-
-                        y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
-                            syn_u_init, network_weights, suppress_activity = suppress_activity)
-                        acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                        simulation_results['ABBA_test2_acc_shuffled'][k1,k,:] = np.array([acc, acc_non_match, acc_match])
+                simulation_results['accuracy_suppression'][r,k,:] = np.array([acc, acc_non_match, acc_match])
 
 
     return simulation_results
@@ -545,9 +515,6 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
         ind = np.where((rule==r))[0]
         for n in range(par['n_hidden']):
             for t in range(num_time_steps):
-                if trial_time[t] <= par['dead_time']:
-                    # no need to analyze activity during dead time
-                    continue
 
                 # Mean sample response
                 for md in range(par['num_motion_dirs']):
@@ -592,86 +559,85 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                     tuning_results['synaptic_pev_test'][n,r,t] = 1 - mse/(response_var+1e-9)
                     tuning_results['synaptic_pref_dir_test'][n,r,t] = np.arctan2(weights[2,0],weights[1,0])
 
-    if par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA':
+    if par['suppress_analysis'] and (par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA'):
 
 
         trial_ind = np.where((rule==r))[0]
         _, trial_length, batch_train_size = h.shape
 
 
-        if par['suppress_analysis']:
 
-            trial_onset = (par['dead_time'])//par['dt']
-            test_onset = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
-            test_length = trial_length - trial_onset
-            x = np.split(trial_info['neural_input'][:,trial_onset:,trial_ind],test_length,axis=1)
-            y = trial_info['desired_output'][:,trial_onset:,trial_ind]
-            train_mask = trial_info['train_mask'][trial_onset:,trial_ind]
-            train_mask[test_onset + par['ABBA_delay']//par['dt']:, :] = 0
-            syn_x_init = syn_x[:,trial_onset-1,trial_ind]
-            syn_u_init = syn_u[:,trial_onset-1,trial_ind]
-            hidden_init = h[:,trial_onset-1,trial_ind]
+        trial_onset = (par['dead_time'])//par['dt']
+        test_onset = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
+        test_length = trial_length - trial_onset
+        x = np.split(trial_info['neural_input'][:,trial_onset:,trial_ind],test_length,axis=1)
+        y = trial_info['desired_output'][:,trial_onset:,trial_ind]
+        train_mask = trial_info['train_mask'][trial_onset:,trial_ind]
+        train_mask[test_onset + par['ABBA_delay']//par['dt']:, :] = 0
+        syn_x_init = syn_x[:,trial_onset-1,trial_ind]
+        syn_u_init = syn_u[:,trial_onset-1,trial_ind]
+        hidden_init = h[:,trial_onset-1,trial_ind]
 
-            time_range = []
-            for k in range(9):
-                time_range.append(range(test_onset-k*5, test_onset))
-            for k in range(9):
-                time_range.append(range(test_onset-k*5+20, test_onset+20))
+        time_range = []
+        for k in range(9):
+            time_range.append(range(test_onset-k*5, test_onset))
+        for k in range(9):
+            time_range.append(range(test_onset-k*5+20, test_onset+20))
 
-            for k in range(18):
-                for k1 in range(7):
+        for k in range(18):
+            for k1 in range(7):
 
-                    suppress_activity = np.ones((par['n_hidden'], test_length))
-                    if k1 == 0:
+                suppress_activity = np.ones((par['n_hidden'], test_length))
+                if k1 == 0:
+                    for m2 in time_range[k]:
+                        suppress_activity[:,m2] = 0
+                elif k1 == 1:
+                    for m1 in range(par['num_exc_units']):
                         for m2 in time_range[k]:
-                            suppress_activity[:,m2] = 0
-                    elif k1 == 1:
-                        for m1 in range(par['num_exc_units']):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                            suppress_activity[m1,m2] = 0
 
-                    elif k1 == 2:
-                        for m1 in range(par['num_exc_units'], par['n_hidden']):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                elif k1 == 2:
+                    for m1 in range(par['num_exc_units'], par['n_hidden']):
+                        for m2 in time_range[k]:
+                            suppress_activity[m1,m2] = 0
 
-                    elif k1 == 3:
-                        for m1 in range(0, par['num_exc_units'], 2):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                elif k1 == 3:
+                    for m1 in range(0, par['num_exc_units'], 2):
+                        for m2 in time_range[k]:
+                            suppress_activity[m1,m2] = 0
 
-                    elif k1 == 4:
-                        for m1 in range(1, par['num_exc_units'], 2):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                elif k1 == 4:
+                    for m1 in range(1, par['num_exc_units'], 2):
+                        for m2 in time_range[k]:
+                            suppress_activity[m1,m2] = 0
 
-                    elif k1 == 5:
-                        for m1 in range(par['num_exc_units'], par['n_hidden'], 2):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                elif k1 == 5:
+                    for m1 in range(par['num_exc_units'], par['n_hidden'], 2):
+                        for m2 in time_range[k]:
+                            suppress_activity[m1,m2] = 0
 
-                    elif k1 == 6:
-                        for m1 in range(par['num_exc_units']+1, par['n_hidden'], 2):
-                            for m2 in time_range[k]:
-                                suppress_activity[m1,m2] = 0
+                elif k1 == 6:
+                    for m1 in range(par['num_exc_units']+1, par['n_hidden'], 2):
+                        for m2 in time_range[k]:
+                            suppress_activity[m1,m2] = 0
 
-                    suppress_activity = np.split(suppress_activity, test_length, axis=1)
+                suppress_activity = np.split(suppress_activity, test_length, axis=1)
 
-                    y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
-                        syn_u_init, network_weights, suppress_activity = suppress_activity)
+                y_hat, _, syn_x_sim, syn_u_sim = run_model(x, y, hidden_init, syn_x_init, \
+                    syn_u_init, network_weights, suppress_activity = suppress_activity)
 
-                    syn_efficacy = syn_x_sim*syn_u_sim
+                syn_efficacy = syn_x_sim*syn_u_sim
 
-                    for n in range(par['n_hidden']):
-                        for t in range(num_time_steps-trial_onset):
+                for n in range(par['n_hidden']):
+                    for t in range(num_time_steps-trial_onset):
 
-                            weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[n,t,trial_ind])
-                            weights = np.reshape(weights[0],(3,1))
-                            pred_err = syn_efficacy[n,t,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
-                            mse = np.mean(pred_err**2)
-                            response_var = np.var(syn_efficacy[n,t,ind])
-                            tuning_results['synaptic_pev_test_shuffled'][k1,k,n,r,t+trial_onset] = 1 - mse/(response_var+1e-9)
-                            tuning_results['synaptic_pref_dir_test_shuffled'][k1,k,n,r,t+trial_onset] = np.arctan2(weights[2,0],weights[1,0])
+                        weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[n,t,trial_ind])
+                        weights = np.reshape(weights[0],(3,1))
+                        pred_err = syn_efficacy[n,t,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
+                        mse = np.mean(pred_err**2)
+                        response_var = np.var(syn_efficacy[n,t,ind])
+                        tuning_results['synaptic_pev_test_shuffled'][k1,k,n,r,t+trial_onset] = 1 - mse/(response_var+1e-9)
+                        tuning_results['synaptic_pref_dir_test_shuffled'][k1,k,n,r,t+trial_onset] = np.arctan2(weights[2,0],weights[1,0])
 
 
     return tuning_results
