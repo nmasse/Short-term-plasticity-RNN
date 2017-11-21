@@ -19,9 +19,9 @@ def plot_all_figures():
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
     #plot_SF1(fig_params)
     #plot_SF2(fig_params)
-    #plot_F3(fig_params)
+    plot_F3(fig_params)
     #plot_F4(fig_params)
-    plot_F5(fig_params)
+    #plot_F5(fig_params)
     #plot_F6(fig_params)
 
 def plot_SF2(fig_params):
@@ -316,7 +316,7 @@ def plot_F4(fig_params):
 
 def plot_F3(fig_params):
 
-    tasks = [ 'DMS','DMS','DMS','DMS']
+    tasks = [ 'DMS','DMRS180','DMRS90','DMC']
     num_tasks = len(tasks)
 
     #t = range(-900,2000,fig_params['dt'])
@@ -326,18 +326,17 @@ def plot_F3(fig_params):
 
     f = plt.figure(figsize=(6,7.5))
 
-    # for each task, we will measure model significance with respect to:
-    # dim 1 = 0, neuronal decoding during delay_accuracy
-    # dim 1 = 1, shuffled neuronal accuracy > chance
-    # dim 1 = 2, shuffled neuronal accuracy < accuracy
-    # dim 1 = 3, shuffled synaptic accuracy > chance
-    # dim 1 = 4, shuffled synaptic accuracy < accuracy
-    model_signficance = np.zeros((num_tasks, 5))
+    p_neuronal_delay = np.zeros((num_tasks, fig_params['models_per_task']))
+    p_decrease_neuronal_shuffling = np.zeros((num_tasks, fig_params['models_per_task'])) # comparison to no shuffling
+    p_decrease_synaptic_shuffling = np.zeros((num_tasks, fig_params['models_per_task'])) # comparison to  no shuffling
+    p_neuronal_shuffling = np.zeros((num_tasks, fig_params['models_per_task'])) # comparison to chance
+    p_synaptic_shuffling = np.zeros((num_tasks, fig_params['models_per_task'])) # comparison to chance
 
-    sig_neuronal_delay = np.zeros((num_tasks, fig_params['models_per_task']))
-    sig_decrease_neuronal_shuffling = np.zeros((num_tasks, fig_params['models_per_task']))
-    sig_decrease_syn_shuffling = np.zeros((num_tasks, fig_params['models_per_task']))
-    sig_syn_shuffling = np.zeros((num_tasks, fig_params['models_per_task']))
+    accuracy_suppression = np.zeros((num_tasks, fig_params['models_per_task'], 17))
+    delay_accuracy = np.zeros((num_tasks, fig_params['models_per_task']))
+    accuracy = np.zeros((num_tasks, fig_params['models_per_task'], fig_params['N']))
+    accuracy_neural_shuffled = np.zeros((num_tasks, fig_params['models_per_task'], fig_params['N']))
+    accuracy_syn_shuffled = np.zeros((num_tasks, fig_params['models_per_task'], fig_params['N']))
 
     # correlation between neuronal decoding during the delay, accuracy after sig_syn_shuffling
     # neuronal activity, and accuracy after shuffling synaptic activity
@@ -347,7 +346,7 @@ def plot_F3(fig_params):
 
     decoding_p_val =  np.zeros((num_tasks))
 
-    p_val_th = 0.01
+    p_val_th = 0.025
 
     # will use DMS decoding results for comparison
     neuronal_decoding_DMS  = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
@@ -360,28 +359,23 @@ def plot_F3(fig_params):
             chance_level = 1/8
 
         # load following results from each task
-        delay_accuracy = np.zeros((fig_params['models_per_task']), dtype=np.float32)
         neuronal_decoding = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
         synaptic_decoding = np.zeros((fig_params['models_per_task'], fig_params['N'], len(t)), dtype=np.float32)
         mean_resp = np.zeros((fig_params['models_per_task'], len(t)), dtype=np.float32)
 
-        accuracy = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
-        accuracy_neural_shuffled = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
-        accuracy_syn_shuffled = np.zeros((fig_params['models_per_task'], fig_params['N']), dtype=np.float32)
-
-
         good_model_count = 0
         count = 0
-        while good_model_count < fig_params['models_per_task'] and count<4:
+        while good_model_count < fig_params['models_per_task'] and count<21:
             x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
             count += 1
             #print(count, np.mean(x['accuracy']))
             if np.mean(x['accuracy']) >  fig_params['accuracy_th']:
 
-                delay_accuracy[good_model_count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
+                delay_accuracy[n,good_model_count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
 
-                mean_resp[good_model_count,:] = np.mean(np.reshape(x['neuronal_sample_tuning'],(-1,len(t))),axis=0)
+                #mean_resp[good_model_count,:] = np.mean(np.reshape(x['neuronal_sample_tuning'],(-1,len(t))),axis=0)
+
                 if tasks[n] == 'DMS':
                     neuronal_decoding_DMS[good_model_count,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
                     #neuronal_decoding_DMS[good_model_count,:,:] = x['neuronal_decoding'][0,:,:]
@@ -390,45 +384,28 @@ def plot_F3(fig_params):
                 #synaptic_decoding[good_model_count,:,:] = x['synaptic_decoding'][0,:,:]
 
 
-                accuracy[good_model_count,:] = x['accuracy']
-                accuracy_neural_shuffled[good_model_count,:] = x['accuracy_neural_shuffled']
-                accuracy_syn_shuffled[good_model_count,:] = x['accuracy_syn_shuffled']
+                accuracy[n, good_model_count,:] = x['accuracy']
+                accuracy_neural_shuffled[n, good_model_count,:] = x['accuracy_neural_shuffled']
+                accuracy_syn_shuffled[n, good_model_count,:] = x['accuracy_syn_shuffled']
+                accuracy_suppression[n, good_model_count, :]  = x['accuracy_suppression'][0,:,0]
                 good_model_count +=1
 
 
         if good_model_count < fig_params['models_per_task']:
             print('Too few accurately trained models')
 
-
-        model_signficance[n, 0] = np.sum(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2) \
-            >chance_level,axis=1)>1-p_val_th)
-
-
-        model_signficance[n, 1] = np.sum(np.mean(accuracy_neural_shuffled>0.5,axis=1)>1-p_val_th)
-        model_signficance[n, 2] = np.sum(np.mean(accuracy-accuracy_neural_shuffled>0,axis=1)>1-p_val_th)
-        model_signficance[n, 3] = np.sum(np.mean(accuracy_syn_shuffled>0.5,axis=1)>1-p_val_th)
-        model_signficance[n, 4] =  np.sum(np.mean(accuracy-accuracy_syn_shuffled>0,axis=1)>1-p_val_th)
-        sig_neuronal_delay[n,:] =np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2)>chance_level,axis=1)>1-p_val_th
-        sig_decrease_neuronal_shuffling[n,:] =  np.mean(accuracy-accuracy_neural_shuffled>0,axis=1)>1-p_val_th
-        sig_decrease_syn_shuffling[n,:] =  np.mean(accuracy-accuracy_syn_shuffled>0,axis=1)>1-p_val_th
-        sig_syn_shuffling[n,:] = np.mean(accuracy_syn_shuffled>0.5,axis=1)>1-p_val_th
-
-        a = np.reshape(np.tile(accuracy,(1,1,fig_params['N'])),(20,fig_params['N']**2))
-        b = np.tile(accuracy_neural_shuffled,(1,1,fig_params['N']))
-        b = np.reshape(np.transpose(b,(0,2,1)),(20,fig_params['N']**2))
-        #print(tasks[n], np.mean(a-b>0,axis=1))
-        ind = np.where(np.mean(accuracy_neural_shuffled,axis=1)<0.9)[0]
-        print(tasks[n], ind)
-        print(tasks[n], np.mean(np.mean(accuracy_neural_shuffled[ind,:],axis=1)))
-        print(tasks[n], np.mean(np.mean(accuracy_syn_shuffled[ind,:],axis=1)))
-
+        p_neuronal_delay[n,:] =np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2)>chance_level,axis=1)>1-p_val_th
+        p_decrease_neuronal_shuffling[n,:] =  np.mean(accuracy[n,:,:]-accuracy_neural_shuffled[n,:,:]>0,axis=1)>1-p_val_th
+        p_decrease_synaptic_shuffling[n,:] =  np.mean(accuracy[n,:,:]-accuracy_syn_shuffled[n,:,:]>0,axis=1)>1-p_val_th
+        p_neuronal_shuffling[n,:] = np.mean(accuracy_neural_shuffled[n,:,:]>0.5,axis=1)>1-p_val_th
+        p_synaptic_shuffling[n,:] = np.mean(accuracy_syn_shuffled[n,:,:]>0.5,axis=1)>1-p_val_th
 
         corr_decoding_neuronal_shuf[n,:] = scipy.stats.pearsonr(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1), \
-            np.mean(accuracy_neural_shuffled,axis=1))
+            np.mean(accuracy_neural_shuffled[n,:,:],axis=1))
         corr_decoding_syn_shuf[n,:] = scipy.stats.pearsonr(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1), \
-            np.mean(accuracy_syn_shuffled,axis=1))
-        corr_neuronal_shuf_syn_shuf[n,:] = scipy.stats.pearsonr(np.mean(accuracy_neural_shuffled,axis=1), \
-            np.mean(accuracy_syn_shuffled,axis=1))
+            np.mean(accuracy_syn_shuffled[n,:,:],axis=1))
+        corr_neuronal_shuf_syn_shuf[n,:] = scipy.stats.pearsonr(np.mean(accuracy_neural_shuffled[n,:,:],axis=1), \
+            np.mean(accuracy_syn_shuffled[n,:,:],axis=1))
 
         decoding_p_val[n] = scipy.stats.ttest_ind(np.mean(np.mean(neuronal_decoding_DMS[:,:,delay_epoch],axis=2),axis=1), \
             np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1))[1]
@@ -459,9 +436,9 @@ def plot_F3(fig_params):
 
         ax = f.add_subplot(num_tasks, 2, 2*n+2)
         plt.hold(True)
-        ax.plot(delay_accuracy, np.mean(accuracy,axis=1),'b.')
-        ax.plot(delay_accuracy, np.mean(accuracy_neural_shuffled,axis=1),'r.')
-        ax.plot(delay_accuracy, np.mean(accuracy_syn_shuffled,axis=1),'c.')
+        ax.plot(delay_accuracy[n,:], np.mean(accuracy[n,:,:],axis=1),'b.')
+        ax.plot(delay_accuracy[n,:], np.mean(accuracy_neural_shuffled[n,:,:],axis=1),'r.')
+        ax.plot(delay_accuracy[n,:], np.mean(accuracy_syn_shuffled[n,:,:],axis=1),'c.')
         ax.plot([chance_level,chance_level],[0,1],'k--')
         ax.set_aspect(1.02/0.62)
         ax.spines['right'].set_visible(False)
@@ -472,25 +449,77 @@ def plot_F3(fig_params):
         ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
         ax.set_ylim([0.4,1.02])
         ax.set_xlim([0,1.02])
-        ax.set_ylabel('Task accuracy')
+        ax.set_ylabel('Behavioral accuracy')
         ax.set_xlabel('Delay neuronal decoding')
     plt.tight_layout()
     plt.savefig('Fig3.pdf', format='pdf')
     plt.show()
 
+
+    f = plt.figure(figsize=(6,7.5))
+    for n in range(num_tasks):
+        if n == 3:
+            chance_level = 1/2
+        else:
+            chance_level = 1/8
+        ax = f.add_subplot(num_tasks, 2, 2*n+1)
+        ax.plot(delay_accuracy[n,:], accuracy_suppression[n,:,1],'k.')
+        ax.plot([chance_level,chance_level],[0,1],'k--')
+        ax.set_aspect(1.02/0.62)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_yticks([0,0.5,0.6,0.7,0.8,0.9,1])
+        ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
+        ax.set_ylim([0.4,1.02])
+        ax.set_xlim([0,1.02])
+        if n == 3:
+            ax.set_ylabel('Behavioral accuracy')
+            ax.set_xlabel('Delay neuronal decoding')
+
+        ax = f.add_subplot(num_tasks, 2, 2*n+2)
+        ax.plot(np.mean(accuracy_neural_shuffled[n,:,:],axis=1), accuracy_suppression[n,:,1],'k.')
+        #ax.plot([chance_level,chance_level],[0,1],'k--')
+        ax.set_aspect(1.02/0.62)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_yticks([0,0.5,0.6,0.7,0.8,0.9,1])
+        ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
+        ax.set_ylim([0.4,1.02])
+        ax.set_xlim([0,1.02])
+        if n == 3:
+            ax.set_ylabel('Behavioral accuracy')
+            ax.set_xlabel('Behavioral accuracy - neuronal activity shuffled')
+
+    plt.tight_layout()
+    plt.savefig('FigSx.pdf', format='pdf')
+    plt.show()
+
+
     print('Number of models with delay neuronal decoding accuracy signficantly greater than chance')
-    print(model_signficance)
+    #print(model_signficance)
 
     print('Number of models for which neuronal decoding is at chance')
-    print(np.sum(1-sig_neuronal_delay,axis=1))
+    print(np.sum(1-p_neuronal_delay,axis=1))
     print('Number of models for which shuffling neuronal activity has no effect')
-    print(np.sum(1-sig_decrease_neuronal_shuffling,axis=1))
+    print(np.sum(1-p_decrease_neuronal_shuffling,axis=1))
     print('Number of models for which shuffling STP causes accuracy to fall to chance')
-    print(np.sum(1-sig_syn_shuffling,axis=1))
+    print(np.sum(1-p_synaptic_shuffling,axis=1))
     print('Number of models for which 3 above conditions are satisfied')
-    print(np.sum((1-sig_neuronal_delay)*(1-sig_decrease_neuronal_shuffling)*(1-sig_syn_shuffling),axis=1))
+    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling),axis=1))
     print('Number of models for which shuffling neuronal and synaptic activity decreases accuracy')
-    print(np.sum((sig_decrease_neuronal_shuffling)*(sig_decrease_syn_shuffling),axis=1))
+    print(np.sum((p_decrease_neuronal_shuffling)*(p_decrease_synaptic_shuffling),axis=1))
+
+    print(p_neuronal_delay.shape, accuracy_suppression.shape)
+    print('XXXX 0.9')
+    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.9),axis=1))
+    print('XXXX 0.925')
+    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.925),axis=1))
+    print('XXXX 0.95')
+    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.95),axis=1))
 
     print('Correlations...')
     print(corr_decoding_neuronal_shuf)
@@ -543,7 +572,7 @@ def plot_F6(fig_params):
         print(task + '_' + str(count+12) + '.pkl', np.mean(x['accuracy']))
         if np.mean(x['accuracy']) >  0.9:
 
-            if good_model_count == example_ind:
+            if good_model_count == 999+example_ind:
                 for j in range(4):
                     ax = f.add_subplot(4, 2, j+1)
                     ax.plot(t, np.mean(x['neuronal_sample_decoding'][j,0,:,:],axis=0),color=[0,0,1])
@@ -667,29 +696,44 @@ def plot_F6(fig_params):
     print('Sig attended', np.mean(delay_sig_attended,axis=1))
     print('Sig unattended', np.mean(delay_sig_unattended,axis=1))
 
+    # example network
+    ax = f.add_subplot(3, 2, 1)
+    plot_mean_with_err_bars(ax, t, np.mean(neuronal_decoding[example_ind,:2,:,:],axis=0), good_model_count, col = [0,0,1])
+    plot_mean_with_err_bars(ax, t, np.mean(neuronal_decoding[example_ind,2:,:,:],axis=0), good_model_count, col = [1,165/255,0])
+    plot_mean_with_err_bars(ax, t, np.mean(synaptic_decoding[example_ind,:2,:,:],axis=0), good_model_count, col = [0,1,1])
+    plot_mean_with_err_bars(ax, t, np.mean(synaptic_decoding[example_ind,2:,:,:],axis=0), good_model_count, col = [1,0,0])
+    add_dualDMS_subplot_details(ax, chance_level)
+    ax.set_xlim([-500,2000])
+    ax = f.add_subplot(3, 2, 2)
+    plot_mean_with_err_bars(ax, t, neuronal_decoding[example_ind,2,:,:], good_model_count, col = [0,0,1])
+    plot_mean_with_err_bars(ax, t, neuronal_decoding[example_ind,3,:,:], good_model_count, col = [1,165/255,0])
+    plot_mean_with_err_bars(ax, t, synaptic_decoding[example_ind,2,:,:], good_model_count, col = [0,1,1])
+    plot_mean_with_err_bars(ax, t, synaptic_decoding[example_ind,3,:,:], good_model_count, col = [1,0,0])
+    add_dualDMS_subplot_details(ax, chance_level)
+
 
     #f = plt.figure(figsize=(6,4))
-    ax = f.add_subplot(4, 2, 5)
+    ax = f.add_subplot(3, 2, 3)
     plot_mean_with_err_bars(ax, t, np.mean(neuronal_decoding[:good_model_count,:2,:,:],axis=1), good_model_count, col = [0,0,1])
     plot_mean_with_err_bars(ax, t, np.mean(neuronal_decoding[:good_model_count,2:,:,:],axis=1), good_model_count, col = [1,165/255,0])
     plot_mean_with_err_bars(ax, t, np.mean(synaptic_decoding[:good_model_count,:2,:,:],axis=1), good_model_count, col = [0,1,1])
     plot_mean_with_err_bars(ax, t, np.mean(synaptic_decoding[:good_model_count,2:,:,:],axis=1), good_model_count, col = [1,0,0])
     add_dualDMS_subplot_details(ax, chance_level)
     ax.set_xlim([-500,2000])
-    ax = f.add_subplot(4, 2, 6)
+    ax = f.add_subplot(3, 2, 4)
     plot_mean_with_err_bars(ax, t, neuronal_decoding[:good_model_count,2,:,:], good_model_count, col = [0,0,1])
     plot_mean_with_err_bars(ax, t, neuronal_decoding[:good_model_count,3,:,:], good_model_count, col = [1,165/255,0])
     plot_mean_with_err_bars(ax, t, synaptic_decoding[:good_model_count,2,:,:], good_model_count, col = [0,1,1])
     plot_mean_with_err_bars(ax, t, synaptic_decoding[:good_model_count,3,:,:], good_model_count, col = [1,0,0])
     add_dualDMS_subplot_details(ax, chance_level)
     ax.set_xlim([2000,3500])
-    ax = f.add_subplot(4, 2, 7)
+    ax = f.add_subplot(3, 2, 5)
     plot_mean_with_err_bars(ax, t, neuronal_rule_decoding[:good_model_count,0,:,:], good_model_count, col = [0,0,1])
     plot_mean_with_err_bars(ax, t, neuronal_rule_decoding[:good_model_count,1,:,:], good_model_count, col = [1,165/255,0])
     plot_mean_with_err_bars(ax, t, synaptic_rule_decoding[:good_model_count,0,:,:], good_model_count, col = [0,1,1])
     plot_mean_with_err_bars(ax, t, synaptic_rule_decoding[:good_model_count,1,:,:], good_model_count, col = [1,0,0])
     add_dualDMS_subplot_details(ax, 0.5)
-    ax = f.add_subplot(4, 2, 8)
+    ax = f.add_subplot(3, 2, 6)
     ax.plot(np.mean(delay_accuracy[:,1,:good_model_count],axis=0), accuracy[:good_model_count],'b.')
     ax.plot(np.mean(delay_accuracy[:,1,:good_model_count],axis=0), accuracy_neural_shuffled[:good_model_count],'r.')
     ax.plot(np.mean(delay_accuracy[:,1,:good_model_count],axis=0), accuracy_syn_shuffled[:good_model_count],'c.')
@@ -723,10 +767,15 @@ def calc_p_val_compare(x,y):
 
 def plot_mean_with_err_bars(ax, t, x, N, col):
 
-    u = np.mean(np.mean(x,axis=1),axis=0)
-    sd = np.std(np.mean(x,axis=1),axis=0)/np.sqrt(N)
-    ax.plot(t,u,color=col)
-    ax.fill_between(t, u-sd, u+sd, color=col+[0.5])
+    print('SHAPE ',x.shape)
+    if x.ndim > 2:
+        u = np.mean(np.mean(x,axis=1),axis=0)
+        sd = np.std(np.mean(x,axis=1),axis=0)/np.sqrt(N)
+        ax.plot(t,u,color=col)
+        ax.fill_between(t, u-sd, u+sd, color=col+[0.5])
+    else:
+        u = np.mean(x,axis=0)
+        ax.plot(t,u,color=col)
 
 
 def add_dualDMS_subplot_details(ax, chance_level):
