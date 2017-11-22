@@ -234,7 +234,7 @@ def update_dependencies():
     par['EI_matrix'] = np.diag(par['EI_list'])
 
     # Membrane time constant of RNN neurons
-    par['alpha_neuron'] = par['dt']/par['membrane_time_constant']
+    par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
     # The standard deviation of the Gaussian noise added to each RNN neuron
     # at each time step
     par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
