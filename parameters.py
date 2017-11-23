@@ -33,7 +33,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 4e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -49,7 +49,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 4e-2,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -59,7 +59,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 2000,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -88,7 +88,7 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : True,
+    'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
@@ -114,10 +114,10 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-    'num_iterations'        : 2000,
+    'num_iterations'        : 1000,
     'batch_train_size'      : 1024,
     'var_delay'             : False,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 4e-2,
     'catch_trial_pct'       : 0.0,
     'decoding_test_mode'    : False
 }
@@ -289,6 +289,7 @@ def update_dependencies():
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
+        par['w_rnn0'][:, par['num_exc_units']] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
