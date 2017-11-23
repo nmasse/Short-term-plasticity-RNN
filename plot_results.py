@@ -19,7 +19,8 @@ def plot_all_figures():
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
     #plot_SF1(fig_params)
     #plot_SF2(fig_params)
-    plot_F3(fig_params)
+    #plot_F3(fig_params)
+    plot_SF_X(fig_params)
     #plot_F4(fig_params)
     #plot_F5(fig_params)
     #plot_F6(fig_params)
@@ -312,6 +313,163 @@ def plot_F4(fig_params):
     print(np.mean(np.reshape(accuracy_neural_shuffled,(2,-1)),axis=1))
     print('Mean accuracy after synaptic shuffling...')
     print(np.mean(np.reshape(accuracy_syn_shuffled,(2,-1)),axis=1))
+
+
+
+def plot_SF_X(fig_params):
+
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
+    count = -1
+    num_reps = 100
+    bins = np.arange(-165,166,30)/(180/np.pi)
+    #sample_time_ind = range(100,125)
+    sample_time_ind = range(75,125)
+    #test_time_ind = range(230,255)
+    test_time_ind = range(225,275)
+    score = np.zeros((20,4,len(bins)))
+    score_shuffled = np.zeros((20,4,len(bins), num_reps))
+
+    neuron_ind = []
+    neuron_ind.append(range(0,80,2))
+    neuron_ind.append(range(1,80,2))
+    neuron_ind.append(range(80,100,2))
+    neuron_ind.append(range(81,100,2))
+
+    for i in range(0,5):
+        x = pickle.load(open(fig_params['data_dir'] + 'DMRS45_' + str(i) + '.pkl', 'rb'))
+        nd = x['neuronal_sample_decoding'][0,0,:,delay_epoch]
+        print(i,  np.mean(nd))
+        if np.mean(np.mean(nd,axis=0)>1/8)<01.975:
+
+            count += 1
+            for k in range(4):
+                s = np.sqrt(x['synaptic_pev'][neuron_ind[k],0,:])*np.exp(1j*x['synaptic_pref_dir'][neuron_ind[k],0,:])
+                t = np.sqrt(x['neuronal_pev'][neuron_ind[k],0,:])*np.exp(1j*x['neuronal_pref_dir'][neuron_ind[k],0,:])
+
+                similarity = s[:,sample_time_ind]*np.conj(t[:,test_time_ind])
+                similarity = np.reshape(similarity,(-1,1))
+
+                for b in range(len(bins)-1):
+                    if b == 0:
+                        ind0 = np.where(np.angle(similarity) <= bins[0])[0]
+                        ind1 = np.where(np.angle(similarity) > bins[-1])[0]
+                        ind = np.hstack((ind0,ind1))
+                    else:
+                         ind = np.where((np.angle(similarity) >= bins[b])*(np.angle(similarity) < bins[b+1]))[0]
+
+                    score[count,k,b] += np.sum(np.abs(similarity[ind]))
+
+                for r in range(num_reps):
+                    for d in similarity:
+                        b = np.random.randint(len(bins)-1)
+                        score_shuffled[count,k,b,r] += np.abs(d)
+
+
+    m = np.mean(score_shuffled, axis=3)
+    sd = np.std(score_shuffled, axis=3)
+    f = plt.figure(figsize=(6,5))
+    print(count)
+
+    for k in range(4):
+        ax = f.add_subplot(2, 2, k+1)
+        score_z = (score[:count, k, :-1] - m[:count,k,:-1])/sd[:count,k,:-1]
+        score_z = np.hstack((score_z, np.reshape((score[:count, k, 0] - m[:count,k,0])/sd[:count,k,0],(count,1))))
+        ax.plot(15 + bins*180/np.pi, score_z.T,'b')
+        ax.set_xticks(15 + bins[:-1]*180/np.pi)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_ylim([-8,24])
+        ax.set_xlim([-180,180])
+
+    plt.show()
+
+def plot_SF_Y(fig_params):
+
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
+    sample_time_ind = range(100,125)
+    count = -1
+
+    neuron_ind = []
+    neuron_ind.append(range(0,80,2))
+    neuron_ind.append(range(1,80,2))
+    neuron_ind.append(range(80,100,2))
+    neuron_ind.append(range(81,100,2))
+    angles = np.exp(1j*np.arange(8)*2*np.pi/8)
+
+    cat_ind = []
+    cat_ind.append([[0,1,2,3],[4,5,6,7]])
+    cat_ind.append([[1,2,3, 4],[5,6,7,0]])
+    cat_ind.append([[2,3,4,5],[6,7,0,1]])
+    cat_ind.append([[3,4,5,6],[7,0,1,2]])
+
+    f = plt.figure(figsize=(7.5,7.5))
+
+    CTI = np.zeros((20,100,4))
+
+    for i in range(0,20):
+        x = pickle.load(open(fig_params['data_dir'] + 'DMC_' + str(i) + '.pkl', 'rb'))
+        nd = x['neuronal_sample_decoding'][0,0,:,delay_epoch]
+        if np.mean(np.mean(nd,axis=0)>1/2)<0.975 and count < 8:
+            count += 1
+            tuning = np.mean(x['synaptic_sample_tuning'][:,0,:,sample_time_ind],axis=0)
+            for k in range(4):
+                for n in range(par['n_hidden']):
+                    CTI[count,n,k] = calc_CTI(tuning[n,:], cat_ind[k], angles)
+
+            ax = f.add_subplot(2, 3, count+1)
+            ax.imshow(tuning[80:,:],aspect='auto', interpolation='none')
+            #ax.colorbar()
+
+    plt.show()
+    print(np.mean(CTI[:count, neuron_ind[2], 0]))
+    print(np.mean(CTI[:count, neuron_ind[2], 1]))
+    print(np.mean(CTI[:count, neuron_ind[2], 2]))
+    print(np.mean(CTI[:count, neuron_ind[2], 3]))
+    print('xx')
+    print(np.mean(CTI[:count, neuron_ind[3], 0]))
+    print(np.mean(CTI[:count, neuron_ind[3], 1]))
+    print(np.mean(CTI[:count, neuron_ind[3], 2]))
+    print(np.mean(CTI[:count, neuron_ind[3], 3]))
+
+def calc_CTI(s, ind, angles):
+
+    N = len(s)
+    between = []
+    within = []
+
+    for i in range(N-1):
+        for j in range(i+1, N):
+            ang_diff = int(np.abs(180/np.pi*np.angle(angles[i]/angles[j])))
+            value_diff = np.abs(s[i]-s[j])
+
+            # within
+            if (i in ind[0] and j in ind[0]) or (i in ind[1] and j in ind[1]):
+                within.append([ang_diff, value_diff])
+            else:
+                between.append([ang_diff, value_diff])
+
+    within = np.array(np.stack(within))
+    between = np.array(np.stack(between))
+
+    unique_diffs = np.unique(within[:,0])
+
+    b = 0
+    w = 0
+
+    for d in unique_diffs:
+        ind0 = np.where(within[:,0]==d)[0]
+        ind1 = np.where(between[:,0]==d)[0]
+        if len(ind0) > 0 and len(ind1)>0:
+            for i in ind0:
+                w += within[i,1]/len(ind0)
+            for i in ind1:
+                b += between[i,1]/len(ind1)
+
+    return (b-w)/(b+w)
+
+
 
 
 def plot_F3(fig_params):
