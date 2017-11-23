@@ -191,14 +191,14 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def train_and_analyze():
+def train_and_analyze(gpu_id):
 
     tf.reset_default_graph()
-    main()
+    main(gpu_id)
     update_parameters(revert_analysis_par)
 
 
-def main():
+def main(gpu_id):
 
     """
     Reset TensorFlow before running anything
@@ -220,13 +220,15 @@ def main():
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth=True
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
-    with tf.Session() as sess:
+    with tf.Session(config=config) as sess:
 
-        #with tf.device("/gpu:0"):
-        model = Model(x, y, mask)
-        init = tf.global_variables_initializer()
+        with tf.device("/gpu:"+str(gpu_id)):
+            model = Model(x, y, mask)
+            init = tf.global_variables_initializer()
         sess.run(init)
         t_start = time.time()
 
