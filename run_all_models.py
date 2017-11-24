@@ -3,6 +3,10 @@ from parameters import *
 import model
 import sys
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> fa4ae00f736b97432c6358f7a1a9c3a10ea02d9a
 task_list = ['DMS']
 
 for task in task_list:
@@ -29,3 +33,7 @@ for task in task_list:
 
 # Command for observing python processes:
 # ps -A | grep python
+<<<<<<< HEAD
+=======
+
+>>>>>>> fa4ae00f736b97432c6358f7a1a9c3a10ea02d9a
