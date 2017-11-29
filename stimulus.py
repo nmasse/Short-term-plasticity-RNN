@@ -9,13 +9,12 @@ class Stimulus:
 
         # generate tuning functions
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
-        self.num_trials = par['batch_train_size']
 
 
     def generate_trial(self):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue']:
+        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC']:
             trial_info = self.generate_motion_working_memory_trial()
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
@@ -84,20 +83,20 @@ class Stimulus:
         ert = par['num_motion_tuned']+par['num_rule_tuned']
         eft = par['num_motion_tuned']+par['num_rule_tuned']+par['num_fix_tuned']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
-                      'sample'          :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'test'            :  np.zeros((self.num_trials,2,2),dtype=np.int8),
-                      'test_mod'        :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'rule'            :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'match'           :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'catch'           :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'probe'           :  np.zeros((self.num_trials,2),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'test'            :  np.zeros((par['batch_train_size'],2,2),dtype=np.int8),
+                      'test_mod'        :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'rule'            :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'catch'           :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'probe'           :  np.zeros((par['batch_train_size'],2),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
 
 
 
-        for t in range(self.num_trials):
+        for t in range(par['batch_train_size']):
 
             # generate sample, match, rule and prob params
             for i in range(2):
@@ -225,22 +224,18 @@ class Stimulus:
         eft = par['num_fix_tuned']+par['num_motion_tuned']
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
 
-        # rule cue time
-        rule_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_onset_time'])//par['dt']
-        rule_offset = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_offset_time'])//par['dt']
-
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
-                      'sample'          :  np.zeros((self.num_trials),dtype=np.int8),
-                      'test'            :  np.zeros((self.num_trials),dtype=np.int8),
-                      'rule'            :  np.zeros((self.num_trials),dtype=np.int8),
-                      'match'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'probe'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
 
 
         # set to mask equal to zero during the dead time
@@ -249,9 +244,9 @@ class Stimulus:
         # If the DMS and DMS rotate are being performed together,
         # or if I need to make the test more challenging, this will eliminate easry test directions
         # If so, reduce set of test stimuli so that a single strategy can't be used
-        #limit_test_directions = self.possible_rules==[0,1] or self.possible_rules==[5]
+        #limit_test_directions = par['trial_type']=='DMS+DMRS'
 
-        for t in range(self.num_trials):
+        for t in range(par['batch_train_size']):
 
             """
             Generate trial paramaters
@@ -260,6 +255,12 @@ class Stimulus:
             if par['decoding_test_mode']:
                 test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
+            if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1):
+                # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
+                current_trial_DMC = True
+            else:
+                current_trial_DMC = False
+
             match = np.random.randint(2)
             catch = np.random.rand() < par['catch_trial_pct']
 
@@ -293,13 +294,14 @@ class Stimulus:
             """
             # DMC
             if not par['decoding_test_mode']:
-                if par['trial_type'] == 'DMC': # categorize between two equal size, contiguous zones
+                if current_trial_DMC: # categorize between two equal size, contiguous zones
                     sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
                     if match == 1: # match trial
                         # do not use sample_dir as a match test stimulus
                         dir0 = int(sample_cat*par['num_motion_dirs']//2)
                         dir1 = int(par['num_motion_dirs']//2 + sample_cat*par['num_motion_dirs']//2)
-                        possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
+                        #possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
+                        possible_dirs = list(range(dir0, dir1))
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
                     else:
                         test_dir = sample_cat*(par['num_motion_dirs']//2) + np.random.randint(par['num_motion_dirs']//2)
@@ -310,6 +312,12 @@ class Stimulus:
                     if match == 1: # match trial
                         test_dir = matching_dir
                     else:
+                        """
+                        if limit_test_directions:
+                            possible_dirs = [(matching_dir+1)%par['num_motion_dirs'], (matching_dir-1)%par['num_motion_dirs'], \
+                                (matching_dir+2)%par['num_motion_dirs'], (matching_dir-2)%par['num_motion_dirs']]
+                        else:
+                        """
                         possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
 
@@ -331,7 +339,7 @@ class Stimulus:
 
             # RULE CUE
             if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
-                trial_info['neural_input'][eft:ert, rule_onset:rule_offset, t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
+                trial_info['neural_input'][eft:ert, par['rule_onset_time']//par['dt']:par['rule_offset_time']//par['dt'], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
 
             """
             Determine the desired network output response
@@ -390,17 +398,17 @@ class Stimulus:
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, self.num_trials),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, self.num_trials),dtype=np.float32),
-                      'sample'          :  np.zeros((self.num_trials),dtype=np.float32),
-                      'test'            :  -1*np.ones((self.num_trials,par['max_num_tests']),dtype=np.float32),
-                      'rule'            :  np.zeros((self.num_trials),dtype=np.int8),
-                      'match'           :  np.zeros((self.num_trials,par['max_num_tests']),dtype=np.int8),
-                      'catch'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'probe'           :  np.zeros((self.num_trials),dtype=np.int8),
-                      'num_test_stim'   :  np.zeros((self.num_trials),dtype=np.int8),
-                      'repeat_test_stim':  np.zeros((self.num_trials),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, self.num_trials))}
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size']),dtype=np.float32),
+                      'test'            :  -1*np.ones((par['batch_train_size'],par['max_num_tests']),dtype=np.float32),
+                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size'],par['max_num_tests']),dtype=np.int8),
+                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'num_test_stim'   :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'repeat_test_stim':  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
 
 
         # set to mask equal to zero during the dead time
@@ -410,7 +418,7 @@ class Stimulus:
         trial_info['desired_output'][0, :, :] = 1
         rep_num = 0
 
-        for t in range(self.num_trials):
+        for t in range(par['batch_train_size']):
 
             # generate trial params
             sample_dir = np.random.randint(par['num_motion_dirs'])
@@ -498,12 +506,12 @@ class Stimulus:
         for n in range(par['num_fix_tuned']):
             for i in range(2):
                 if n%2 == i:
-                    fix_tuning[n,i] = par['tuning_height']/2
+                    fix_tuning[n,i] = par['tuning_height']
 
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
                 if n%par['num_rules'] == i:
-                    rule_tuning[n,i] = par['tuning_height']/2
+                    rule_tuning[n,i] = par['tuning_height']
 
 
         return np.squeeze(motion_tuning), fix_tuning, rule_tuning
