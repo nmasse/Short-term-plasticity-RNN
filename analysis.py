@@ -108,9 +108,20 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         sample = trial_info['sample']
         rule = trial_info['rule'][:,0] + 2*trial_info['rule'][:,1]
         par['num_rules'] = 4
-    else:
-        sample = trial_info['sample']
+    elif par['trial_type'] == 'DMS+DMC':
+        # rule 0 is DMS, rule 1 is DMC
+        ind_rule = np.where(trial_info['rule']==1)[0]
+        num_motion_dirs = len(np.unique(trial_info['sample']))
+        sample = np.array(trial_info['sample'])
+        test = np.array(trial_info['test'])
+        # change DMC sample motion directions into categories
+        sample[ind_rule] = np.floor(trial_info['sample'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
+        test[ind_rule] = np.floor(trial_info['test'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
         rule = trial_info['rule']
+
+    else:
+        sample = np.array(trial_info['sample'])
+        rule = np.array(trial_info['rule'])
 
     if trial_info['test'].ndim == 2:
         test = trial_info['test'][:,0]
@@ -118,26 +129,24 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         test = np.array(trial_info['test'])
 
 
-    # number of unique samples
-    N = len(np.unique(sample))
     print('sample decoding...num_reps = ', num_reps)
     decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'] = \
-        svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, N, trial_time)
+        svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, trial_time)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
         decoding_results['neuronal_sample_test_decoding'], decoding_results['synaptic_sample_test_decoding'] = \
-            svm_wraper_sample_vs_test(lin_clf, h, syn_efficacy, trial_info['sample'], trial_info['test'], num_reps, N, trial_time)
+            svm_wraper_sample_vs_test(lin_clf, h, syn_efficacy, trial_info['sample'], trial_info['test'], num_reps, trial_time)
 
     if decode_test:
         print('test decoding...')
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, N, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, trial_time)
 
     if decode_rule:
         print('rule decoding...')
         decoding_results['neuronal_rule_decoding'], decoding_results['synaptic_rule_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, 2, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
 
     return decoding_results
 
@@ -177,7 +186,7 @@ def svm_wraper_sample_vs_test(lin_clf, h, syn_eff, sample, test, num_reps, num_c
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time):
+def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
 
     """
     Wraper function used to decode sample/test or rule information
@@ -191,8 +200,6 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
     score_h = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
     score_syn_eff = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
 
-    equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
-    equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
 
     for r in range(num_rules):
         ind_rule = np.where(rule==r)[0]
@@ -201,6 +208,16 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_conds, trial_time
                 current_conds = conds[:,n]
             else:
                 current_conds = np.array(conds)
+
+            num_conds = len(np.unique(conds[ind_rule]))
+            if num_conds <= 2:
+                trials_per_cond = 100
+            else:
+                trials_per_cond = 25
+            print('Rule ', r, ' num conds ', num_conds)
+
+            equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
+            equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
 
             cond_ind = []
             for c in range(num_conds):
