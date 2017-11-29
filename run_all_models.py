@@ -4,19 +4,21 @@ import model
 import sys
 
 task_list = ['DMS']
+delay_time = 2500
 
 for task in task_list:
-    for j in range(25):
+    for j in range(1,25,2):
         print('Training network on ', task,' task, network model number ', j)
-        save_fn = task + '_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
+        save_fn = task + '_delay2500_' + str(j) + '.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn, 'delay_time': delay_time}
         update_parameters(updates)
 
         # Keep the try-except clauses to ensure proper GPU memory release
         try:
             # GPU designated by first argument (must be integer 0-3)
             try:
-                assert(sys.argv[1] in [0,1,2,3])
+                print('Selecting GPU ',  sys.argv[1])
+                assert(int(sys.argv[1]) in [0,1,2,3])
             except AssertionError:
                 quit('Error: Select a valid GPU number.')
 
