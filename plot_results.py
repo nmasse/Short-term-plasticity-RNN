@@ -12,22 +12,15 @@ plt.rcParams["font.family"] = "arial"
 def plot_all_figures():
 
     fig_params = {
-<<<<<<< HEAD
         'data_dir'              : './savedir_2000batches/',
-=======
-        'data_dir'              : 'C:/Users/nicol/Projects/\RNN_analysis_nov1/',
->>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
         'dt'                    : 10,
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
     plot_SF1(fig_params)
+    plot_SF_X(fig_params)
     #plot_SF2(fig_params)
     #plot_F3(fig_params)
-<<<<<<< HEAD
-=======
-    plot_SF_X(fig_params)
->>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
     #plot_F4(fig_params)
     #plot_F5(fig_params)
     #plot_F6(fig_params)
@@ -111,11 +104,12 @@ def plot_SF2(fig_params):
 
 def plot_SF1(fig_params):
 
-    num_tasks = 3
+
     chance_level = 1/8
+    tasks = ['DMS', 'DMS_delay1500', 'DMS_delay2000', 'DMS_delay2500']
+    num_tasks = len(tasks)
     model_signficance = np.zeros((num_tasks))
-    f = plt.figure(figsize=(3,4.25))
-    tasks = ['DMS', 'DMS_delay1500', 'DMS_delay2000']
+    f = plt.figure(figsize=(3,8))
     p_val = 0.025
 
     for n in range(num_tasks):
@@ -140,7 +134,7 @@ def plot_SF1(fig_params):
                 continue
             count += 1
             print(tasks[n], count, np.mean(x['accuracy']))
-            if np.mean(x['accuracy']) >  0.9:
+            if np.mean(x['accuracy']) >  0.89:
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
                 synaptic_decoding[good_model_count,:,:] = x['synaptic_sample_decoding'][0,0,:,:]
@@ -218,9 +212,6 @@ def plot_F4(fig_params):
     count = 0
     while good_model_count < fig_params['models_per_task'] and count < 21:
         x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count) + '.pkl', 'rb'))
-        print(x.keys())
-        print(x['parameters']['learning_rate'])
-        1/0
         count += 1
         print(np.mean(x['accuracy'][0,:]), np.mean(x['accuracy'][1,:]))
         if np.mean(x['accuracy']) > fig_params['accuracy_th']:
