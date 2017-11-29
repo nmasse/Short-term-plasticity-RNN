@@ -200,6 +200,8 @@ def train_and_analyze(gpu_id):
 
 def main(gpu_id):
 
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+
     """
     Reset TensorFlow before running anything
     """
@@ -226,7 +228,7 @@ def main(gpu_id):
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session(config=config) as sess:
 
-        with tf.device("/gpu:"+str(gpu_id)):
+        with tf.device("/gpu:0"):
             model = Model(x, y, mask)
             init = tf.global_variables_initializer()
         sess.run(init)
@@ -286,7 +288,7 @@ def main(gpu_id):
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = True)
+                simulation = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
 
             if par['trial_type'] == 'dualDMS':
                 # run an additional session with probe stimuli
