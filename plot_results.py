@@ -12,7 +12,11 @@ plt.rcParams["font.family"] = "arial"
 def plot_all_figures():
 
     fig_params = {
+<<<<<<< HEAD
         'data_dir'              : './savedir_2000batches/',
+=======
+        'data_dir'              : 'C:/Users/nicol/Projects/\RNN_analysis_nov1/',
+>>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
         'dt'                    : 10,
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
@@ -20,6 +24,10 @@ def plot_all_figures():
     plot_SF1(fig_params)
     #plot_SF2(fig_params)
     #plot_F3(fig_params)
+<<<<<<< HEAD
+=======
+    plot_SF_X(fig_params)
+>>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
     #plot_F4(fig_params)
     #plot_F5(fig_params)
     #plot_F6(fig_params)
@@ -210,6 +218,9 @@ def plot_F4(fig_params):
     count = 0
     while good_model_count < fig_params['models_per_task'] and count < 21:
         x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count) + '.pkl', 'rb'))
+        print(x.keys())
+        print(x['parameters']['learning_rate'])
+        1/0
         count += 1
         print(np.mean(x['accuracy'][0,:]), np.mean(x['accuracy'][1,:]))
         if np.mean(x['accuracy']) > fig_params['accuracy_th']:
@@ -308,6 +319,194 @@ def plot_F4(fig_params):
     print(np.mean(np.reshape(accuracy_neural_shuffled,(2,-1)),axis=1))
     print('Mean accuracy after synaptic shuffling...')
     print(np.mean(np.reshape(accuracy_syn_shuffled,(2,-1)),axis=1))
+
+
+
+def plot_SF_X(fig_params):
+
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
+
+    num_reps = 100
+    bins = np.arange(-165,166,30)/(180/np.pi)
+    #bins = np.arange(-180,180,30)/(180/np.pi)
+    test_time_ind = []
+    test_time_ind.append(range(95,100))
+    test_time_ind.append(range(120,125))
+    test_time_ind.append(range(170,175))
+    test_time_ind.append(range(220,225))
+
+    #sample_time_ind = range(75,125)
+    #test_time_ind = range(230,255)
+    sample_time_ind = range(80,85)
+    score = np.zeros((2,20,4,4,len(bins)))
+    score_shuffled = np.zeros((2,20,4,4,len(bins), num_reps))
+
+    neuron_ind = []
+    neuron_ind.append(range(0,80,2))
+    neuron_ind.append(range(1,80,2))
+    neuron_ind.append(range(80,100,2))
+    neuron_ind.append(range(81,100,2))
+    neuron_ind.append(range(80,100,1))
+    neuron_ind.append(range(0,80,1))
+    f = plt.figure(figsize=(6,5))
+
+    y = []
+    y1 = []
+
+    cols = ['b','r','g','k']
+    task_range = []
+    task_range.append(range(20))
+    task_range.append(range(95))
+    tasks = ['DMS_', 'DMRS90_']
+
+    for n in range(2):
+        count = -1
+        for i in task_range[n]:
+            x = pickle.load(open(fig_params['data_dir'] + tasks[n] + str(i) + '.pkl', 'rb'))
+            nd = x['neuronal_sample_decoding'][0,0,:,delay_epoch]
+            #print(i,  np.mean(nd), np.mean(x['accuracy']))
+            if np.mean(np.mean(nd,axis=0)>1/8)<0.975 or n == 0:
+
+                count += 1
+                for k in range(4):
+                    for j in range(4):
+                        #s = np.sqrt(x['neuronal_pev'][neuron_ind[k],0,:])*np.exp(1j*x['neuronal_pref_dir'][neuron_ind[k],0,:])
+                        s = np.sqrt(x['synaptic_pev'][neuron_ind[k],0,:])*np.exp(1j*x['synaptic_pref_dir'][neuron_ind[k],0,:])
+                        t = np.sqrt(x['synaptic_pev'][neuron_ind[k],0,:])*np.exp(1j*x['synaptic_pref_dir'][neuron_ind[k],0,:])
+
+                        similarity = s[:,sample_time_ind]*np.conj(t[:,test_time_ind[j]])
+                        similarity = np.reshape(similarity,(-1,1))
+
+                        for b in range(len(bins)-1):
+                            if b == 0:
+                                ind0 = np.where(np.angle(similarity) <= bins[0])[0]
+                                ind1 = np.where(np.angle(similarity) > bins[-1])[0]
+                                ind = np.hstack((ind0,ind1))
+                            else:
+                                 ind = np.where((np.angle(similarity) >= bins[b])*(np.angle(similarity) < bins[b+1]))[0]
+
+                            score[n,count,k,j,b] += np.sum(np.abs(similarity[ind]))
+
+                        for r in range(num_reps):
+                            for d in similarity:
+                                b = np.random.randint(len(bins)-1)
+                                score_shuffled[n,count,k,j,b,r] += np.abs(d)
+
+        if n == 0:
+            # baseline will be DMS task
+            m = np.mean(score[0, :count+1,:,:,:], axis=0, keepdims=True)
+            sd = np.std(score[0, :count+1,:,:,:], axis=0, keepdims=True)
+
+    for c in range(count+1):
+        f = plt.figure(figsize=(8.5,1.5))
+        for k in range(4):
+            for j in range(3):
+                ax = f.add_subplot(1, 4, k+1)
+                score_z = np.reshape((score[1,c, k, j, :-1] - m[0,k,j,:-1])/sd[0,k,j,:-1],(1,11))
+                #score_z = np.reshape(score[c, k, j, :-1],(1,11))
+
+                score_z = np.hstack((score_z, np.reshape((score[1,c, k,j, 0] - m[0,k,j,0])/sd[0,k,j,0],(1,1))))
+                #score_z = np.hstack((score_z, np.reshape(score[count, k,j, 0],(1,1))))
+                #score_z = np.hstack((score_z, np.reshape(score[c, k,j, 0],(1,1))))
+                Z = np.sum(score_z,axis=1,keepdims=True)
+                score_z /= np.tile(Z,(1,12))
+                ax.plot(15 + bins*180/np.pi, score_z.T,cols[j])
+                ax.set_xticks(15 + bins[:-1]*180/np.pi)
+                ax.spines['right'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.xaxis.set_ticks_position('bottom')
+                ax.yaxis.set_ticks_position('left')
+                ax.set_ylim([-10,10])
+                ax.set_xlim([-180,180])
+                ax.set_xticks([-180,-90,0,90,180])
+
+        plt.show()
+
+def plot_SF_Y(fig_params):
+
+    delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
+    sample_time_ind = range(100,125)
+    count = -1
+
+    neuron_ind = []
+    neuron_ind.append(range(0,80,2))
+    neuron_ind.append(range(1,80,2))
+    neuron_ind.append(range(80,100,2))
+    neuron_ind.append(range(81,100,2))
+    angles = np.exp(1j*np.arange(8)*2*np.pi/8)
+
+    cat_ind = []
+    cat_ind.append([[0,1,2,3],[4,5,6,7]])
+    cat_ind.append([[1,2,3, 4],[5,6,7,0]])
+    cat_ind.append([[2,3,4,5],[6,7,0,1]])
+    cat_ind.append([[3,4,5,6],[7,0,1,2]])
+
+    f = plt.figure(figsize=(7.5,7.5))
+
+    CTI = np.zeros((20,100,4))
+
+    for i in range(0,20):
+        x = pickle.load(open(fig_params['data_dir'] + 'DMC_' + str(i) + '.pkl', 'rb'))
+        nd = x['neuronal_sample_decoding'][0,0,:,delay_epoch]
+        if np.mean(np.mean(nd,axis=0)>1/2)<0.975 and count < 8:
+            count += 1
+            tuning = np.mean(x['synaptic_sample_tuning'][:,0,:,sample_time_ind],axis=0)
+            for k in range(4):
+                for n in range(par['n_hidden']):
+                    CTI[count,n,k] = calc_CTI(tuning[n,:], cat_ind[k], angles)
+
+            ax = f.add_subplot(2, 3, count+1)
+            ax.imshow(tuning[80:,:],aspect='auto', interpolation='none')
+            #ax.colorbar()
+
+    plt.show()
+    print(np.mean(CTI[:count, neuron_ind[2], 0]))
+    print(np.mean(CTI[:count, neuron_ind[2], 1]))
+    print(np.mean(CTI[:count, neuron_ind[2], 2]))
+    print(np.mean(CTI[:count, neuron_ind[2], 3]))
+    print('xx')
+    print(np.mean(CTI[:count, neuron_ind[3], 0]))
+    print(np.mean(CTI[:count, neuron_ind[3], 1]))
+    print(np.mean(CTI[:count, neuron_ind[3], 2]))
+    print(np.mean(CTI[:count, neuron_ind[3], 3]))
+
+def calc_CTI(s, ind, angles):
+
+    N = len(s)
+    between = []
+    within = []
+
+    for i in range(N-1):
+        for j in range(i+1, N):
+            ang_diff = int(np.abs(180/np.pi*np.angle(angles[i]/angles[j])))
+            value_diff = np.abs(s[i]-s[j])
+
+            # within
+            if (i in ind[0] and j in ind[0]) or (i in ind[1] and j in ind[1]):
+                within.append([ang_diff, value_diff])
+            else:
+                between.append([ang_diff, value_diff])
+
+    within = np.array(np.stack(within))
+    between = np.array(np.stack(between))
+
+    unique_diffs = np.unique(within[:,0])
+
+    b = 0
+    w = 0
+
+    for d in unique_diffs:
+        ind0 = np.where(within[:,0]==d)[0]
+        ind1 = np.where(between[:,0]==d)[0]
+        if len(ind0) > 0 and len(ind1)>0:
+            for i in ind0:
+                w += within[i,1]/len(ind0)
+            for i in ind1:
+                b += between[i,1]/len(ind1)
+
+    return (b-w)/(b+w)
+
+
 
 
 def plot_F3(fig_params):
