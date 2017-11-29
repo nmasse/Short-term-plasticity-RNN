@@ -14,7 +14,7 @@ rnd_save_suffix = np.random.randint(10000)
 
 par = {
     # Setup parameters
-    'save_dir'              : 'C:/Users/nicol/Projects/RNN_analysis_nov1/',
+    'save_dir'              : './savedir_2000batches/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -70,8 +70,6 @@ par = {
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
-    'rule_onset_time'       : 500,
-    'rule_offset_time'      : 700,
     'variable_delay_max'    : 500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
@@ -88,7 +86,7 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : True,
+    'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
@@ -114,11 +112,11 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-    'num_iterations'        : 2000,
-    'batch_train_size'      : 1024,
-    'var_delay'             : False,
-    'learning_rate'         : 2e-2,
-    'catch_trial_pct'       : 0.0,
+    #'num_iterations'        : 1000,
+    #'batch_train_size'      : 1024,
+    #'var_delay'             : False,
+    #'learning_rate'         : 2e-2,
+    #'catch_trial_pct'       : 0.0,
     'decoding_test_mode'    : False
 }
 
@@ -198,6 +196,13 @@ def update_trial_params():
             par['rotation_match'] = [0, 45]
             par['rule_onset_time'] = par['dead_time']
             par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']
+
+    elif par['trial_type'] == 'DMS+DMC':
+        par['num_rules'] = 2
+        par['num_rule_tuned'] = 12
+        par['rotation_match'] = [0, 0]
+        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     else:
         print(par['trial_type'], ' not a recognized trial type')
