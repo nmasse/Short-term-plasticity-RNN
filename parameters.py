@@ -17,31 +17,32 @@ par = {
     'save_dir'              : './savedir_2000batches/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'analyze_model'         : True,
+    'analyze_model'         : False,
+    'stabilization'         : 'pathint',
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 36,
+    'num_motion_tuned'      : 72,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 300,
     'n_output'              : 3,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 4e-2,
+    'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_in_sd'           : 0.05,
+    'noise_rnn_sd'          : 0.05,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -49,7 +50,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 4e-2,
+    'spike_cost'            : 1e-7,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -59,16 +60,16 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 800,
     'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
-    'fix_time'              : 500,
+    'fix_time'              : 300,
     'sample_time'           : 500,
-    'delay_time'            : 1000,
+    'delay_time'            : 250,
     'test_time'             : 500,
     'variable_delay_max'    : 500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
@@ -91,6 +92,20 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
     'analyze_tuning'        : True,
+
+    # Omega parameters
+    'omega_c'               : 0.1,
+    'omega_xi'              : 0.1,
+    'last_layer_mult'       : 2,
+    'scale_factor'          : 1,
+
+    # Projection of top-down activity
+    # Only one can be True
+    'clamp'                 : 'neurons', # can be either 'dendrites', 'neurons', 'partial' or None
+    'gate_pct'              : 0.333,
+
+    'EWC_fisher_calc_batch' : 64, # batch size when calculating EWC
+    'EWC_fisher_num_batches': 64, # number of batches size when calculating EWC
 }
 
 """
@@ -112,19 +127,6 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-<<<<<<< HEAD
-    #'num_iterations'        : 1000,
-    #'batch_train_size'      : 1024,
-    #'var_delay'             : False,
-    #'learning_rate'         : 2e-2,
-    #'catch_trial_pct'       : 0.0,
-=======
-    'num_iterations'        : 1000,
-    'batch_train_size'      : 1024,
-    'var_delay'             : False,
-    'learning_rate'         : 4e-2,
-    'catch_trial_pct'       : 0.0,
->>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
     'decoding_test_mode'    : False
 }
 
@@ -155,7 +157,7 @@ def update_trial_params():
     par['num_rules'] = 1
     par['num_rule_tuned'] = 0
 
-    if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
+    if par['trial_type'] == 'DMS' or 'DMC' in par['trial_type']:
         par['rotation_match'] = 0
 
     elif par['trial_type'] == 'DMRS45':
@@ -227,6 +229,9 @@ def update_dependencies():
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
+    # Create TD
+    par['topdown'] = [np.array(np.random.choice([0,1], par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']])) for i in range(20)]
+    print('mean td 0 ', np.mean(par['topdown'][0]))
     # Possible rules based on rule type values
     #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
 

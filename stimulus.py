@@ -11,14 +11,15 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self):
+    def generate_trial(self, trial_type):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC']:
-            trial_info = self.generate_motion_working_memory_trial()
-        elif par['trial_type'] in ['ABBA','ABCA']:
+        if trial_type in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', \
+                                'DMC1','DMC2','DMC3','OneInt_DMC','OneInt_DMC1','OneInt_DMC2','OneInt_DMC3','DMS+DMC']:
+            trial_info = self.generate_motion_working_memory_trial(trial_type)
+        elif trial_type in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
-        elif par['trial_type'] == 'dualDMS':
+        elif trial_type == 'dualDMS':
             trial_info = self.generate_dualDMS_trial()
 
         return trial_info
@@ -198,7 +199,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_motion_working_memory_trial(self):
+    def generate_motion_working_memory_trial(self, trial_type):
 
         """
         Generate a delayed matching task
@@ -244,7 +245,7 @@ class Stimulus:
         # If the DMS and DMS rotate are being performed together,
         # or if I need to make the test more challenging, this will eliminate easry test directions
         # If so, reduce set of test stimuli so that a single strategy can't be used
-        #limit_test_directions = par['trial_type']=='DMS+DMRS'
+        #limit_test_directions = trial_type=='DMS+DMRS'
 
         for t in range(par['batch_train_size']):
 
@@ -255,9 +256,17 @@ class Stimulus:
             if par['decoding_test_mode']:
                 test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
-            if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1):
+            if 'DMC' in trial_type or (trial_type == 'DMS+DMC' and rule == 1):
                 # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
                 current_trial_DMC = True
+                motion_cats = [np.arange(i*par['num_motion_dirs']//2,par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
+                if 'DMC1' in trial_type:
+                    motion_cats = [np.arange(1+i*par['num_motion_dirs']//2,1+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
+                elif 'DMC2' in trial_type:
+                    motion_cats = [np.arange(2+i*par['num_motion_dirs']//2,2+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
+                elif 'DMC3' in trial_type:
+                    motion_cats = [np.arange(3+i*par['num_motion_dirs']//2,3+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
+
             else:
                 current_trial_DMC = False
 
@@ -295,17 +304,11 @@ class Stimulus:
             # DMC
             if not par['decoding_test_mode']:
                 if current_trial_DMC: # categorize between two equal size, contiguous zones
-                    sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
+                    sample_cat = 0 if sample_dir in motion_cats[0] else 1
                     if match == 1: # match trial
-                        # do not use sample_dir as a match test stimulus
-                        dir0 = int(sample_cat*par['num_motion_dirs']//2)
-                        dir1 = int(par['num_motion_dirs']//2 + sample_cat*par['num_motion_dirs']//2)
-                        #possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
-                        possible_dirs = list(range(dir0, dir1))
-                        test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+                        test_dir = np.random.choice(motion_cats[sample_cat])
                     else:
-                        test_dir = sample_cat*(par['num_motion_dirs']//2) + np.random.randint(par['num_motion_dirs']//2)
-                        test_dir = np.int_((test_dir+par['num_motion_dirs']//2)%par['num_motion_dirs'])
+                        test_dir = np.random.choice(motion_cats[(sample_cat+1)%2])
                 # DMS or DMRS
                 else:
                     matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
@@ -329,7 +332,7 @@ class Stimulus:
             trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
 
             # TEST stimulus
-            if not catch:
+            if not catch and not 'OneInt' in trial_type:
                 trial_info['neural_input'][:emt, eod_current:, t] += np.reshape(self.motion_tuning[:,test_dir],(-1,1))
 
             # FIXATION cue
@@ -345,11 +348,13 @@ class Stimulus:
             Determine the desired network output response
             """
             trial_info['desired_output'][0, eodead:eod_current, t] = 1
-            if not catch:
+            if not catch and not 'OneInt' in trial_type:
                 if match == 0:
                     trial_info['desired_output'][1, eod_current:, t] = 1
                 else:
                     trial_info['desired_output'][2, eod_current:, t] = 1
+            elif 'OneInt' in trial_type:
+                trial_info['desired_output'][sample_cat+1, eof_current:, t] = 1
             else:
                 trial_info['desired_output'][0, eod_current:, t] = 1
 
@@ -367,7 +372,9 @@ class Stimulus:
         # debugging: plot the neural input activity
 
         #self.plot_neural_input(trial_info)
-        #quit
+        #plt.imshow(trial_info['desired_output'][:,-1,:50], aspect = 'auto', interpolation='none')
+        #plt.show()
+        #quit()
 
         return trial_info
 
@@ -522,8 +529,8 @@ class Stimulus:
         print(trial_info['desired_output'][ :, 0, :].T)
         f = plt.figure(figsize=(8,4))
         ax = f.add_subplot(1, 1, 1)
-        t = np.arange(0,400+500+2000,par['dt'])
-        t -= 900
+        t = np.arange(0,250+500+2000,par['dt'])
+        t -= 750
         t0,t1,t2,t3 = np.where(t==-500), np.where(t==0),np.where(t==500),np.where(t==1500)
         #im = ax.imshow(trial_info['neural_input'][:,0,:].T, aspect='auto', interpolation='none')
         im = ax.imshow(trial_info['neural_input'][:,:,0], aspect='auto', interpolation='none')
@@ -539,9 +546,9 @@ class Stimulus:
         ax.set_xlabel('Time relative to sample onset (ms)')
         ax.set_title('Motion input')
         plt.show()
-        plt.savefig('stimulus.pdf', format='pdf')
+        #plt.savefig('stimulus.pdf', format='pdf')
 
-        """
+
         f = plt.figure(figsize=(9,4))
         ax = f.add_subplot(1, 3, 1)
         ax.imshow(trial_info['sample_dir'],interpolation='none',aspect='auto')
@@ -550,4 +557,3 @@ class Stimulus:
         ax = f.add_subplot(1, 3, 3)
         ax.imshow(trial_info['match'],interpolation='none',aspect='auto')
         plt.show()
-        """
