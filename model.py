@@ -273,8 +273,6 @@ def main(gpu_id):
         """
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
-            update = {'decoding_reps': 100, 'simulation_reps' : 100}
-            update_parameters(update)
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = True, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)

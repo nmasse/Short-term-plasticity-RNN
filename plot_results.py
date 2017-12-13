@@ -17,15 +17,15 @@ def plot_all_figures():
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
-    plot_SF1(fig_params)
-    plot_SF_X(fig_params)
+    #plot_SF4(fig_params)
+    #plot_SF_Y(fig_params)
     #plot_SF2(fig_params)
     #plot_F3(fig_params)
     #plot_F4(fig_params)
-    #plot_F5(fig_params)
+    plot_F5(fig_params)
     #plot_F6(fig_params)
 
-def plot_SF2(fig_params):
+def plot_SFX(fig_params):
 
     task_name = 'DMRS45_51'
     x = pickle.load(open(fig_params['data_dir'] + task_name + '.pkl', 'rb'))
@@ -102,14 +102,14 @@ def plot_SF2(fig_params):
     plt.show()
 
 
-def plot_SF1(fig_params):
+def plot_SF4(fig_params):
 
 
     chance_level = 1/8
     tasks = ['DMS', 'DMS_delay1500', 'DMS_delay2000', 'DMS_delay2500']
     num_tasks = len(tasks)
     model_signficance = np.zeros((num_tasks))
-    f = plt.figure(figsize=(3,8))
+    f = plt.figure(figsize=(8,6))
     p_val = 0.025
 
     for n in range(num_tasks):
@@ -133,7 +133,7 @@ def plot_SF1(fig_params):
                 count +=1
                 continue
             count += 1
-            print(tasks[n], count, np.mean(x['accuracy']))
+            #print(tasks[n], count, np.mean(x['accuracy']))
             if np.mean(x['accuracy']) >  0.89:
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
@@ -146,8 +146,7 @@ def plot_SF1(fig_params):
         model_signficance[n] = np.sum(np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2) \
             >chance_level,axis=1)>1-p_val)
 
-        ax = f.add_subplot(num_tasks, 1, n+1)
-        plt.hold(True)
+        ax = f.add_subplot(2, 2, n+1)
         for j in range(fig_params['models_per_task']):
             ax.plot(t,np.mean(neuronal_decoding[j,:,:],axis=0),'g')
             ax.plot(t,np.mean(synaptic_decoding[j,:,:],axis=0),'m')
@@ -157,19 +156,20 @@ def plot_SF1(fig_params):
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
-        ax.set_xticks([0,500,1500-10+n*500])
+        ax.set_xticks([0,500,2000+n*500])
         ax.set_ylim([0,1.02])
-        ax.set_xlim([-500,1500-10+n*500])
+        ax.set_xlim([-500,2000+n*500])
         ax.plot([-900,4000],[chance_level,chance_level],'k--')
         ax.plot([0,0],[0,1],'k--')
         ax.plot([500,500],[0,1],'k--')
+        ax.plot([1500+n*500,1500+n*500],[0,1],'k--')
         ax.set_ylabel('Decoding accuracy')
         ax.set_xlabel('Time relative to sample onset (ms)')
 
 
 
     plt.tight_layout()
-    plt.savefig('FigS1.pdf', format='pdf')
+    plt.savefig('FigS4.pdf', format='pdf')
     plt.show()
 
 
@@ -180,7 +180,7 @@ def plot_F4(fig_params):
     task = 'DMS+DMRS'
     t = range(-750,2000,fig_params['dt'])
     delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
-    f = plt.figure(figsize=(6,3.75))
+    f = plt.figure(figsize=(6,5))
     chance_level = 1/8
 
     # for each task, we will measure model significance with respect to:
@@ -259,14 +259,15 @@ def plot_F4(fig_params):
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
-        ax.set_xticks([0,500,1000, 1250, 1500-10])
+        ax.set_xticks([0,500, 1000, 1250, 1500])
         ax.set_ylim([0,1.02])
-        ax.set_xlim([-500,1500-10])
+        ax.set_xlim([-500,2000])
         ax.plot([-900,2000],[chance_level,chance_level],'k--')
         ax.plot([0,0],[0,1],'k--')
         ax.plot([500,500],[0,1],'k--')
         ax.plot([1000,1000],[0,1],'k--')
         ax.plot([1250,1250],[0,1],'k--')
+        ax.plot([1500,1500],[0,1],'k--')
         ax.set_ylabel('Decoding accuracy')
         ax.set_xlabel('Time relative to sample onset (ms)')
 
@@ -313,61 +314,73 @@ def plot_F4(fig_params):
 
 
 
-def plot_SF_X(fig_params):
+def plot_SF2(fig_params):
 
     delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
 
     num_reps = 100
-    bins = np.arange(-165,166,30)/(180/np.pi)
+    diff_phase = 30
+    num_bins = 360//diff_phase
+    bin_centers = np.exp(1j*np.arange(-180,180,diff_phase)/(180/np.pi))
+
     #bins = np.arange(-180,180,30)/(180/np.pi)
     test_time_ind = []
-    test_time_ind.append(range(95,100))
-    test_time_ind.append(range(120,125))
-    test_time_ind.append(range(170,175))
-    test_time_ind.append(range(220,225))
+    test_time_ind.append(range(95,105))
+    test_time_ind.append(range(115,125))
+    test_time_ind.append(range(125,135))
+    test_time_ind.append(range(215,225))
 
-    #sample_time_ind = range(75,125)
-    #test_time_ind = range(230,255)
-    sample_time_ind = range(80,85)
-    score = np.zeros((2,20,4,4,len(bins)))
-    score_shuffled = np.zeros((2,20,4,4,len(bins), num_reps))
+
+    sample_time_ind = range(80,90)
+    score = np.zeros((2,20,4,5,len(bin_centers)))
+    #score_shuffled = np.zeros((2,20,4,5,len(bin_centers), num_reps))
 
     neuron_ind = []
     neuron_ind.append(range(0,80,2))
     neuron_ind.append(range(1,80,2))
     neuron_ind.append(range(80,100,2))
     neuron_ind.append(range(81,100,2))
-    neuron_ind.append(range(80,100,1))
-    neuron_ind.append(range(0,80,1))
     f = plt.figure(figsize=(6,5))
 
     y = []
     y1 = []
 
-    cols = ['b','r','g','k']
+    cols = ['b','r','g','k','c']
     task_range = []
     task_range.append(range(20))
-    task_range.append(range(95))
-    tasks = ['DMS_', 'DMRS90_']
+    task_range.append(range(20))
+    tasks = ['DMRS90_']
+    decoding_accuracy = []
 
-    for n in range(2):
+    for n in range(1):
         count = -1
         for i in task_range[n]:
             x = pickle.load(open(fig_params['data_dir'] + tasks[n] + str(i) + '.pkl', 'rb'))
             nd = x['neuronal_sample_decoding'][0,0,:,delay_epoch]
-            #print(i,  np.mean(nd), np.mean(x['accuracy']))
-            if np.mean(np.mean(nd,axis=0)>1/8)<0.975 or n == 0:
 
+            #print(i,  np.mean(nd), np.mean(x['accuracy']))
+            if np.mean(np.mean(nd,axis=0)>1/8)<=0.99 or np.mean(nd)<0.28:
+                decoding_accuracy.append(np.mean(nd))
                 count += 1
                 for k in range(4):
                     for j in range(4):
-                        #s = np.sqrt(x['neuronal_pev'][neuron_ind[k],0,:])*np.exp(1j*x['neuronal_pref_dir'][neuron_ind[k],0,:])
                         s = np.sqrt(x['synaptic_pev'][neuron_ind[k],0,:])*np.exp(1j*x['synaptic_pref_dir'][neuron_ind[k],0,:])
                         t = np.sqrt(x['synaptic_pev'][neuron_ind[k],0,:])*np.exp(1j*x['synaptic_pref_dir'][neuron_ind[k],0,:])
+                        similarity_ss = s[:,sample_time_ind]*np.conj(t[:,test_time_ind[j]])
+                        similarity_ss = np.reshape(similarity_ss,(-1,1))
 
-                        similarity = s[:,sample_time_ind]*np.conj(t[:,test_time_ind[j]])
-                        similarity = np.reshape(similarity,(-1,1))
+                        s = np.sqrt(x['neuronal_pev'][neuron_ind[k],0,:])*np.exp(1j*x['neuronal_pref_dir'][neuron_ind[k],0,:])
+                        similarity_ns = s[:,sample_time_ind]*np.conj(t[:,test_time_ind[j]])
+                        similarity_ns = np.reshape(similarity_ns,(-1,1))
 
+
+                        for l in range(len(similarity_ss)):
+                            ind = np.argmin(np.abs(np.angle(similarity_ss[l]/bin_centers)))
+                            score[0,count,k,j,ind] += np.sum(np.abs(similarity_ss[l]))
+                            ind = np.argmin(np.abs(np.angle(similarity_ns[l]/bin_centers)))
+                            score[1,count,k,j,ind] += np.sum(np.abs(similarity_ns[l]))
+
+                        """
                         for b in range(len(bins)-1):
                             if b == 0:
                                 ind0 = np.where(np.angle(similarity) <= bins[0])[0]
@@ -377,43 +390,49 @@ def plot_SF_X(fig_params):
                                  ind = np.where((np.angle(similarity) >= bins[b])*(np.angle(similarity) < bins[b+1]))[0]
 
                             score[n,count,k,j,b] += np.sum(np.abs(similarity[ind]))
-
+                        """
+                        """
                         for r in range(num_reps):
                             for d in similarity:
                                 b = np.random.randint(len(bins)-1)
                                 score_shuffled[n,count,k,j,b,r] += np.abs(d)
-
+                        """
+        """
         if n == 0:
             # baseline will be DMS task
             m = np.mean(score[0, :count+1,:,:,:], axis=0, keepdims=True)
-            sd = np.std(score[0, :count+1,:,:,:], axis=0, keepdims=True)
+            sd = np.std(score[0, :count+1,:,:,:], axis=0, keepdims=True) + 1e-3
+        """
 
+
+    bin_centers = np.exp(1j*np.arange(-180,181,diff_phase)/(180/np.pi))
+    f = plt.figure(figsize=(10,12))
     for c in range(count+1):
-        f = plt.figure(figsize=(8.5,1.5))
+        print(decoding_accuracy[c])
+
         for k in range(4):
-            for j in range(3):
-                ax = f.add_subplot(1, 4, k+1)
-                score_z = np.reshape((score[1,c, k, j, :-1] - m[0,k,j,:-1])/sd[0,k,j,:-1],(1,11))
-                #score_z = np.reshape(score[c, k, j, :-1],(1,11))
+            for j in range(4):
+                for l in range(2):
+                    ax = f.add_subplot(8, 4,8*c +l*4+k+1)
+                    score_z = np.reshape(score[l,c, k, j, :],(1,num_bins))
+                    score_z = np.hstack((score_z, np.reshape(score[l,count, k,j, 0],(1,1))))
+                    Z = np.sum(score_z,axis=1,keepdims=True)
+                    score_z /= np.tile(Z,(1,len(score_z)))
 
-                score_z = np.hstack((score_z, np.reshape((score[1,c, k,j, 0] - m[0,k,j,0])/sd[0,k,j,0],(1,1))))
-                #score_z = np.hstack((score_z, np.reshape(score[count, k,j, 0],(1,1))))
-                #score_z = np.hstack((score_z, np.reshape(score[c, k,j, 0],(1,1))))
-                Z = np.sum(score_z,axis=1,keepdims=True)
-                score_z /= np.tile(Z,(1,12))
-                ax.plot(15 + bins*180/np.pi, score_z.T,cols[j])
-                ax.set_xticks(15 + bins[:-1]*180/np.pi)
-                ax.spines['right'].set_visible(False)
-                ax.spines['top'].set_visible(False)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                ax.set_ylim([-10,10])
-                ax.set_xlim([-180,180])
-                ax.set_xticks([-180,-90,0,90,180])
+                    ax.plot(np.angle(bin_centers)*180/np.pi, score_z.T,cols[j])
+                    ax.spines['right'].set_visible(False)
+                    ax.spines['top'].set_visible(False)
+                    ax.xaxis.set_ticks_position('bottom')
+                    ax.yaxis.set_ticks_position('left')
+                    ax.set_ylim([0,1])
+                    ax.set_xlim([-180,180])
+                    ax.set_xticks([-180,-90,0,90,180])
 
-        plt.show()
+    plt.tight_layout()
+    plt.savefig('FigS2.pdf', format='pdf')
+    plt.show()
 
-def plot_SF_Y(fig_params):
+def plot_SF3(fig_params):
 
     delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
     sample_time_ind = range(100,125)
@@ -446,20 +465,37 @@ def plot_SF_Y(fig_params):
                 for n in range(par['n_hidden']):
                     CTI[count,n,k] = calc_CTI(tuning[n,:], cat_ind[k], angles)
 
-            ax = f.add_subplot(2, 3, count+1)
+            ax = f.add_subplot(3, 4, count+1)
             ax.imshow(tuning[80:,:],aspect='auto', interpolation='none')
+            ax.set_xticks([0,1,2,3,4,5,6,7])
             #ax.colorbar()
 
+    for j in range(4):
+        ax = f.add_subplot(3, 4, 9+j)
+        u = [np.mean(CTI[:count, neuron_ind[j], k]) for k in range(4)]
+        sd = [np.std(CTI[:count, neuron_ind[j], k])/np.sqrt(count*len(neuron_ind[j])) for k in range(4)]
+        ax.bar(range(4), u, yerr = sd)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.set_ylim([-0.3,0.5])
+        ax.set_xticks([0,1,2,3])
+
+
+    plt.tight_layout()
+    plt.savefig('FigS3.pdf', format='pdf')
     plt.show()
-    print(np.mean(CTI[:count, neuron_ind[2], 0]))
-    print(np.mean(CTI[:count, neuron_ind[2], 1]))
-    print(np.mean(CTI[:count, neuron_ind[2], 2]))
-    print(np.mean(CTI[:count, neuron_ind[2], 3]))
-    print('xx')
-    print(np.mean(CTI[:count, neuron_ind[3], 0]))
-    print(np.mean(CTI[:count, neuron_ind[3], 1]))
-    print(np.mean(CTI[:count, neuron_ind[3], 2]))
-    print(np.mean(CTI[:count, neuron_ind[3], 3]))
+
+    p_vals = np.zeros((4,3))
+    for i in range(4):
+        x1 = np.reshape(CTI[:count, neuron_ind[i], 0],(-1,1))
+        for j in range(3):
+            x2 = np.reshape(CTI[:count, neuron_ind[i], j+1],(-1,1))
+            p_vals[i,j] = scipy.stats.ttest_rel(x1,x2)[1]
+
+    print('p-vals between trained category boundaries and untrained')
+    print(p_vals)
 
 def calc_CTI(s, ind, angles):
 
@@ -639,6 +675,12 @@ def plot_F3(fig_params):
     plt.tight_layout()
     plt.savefig('Fig3.pdf', format='pdf')
     plt.show()
+
+    for n in range(num_tasks):
+        r1, p1 = scipy.stats.pearsonr(delay_accuracy[n,:], accuracy_suppression[n,:,1])
+        print(tasks[n], ' Corr suppression - neuronal decoding ',r1 , p1)
+        r1, p1 = scipy.stats.pearsonr(np.mean(accuracy_neural_shuffled[n,:,:],axis=1), accuracy_suppression[n,:,1])
+        print(tasks[n], ' Corr suppression - accuracy shuffled ',r1 , p1)
 
 
     f = plt.figure(figsize=(3,7.5))
@@ -986,7 +1028,7 @@ def add_dualDMS_subplot_details(ax, chance_level):
 
 def plot_F5(fig_params):
 
-    tasks = ['ABCA','ABBA']
+    tasks = ['ABBA','ABBA']
     #tasks_test = ['ABCA_test_decode','ABBA_test_decode']
     num_tasks = len(tasks)
 
@@ -1054,10 +1096,10 @@ def plot_F5(fig_params):
 
         good_model_count = 0
         count = -1
-        while good_model_count < fig_params['models_per_task'] and count < 20:
+        while good_model_count < fig_params['models_per_task'] and count < 10:
             count += 1
             try:
-                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
+                x = pickle.load(open(fig_params['data_dir'] + tasks[n] + str(count) + '.pkl', 'rb'))
                 #x_neural = pickle.load(open(fig_params['data_dir'] + 'neural_behavior_' + tasks[n] + '_' + str(count) + '.pkl', 'rb'))
             except:
                 print('not found: ',  tasks[n] + '_' + str(count) + '.pkl')
@@ -1074,9 +1116,9 @@ def plot_F5(fig_params):
                 neuronal_test_decoding[good_model_count,:,:] = x['neuronal_test_decoding'][0,0,:,:]
                 synaptic_test_decoding[good_model_count,:,:] = x['synaptic_test_decoding'][0,0,:,:]
 
-                accuracy[good_model_count,:] = x['accuracy']
-                accuracy_neural_shuffled[good_model_count,:] = x['accuracy_neural_shuffled']
-                accuracy_syn_shuffled[good_model_count,:] = x['accuracy_syn_shuffled']
+                accuracy[good_model_count,:] = x['accuracy'][0,0,:]
+                accuracy_neural_shuffled[good_model_count,:] = x['accuracy_neural_shuffled'][0,0,:]
+                accuracy_syn_shuffled[good_model_count,:] = x['accuracy_syn_shuffled'][0,0,:]
 
                 syn_sample_tuning = x['synaptic_pev'][:,0,:]*np.exp(1j*x['synaptic_pref_dir'][:,0,:])
                 syn_test_tuning = x['synaptic_pev_test'][:,0,:]*np.exp(1j*x['synaptic_pref_dir_test'][:,0,:])
@@ -1084,12 +1126,14 @@ def plot_F5(fig_params):
 
                 if n == 1:
                     syn_test_tuning_shuffled = np.zeros((4, par['n_hidden'], len(t)), dtype=np.complex64)
-                    accuracy_test2[good_model_count]= x['ABBA_test2_acc'][0]
+                    accuracy_test2[good_model_count]= x['accuracy_no_suppression'][0]
 
                     for j in range(4):
                         syn_test_tuning_shuffled[j,:,:] = x['synaptic_pev_test_shuffled'][3+j,5,:,0,:]*\
                             np.exp(1j*x['synaptic_pref_dir_test_shuffled'][3+j,5,:,0,:])
-                        accuracy_test2_shuffled[good_model_count, j] = x['ABBA_test2_acc_shuffled'][3+j,5,0]
+                        #print(x['accuracy_suppression'].shape)
+                        #accuracy_test2_shuffled[good_model_count, j] = x['accuracy_suppression'][3+j,5,0]
+                        accuracy_test2_shuffled[good_model_count, j] = x['accuracy_suppression'][0,5,0]
 
 
                 for t1 in range(len(t)):

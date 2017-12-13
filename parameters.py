@@ -32,8 +32,8 @@ par = {
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 10,
-    'learning_rate'         : 4e-2,
+    'dt'                    : 30,
+    'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -49,7 +49,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 4e-2,
+    'spike_cost'            : 2e-2,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -59,7 +59,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 1000,
+    'num_iterations'        : 20,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -86,7 +86,7 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : False,
+    'decode_test'           : True,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
@@ -112,19 +112,6 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-<<<<<<< HEAD
-    #'num_iterations'        : 1000,
-    #'batch_train_size'      : 1024,
-    #'var_delay'             : False,
-    #'learning_rate'         : 2e-2,
-    #'catch_trial_pct'       : 0.0,
-=======
-    'num_iterations'        : 1000,
-    'batch_train_size'      : 1024,
-    'var_delay'             : False,
-    'learning_rate'         : 4e-2,
-    'catch_trial_pct'       : 0.0,
->>>>>>> 555cf8ede043a254cd4e86027ad08d329458e7f8
     'decoding_test_mode'    : False
 }
 
