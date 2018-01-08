@@ -10,6 +10,7 @@ import time
 import analysis
 import AdamOpt
 from parameters import *
+import pickle
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -31,7 +32,7 @@ class Model:
         self.mask = tf.unstack(mask, axis=0)
         self.td = tf.tile(tf.reshape(td,[par['n_hidden'],1]), [1, par['batch_train_size']])
 
-        self.td = tf.constant(np.float32(1))
+        #self.td = tf.constant(np.float32(1))
 
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
@@ -63,8 +64,11 @@ class Model:
         Network output
         Only use excitatory projections from the RNN to the output layer
         """
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h) + b_out for h in self.hidden_state_hist]
-        #self.y_hat = [tf.nn.softmax(tf.matmul(tf.nn.relu(W_out),h) + b_out, dim = 0) for h in self.hidden_state_hist]
+        if par['EI']:
+            #self.y_hat = [tf.matmul(tf.nn.relu(W_out),h) + b_out for h in self.hidden_state_hist]
+            self.y_hat = [tf.matmul(W_out,h) + b_out for h in self.hidden_state_hist]
+        else:
+            self.y_hat = [tf.matmul(W_out,h) + b_out for h in self.hidden_state_hist]
 
 
     def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
@@ -73,7 +77,7 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
+            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=False)
             W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
@@ -155,7 +159,6 @@ class Model:
 
     def optimize(self):
 
-        epsilon = 1e-4
 
         # Use all trainable variables, except those in the convolutional layers
         #variables = [var for var in tf.trainable_variables() if not var.op.name.find('conv')==0]
@@ -165,24 +168,36 @@ class Model:
         previous_weights_mu_minus_1 = {}
         reset_prev_vars_ops = []
         self.big_omega_var = {}
+        self.big_omega_terms = {}
+        self.grads = {}
         self.aux_loss = 0.0
+        self.big_omega_term_op =[]
 
         for var in variables:
             previous_weights_mu_minus_1[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
             self.big_omega_var[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
+            self.grads[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
+            #self.big_omega_terms[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
             self.aux_loss += par['omega_c']*tf.reduce_sum(tf.multiply(self.big_omega_var[var.op.name], \
                 tf.square(previous_weights_mu_minus_1[var.op.name] - var) ))
+            #self.big_omega_term_op.append(tf.assign(self.big_omega_terms[var.op.name], \
+            #    tf.square(previous_weights_mu_minus_1[var.op.name] - var)))
             reset_prev_vars_ops.append( tf.assign(previous_weights_mu_minus_1[var.op.name], var ) )
 
-
+        """
+        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
+                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
-
-        #self.y_hat = tf.nn.softmax(self.y_hat,dim = 0)
         """
-        perf_loss = [mask*tf.reduce_sum(-desired_output*tf.log(epsilon + y_hat) \
-            - (1-desired_output)*tf.log(1 + epsilon - y_hat), axis = 0) \
+        #self.y_hat = tf.nn.softmax(self.y_hat,dim = 0)
+        print('y_hat', self.y_hat[0])
+        print('target_data', self.target_data[0])
+
+        perf_loss = [mask*tf.reduce_sum(-desired_output*tf.log(epsilon + tf.nn.softmax(y_hat, dim=0)) \
+            - (1.0-desired_output)*tf.log(1.0 + epsilon - tf.nn.softmax(y_hat, dim=0)), axis = 0) \
             for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
 
@@ -190,10 +205,11 @@ class Model:
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
-
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.loss = self.perf_loss + self.spike_loss
+
+
 
         # OPTION 1
         self.train_op = adam_optimizer.compute_gradients(self.loss + self.aux_loss)
@@ -216,10 +232,6 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
         """
 
-
-        #self.train_op = adam_optimizer.compute_gradients_with_competition(self.task_loss + self.aux_loss, \
-            #self.big_omega_var)
-
         if par['stabilization'] == 'pathint':
             # Zenke method
             self.pathint_stabilization(variables, adam_optimizer, previous_weights_mu_minus_1)
@@ -227,6 +239,7 @@ class Model:
         elif par['stabilization'] == 'EWC':
             # Kirkpatrick method
             self.EWC(variables)
+
 
 
         self.reset_prev_vars = tf.group(*reset_prev_vars_ops)
@@ -250,23 +263,23 @@ class Model:
 
         """
         Calculate the loss functions and optimize the weights
-
-        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
-                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
+        perf_loss = [mask*tf.reduce_sum(tf.square(y_hat-desired_output),axis=0)
+                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+
         """
         cross_entropy
-        """
+
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
+        """
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        spike_loss = [par['spike_cost']*tf.reduce_sum(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
 
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        self.perf_loss = tf.reduce_sum(tf.stack(perf_loss, axis=0))
+        self.spike_loss = tf.reduce_sum(tf.stack(spike_loss, axis=0))
 
         self.loss = self.perf_loss + self.spike_loss
 
@@ -301,37 +314,45 @@ class Model:
             #self.fisher_mat[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
         fisher_ops = []
         ewc_opt = tf.train.GradientDescentOptimizer(1)
-        y_unstacked = tf.unstack(self.y, axis = 0)
+        y_unstacked = tf.unstack(self.y_hat, axis = 0)
         #for y in y_unstacked:
         for y1 in tf.unstack(y_unstacked[:par['EWC_fisher_calc_batch']]):
             grads_and_vars = ewc_opt.compute_gradients(tf.log(y1 + epsilon))
             for grad, var in grads_and_vars:
                 print(var.op.name, grad)
                 fisher_ops.append(tf.assign_add(self.big_omega_var[var.op.name], \
-                    grad*grad/par['EWC_fisher_calc_batch']/par['EWC_fisher_num_batches']/par['layer_dims'][-1]))
+                    grad*grad/par['EWC_fisher_calc_batch']/par['EWC_fisher_num_batches']/par['n_output']))
 
         self.update_big_omega = tf.group(*fisher_ops)
 
     def pathint_stabilization(self, variables, adam_optimizer, previous_weights_mu_minus_1):
         # Zenke method
 
-        optimizer_task = tf.train.GradientDescentOptimizer(learning_rate =  par['learning_rate'])
+        #optimizer_task = tf.train.GradientDescentOptimizer(learning_rate =  par['learning_rate'])
+        optimizer_task = tf.train.GradientDescentOptimizer(learning_rate =  1)
         small_omega_var = {}
+        delta_params = {}
 
         reset_small_omega_ops = []
         update_small_omega_ops = []
+        update_grads_op = []
         update_big_omega_ops = []
         initialize_prev_weights_ops = []
 
         for var in variables:
 
             small_omega_var[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
+            delta_params[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
             reset_small_omega_ops.append( tf.assign( small_omega_var[var.op.name], small_omega_var[var.op.name]*0.0 ) )
+            reset_small_omega_ops.append( tf.assign( delta_params[var.op.name], delta_params[var.op.name]*0.0 ) )
             #k = par['last_layer_mult'] if var.op.name.find('2')>0 else 1
             #print(var.op.name, ' omega multiplier ', k)
-
+            """
             update_big_omega_ops.append( tf.assign_add( self.big_omega_var[var.op.name], tf.div(tf.nn.relu(small_omega_var[var.op.name]), \
             	(par['omega_xi'] + tf.square(var-previous_weights_mu_minus_1[var.op.name])))))
+            """
+            update_big_omega_ops.append( tf.assign_add( self.big_omega_var[var.op.name], tf.div(tf.nn.relu(small_omega_var[var.op.name]), \
+            	(par['omega_xi'] + tf.square(delta_params[var.op.name])))))
 
 
         # After each task is complete, call update_big_omega and reset_small_omega
@@ -347,19 +368,23 @@ class Model:
         self.gradients = optimizer_task.compute_gradients(self.loss)
         # This is called every batch
         for grad,var in self.gradients:
-            update_small_omega_ops.append(tf.assign_add(small_omega_var[var.op.name], -self.delta_grads[var.op.name]*grad ) )
+            #update_small_omega_ops.append(tf.assign_add(small_omega_var[var.op.name], -self.delta_grads[var.op.name]*grad ) )
+            update_small_omega_ops.append(tf.assign_add(small_omega_var[var.op.name], -self.delta_grads[var.op.name]*self.grads[var.op.name] ) )
+            update_small_omega_ops.append(tf.assign_add(delta_params[var.op.name], self.delta_grads[var.op.name]) )
+            update_grads_op.append(tf.assign(self.grads[var.op.name], grad))
 
         self.update_small_omega = tf.group(*update_small_omega_ops) # 1) update small_omega after each train!
+        self.update_grads = tf.group(*update_grads_op)
 
 
-def train_and_analyze(gpu_id):
+def train_and_analyze(gpu_id, save_fn):
 
     tf.reset_default_graph()
-    main(gpu_id)
-    update_parameters(revert_analysis_par)
+    main(gpu_id, save_fn)
+    #update_parameters(revert_analysis_par)
 
 
-def main(gpu_id):
+def main(gpu_id, save_fn):
 
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
 
@@ -404,16 +429,18 @@ def main(gpu_id):
             print('Model ' +  par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
+        model_performance = {'accuracy': np.zeros((len(par['task_list']), len(par['task_list'])), dtype=np.float32), \
+                            'neuronal_sample_decoding': np.zeros((len(par['task_list']), len(par['task_list']), par['num_time_steps']), dtype=np.float32),\
+                            'synaptic_sample_decoding': np.zeros((len(par['task_list']), len(par['task_list']), par['num_time_steps']), dtype=np.float32),\
+                            'neuronal_test_decoding': np.zeros((len(par['task_list']), len(par['task_list']), par['num_time_steps']), dtype=np.float32),\
+                            'synaptic_test_decoding': np.zeros((len(par['task_list']), len(par['task_list']), par['num_time_steps']), dtype=np.float32)}
 
-        task_list = ['DMS', 'DMC', 'DMC2','OneInt_DMC','DMRS90']
-        model_performance = {'accuracy': np.zeros((len(task_list), len(task_list)))}
-
-        for j in range(len(task_list)):
+        for j in range(len(par['task_list'])):
 
             for i in range(par['num_iterations']):
 
                 # generate batch of batch_train_size
-                trial_info = stim.generate_trial(task_list[j])
+                trial_info = stim.generate_trial(par['task_list'][j], par['batch_train_size'])
 
                 if par['stabilization'] == 'pathint':
                     """
@@ -422,17 +449,33 @@ def main(gpu_id):
                         model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist, model.aux_loss], feed_dict = {x: trial_info['neural_input'], \
                         td:par['topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], gate_learning: gate})
                     """
-                    _, _, acc, aux_loss = sess.run([model.update_small_omega, model.train_op, model.accuracy, model.aux_loss], feed_dict = {x: trial_info['neural_input'], \
-                        td:par['topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask']})
+                    _, _, acc, aux_loss, perf_loss, h = sess.run([model.train_op, model.update_grads,model.accuracy, \
+                        model.aux_loss, model.perf_loss, model.hidden_state_hist], feed_dict = {x: trial_info['neural_input'], \
+                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
-                    #_, dg = sess.run([model.update_small_omega, model.delta_grads])
 
-                    #acc, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
-                    #print('Iter ', i, 'Accuracy ', acc , ' Perf Loss  ', perf_loss , ' Spike Loss  ', spike_loss ,' Mean activity ', np.mean(np.stack(state_hist)) , 'AuxLoss ', aux_loss)
-                    print('Iter ', i, 'Accuracy ', acc , 'AuxLoss ', aux_loss)
+                    sess.run(model.update_small_omega)
+
+                    if acc > 0.999 and i>2000:
+                        break
 
                 elif par['stabilization'] == 'EWC':
-                    pass
+                    aux_loss = -1
+                    #print('mean td ',np.mean(np.float32(par['topdown'][j])))
+                    _, acc, perf_loss, h = sess.run([model.train_op, model.accuracy, model.perf_loss, model.hidden_state_hist], \
+                        feed_dict = {x: trial_info['neural_input'], \
+                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask']})
+
+
+                if (i-1)//100 == (i-1)/100:
+                    print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Pref Loss ', perf_loss, ' Mean sr ', np.mean(h))
+                    #bo_var = [np.sum(b) for b in bo.values()]
+                    #print('Big Omega ', bo_var)
+                    #bo_var = [np.sum(b) for b in bot.values()]
+                    #print('Big Omega Terms', bo_var)
+                    #bo_var = [np.sum(b*b1) for (b,b1) in zip(bot.values(),bo.values())]
+                    #print('Big Omega Sums', bo_var)
+
 
                         # Update big omegaes, and reset other values before starting new task
             if par['stabilization'] == 'pathint':
@@ -440,9 +483,9 @@ def main(gpu_id):
                 big_omegas = sess.run([model.update_big_omega, model.big_omega_var])
             elif par['stabilization'] == 'EWC':
                 for n in range(par['EWC_fisher_num_batches']):
-                    stim_in, y_hat, td_in, mk = stim.make_batch(task, test = False)
-                    big_omegas = sess.run([model.update_big_omega,model.big_omega_var], feed_dict = \
-                        {x:trial_info['neural_input'], td:par['topdown'][j], mask:trial_info['train_mask']})
+                    trial_info = stim.generate_trial(par['task_list'][j], par['batch_train_size'])
+                    big_omegas = sess.run([model.update_big_omega,model.big_omega_var], feed_dict = {x:trial_info['neural_input'], \
+                    td: np.float32(par['topdown'][j]),  y: trial_info['desired_output'],mask:trial_info['train_mask']})
 
             sess.run(model.reset_adam_op)
             sess.run(model.reset_prev_vars)
@@ -452,15 +495,32 @@ def main(gpu_id):
             for k in range(j+1):
 
                 # generate batch of batch_train_size
-                trial_info = stim.generate_trial(task_list[k])
-                acc = sess.run(model.accuracy, feed_dict = {x: trial_info['neural_input'], td:par['topdown'][k], \
+                trial_info = stim.generate_trial(par['task_list'][k], par['batch_train_size'])
+                acc, h, syn_x, syn_u = sess.run([model.accuracy, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
+                    feed_dict = {x: trial_info['neural_input'], td: np.float32(par['topdown'][k]), \
                     y: trial_info['desired_output'], mask: trial_info['train_mask']})
                 print('ACC ',j,k,acc)
                 model_performance['accuracy'][j,k] = acc
 
+                syn_x_stacked = np.stack(syn_x, axis=1)
+                syn_u_stacked = np.stack(syn_u, axis=1)
+                h_stacked = np.stack(h, axis=1)
+                trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+                decoding_results = analysis.calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
+                    num_reps = 10, decode_test = True, decode_rule = False, decode_sample_vs_test = False)
+
+                model_performance['neuronal_sample_decoding'][j,k,:] = np.mean(decoding_results['neuronal_sample_decoding'][0,0,:,:],axis=0)
+                model_performance['synaptic_sample_decoding'][j,k,:] = np.mean(decoding_results['synaptic_sample_decoding'][0,0,:,:],axis=0)
+                model_performance['neuronal_test_decoding'][j,k,:] = np.mean(decoding_results['neuronal_test_decoding'][0,0,:,:],axis=0)
+                model_performance['synaptic_test_decoding'][j,k,:] = np.mean(decoding_results['synaptic_test_decoding'][0,0,:,:],axis=0)
+
                 #model_performance['accuracy'][j,k], _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
             print(model_performance['accuracy'])
+            model_performance['par'] = par
+            model_performance['task_list'] = par['task_list']
+            pickle.dump(model_performance, open(par['save_dir'] + save_fn, 'wb'))
+            print('Saving data ', save_fn)
             #iteration_time = time.time() - t_start
             #model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
 
@@ -474,12 +534,19 @@ def main(gpu_id):
 
         """
         Save model, analyze the network model and save the results
+
+        model_performance['par'] = par
+        model_performance['task_list'] = par['task_list']
+        pickle.dump(model_performance, open(par['save_dir'] + save_fn, 'wb'))
         """
+
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             update = {'decoding_reps': 100, 'simulation_reps' : 100}
             update_parameters(update)
             weights = eval_weights()
+
+
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = True, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 

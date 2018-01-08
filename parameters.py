@@ -9,40 +9,37 @@ global par, analysis_par
 """
 Independent parameters
 """
-
-rnd_save_suffix = np.random.randint(10000)
-
 par = {
     # Setup parameters
-    'save_dir'              : './savedir_2000batches/',
+    'save_dir'              : './savedir/CL4/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : False,
-    'stabilization'         : 'pathint',
+    'stabilization'         : 'EWC',
 
     # Network configuration
-    'synapse_config'        : None, # Full is 'std_stf'
+    'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 72,
+    'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 300,
+    'n_hidden'              : 250,
     'n_output'              : 3,
 
     # Timings and rates
     'dt'                    : 10,
     'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
-    'connection_prob'       : 1,         # Usually 1
+    'connection_prob'       : 0.5,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.05,
-    'noise_rnn_sd'          : 0.05,
+    'noise_in_sd'           : 0.1,
+    'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -50,29 +47,30 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-7,
+    'spike_cost'            : 1e-5,
 
     # Synaptic plasticity specs
-    'tau_fast'              : 200,
-    'tau_slow'              : 1500,
+    'tau_fast'              : 100,
+    'tau_slow'              : 1000,
     'U_stf'                 : 0.15,
     'U_std'                 : 0.45,
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 800,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'task_list'             : ['DMS'],
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 250,
-    'fix_time'              : 300,
-    'sample_time'           : 500,
-    'delay_time'            : 250,
-    'test_time'             : 500,
-    'variable_delay_max'    : 500,
-    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'dead_time'             : 200,
+    'fix_time'              : 200,
+    'sample_time'           : 400,
+    'delay_time'            : 200,
+    'test_time'             : 400,
+    'variable_delay_max'    : 400,
+    'mask_duration'         : 40,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -80,8 +78,8 @@ par = {
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
-    'ckpt_save_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
-    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
+    'ckpt_save_fn'          : 'model.ckpt',
+    'ckpt_load_fn'          : 'model.ckpt',
 
     # Analysis
     'svm_normalize'         : True,
@@ -94,18 +92,18 @@ par = {
     'analyze_tuning'        : True,
 
     # Omega parameters
-    'omega_c'               : 0.1,
-    'omega_xi'              : 0.1,
+    'omega_c'               : 6,
+    'omega_xi'              : 0.001,
     'last_layer_mult'       : 2,
     'scale_factor'          : 1,
 
     # Projection of top-down activity
     # Only one can be True
     'clamp'                 : 'neurons', # can be either 'dendrites', 'neurons', 'partial' or None
-    'gate_pct'              : 0.333,
+    'gate_pct'              : 0.0,
 
-    'EWC_fisher_calc_batch' : 64, # batch size when calculating EWC
-    'EWC_fisher_num_batches': 64, # number of batches size when calculating EWC
+    'EWC_fisher_calc_batch' : 8, # batch size when calculating EWC
+    'EWC_fisher_num_batches': 256, # number of batches size when calculating EWC
 }
 
 """
@@ -163,11 +161,33 @@ def update_trial_params():
     elif par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45
 
+    elif par['trial_type'] == 'DMRS45ccw':
+        par['rotation_match'] = -45
+
     elif par['trial_type'] == 'DMRS90':
         par['rotation_match'] = 90
 
-    elif  par['trial_type'] == 'DMRS180':
+    elif par['trial_type'] == 'DMRS90ccw':
+        par['rotation_match'] = -90
+
+    elif par['trial_type'] == 'DMRS135':
+        par['rotation_match'] = 135
+
+    elif par['trial_type'] == 'DMRS135ccw':
+        par['rotation_match'] = -135
+
+    elif par['trial_type'] == 'DMRS180':
         par['rotation_match'] = 180
+
+    elif 'Color_OneIntCat' in par['trial_type']:
+        par['num_rules'] = 2
+        par['rule_onset_time'] = par['dead_time']+par['fix_time']
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+
+    elif 'Color_DelayedCat' in par['trial_type']:
+        par['num_rules'] = 2
+        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time']
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'dualDMS':
         par['catch_trial_pct'] = 0
@@ -219,6 +239,11 @@ def update_trial_params():
         quit()
 
 
+    # use this for all networks
+    par['num_rule_tuned'] = 12
+    par['num_fix_tuned'] = 12
+
+
 def update_dependencies():
     """
     Updates all parameter dependencies
@@ -230,8 +255,18 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Create TD
-    par['topdown'] = [np.array(np.random.choice([0,1], par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']])) for i in range(20)]
+    par['topdown'] = [np.float32(np.array(np.random.choice([0,1], par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']]))) for i in range(100)]
+    """
+    par['topdown'] = []
+    for i in range(10):
+        v = np.zeros((300))
+        v[i*50:(i+1)*50] = 1
+        par['topdown'].append(v)
+    """
+
     print('mean td 0 ', np.mean(par['topdown'][0]))
+    print('mean td 1 ', np.mean(par['topdown'][1]))
+    print('mean td 2 ', np.mean(par['topdown'][2]))
     # Possible rules based on rule type values
     #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
 
@@ -259,6 +294,7 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
+    print('noise ',par['noise_rnn'], par['noise_in'])
     # General event profile info
     #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
@@ -286,6 +322,8 @@ def update_dependencies():
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
+    #u = range(0,par['n_hiiden'],2)
+    #par['w_in0'][]
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -297,8 +335,9 @@ def update_dependencies():
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
-        par['w_rnn0'] = np.eye(par['n_hidden'])
+        par['w_rnn0'] = np.float32(np.eye(par['n_hidden']))
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
@@ -307,7 +346,8 @@ def update_dependencies():
     # is used, so the strength of the recurrent weights is reduced to compensate
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
-        par['w_rnn0'][:, par['num_exc_units']] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
+
+
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
@@ -365,7 +405,8 @@ def update_dependencies():
             par['syn_u_init'][i,:] = par['U'][i,0]
 
 def initialize(dims, connection_prob):
-    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    #w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    w = np.random.uniform(low=0, high=0.5, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
 
