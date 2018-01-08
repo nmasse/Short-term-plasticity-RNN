@@ -11,12 +11,15 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, trial_type):
+    def generate_trial(self, trial_type, batch_size):
 
 
-        if trial_type in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', \
-                                'DMC1','DMC2','DMC3','OneInt_DMC','OneInt_DMC1','OneInt_DMC2','OneInt_DMC3','DMS+DMC']:
-            trial_info = self.generate_motion_working_memory_trial(trial_type)
+        if trial_type in ['DMS','DMRS45ccw','DMRS90ccw','DMRS135ccw','DMRS45','DMRS90','DMRS135','DMRS180',\
+                          'DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMC1','DMC2','DMC3','OneIntCat','OneIntCat1',\
+                          'OneIntCat2','OneIntCat3','Color_OneIntCat','Color_OneIntCat1','Color_OneIntCat2',\
+                          'Color_OneIntCat3','Color_DelayedCat','Color_DelayedCat1','Color_DelayedCat2',\
+                          'Color_DelayedCat3','DelayedCat','DelayedCat1','DelayedCat2','DelayedCat3','DMS+DMC']:
+            trial_info = self.generate_motion_working_memory_trial(trial_type, batch_size)
         elif trial_type in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
         elif trial_type == 'dualDMS':
@@ -199,7 +202,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_motion_working_memory_trial(self, trial_type):
+    def generate_motion_working_memory_trial(self, trial_type, batch_size):
 
         """
         Generate a delayed matching task
@@ -228,15 +231,15 @@ class Stimulus:
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
-                      'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, batch_size),dtype=np.float32),
+                      'train_mask'      :  np.ones((trial_length, batch_size),dtype=np.float32),
+                      'sample'          :  np.zeros((batch_size),dtype=np.int8),
+                      'test'            :  np.zeros((batch_size),dtype=np.int8),
+                      'rule'            :  np.zeros((batch_size),dtype=np.int8),
+                      'match'           :  np.zeros((batch_size),dtype=np.int8),
+                      'catch'           :  np.zeros((batch_size),dtype=np.int8),
+                      'probe'           :  np.zeros((batch_size),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, batch_size))}
 
 
         # set to mask equal to zero during the dead time
@@ -247,7 +250,7 @@ class Stimulus:
         # If so, reduce set of test stimuli so that a single strategy can't be used
         #limit_test_directions = trial_type=='DMS+DMRS'
 
-        for t in range(par['batch_train_size']):
+        for t in range(batch_size):
 
             """
             Generate trial paramaters
@@ -256,15 +259,15 @@ class Stimulus:
             if par['decoding_test_mode']:
                 test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
-            if 'DMC' in trial_type or (trial_type == 'DMS+DMC' and rule == 1):
+            if 'DMC' in trial_type or 'Cat' in trial_type or (trial_type == 'DMS+DMC' and rule == 1):
                 # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
                 current_trial_DMC = True
                 motion_cats = [np.arange(i*par['num_motion_dirs']//2,par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
-                if 'DMC1' in trial_type:
+                if 'DMC1' or 'Cat1' in trial_type:
                     motion_cats = [np.arange(1+i*par['num_motion_dirs']//2,1+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
-                elif 'DMC2' in trial_type:
+                elif 'DMC2' or 'Cat2' in trial_type:
                     motion_cats = [np.arange(2+i*par['num_motion_dirs']//2,2+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
-                elif 'DMC3' in trial_type:
+                elif 'DMC3' or 'Cat3' in trial_type:
                     motion_cats = [np.arange(3+i*par['num_motion_dirs']//2,3+par['num_motion_dirs']//2+i*par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in [0,1]]
 
             else:
@@ -329,16 +332,21 @@ class Stimulus:
             Calculate neural input based on sample, tests, fixation, rule, and probe
             """
             # SAMPLE stimulus
-            trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
+            if 'OneInt' not in trial_type:
+                trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
+            else:
+                trial_info['neural_input'][:emt, eof:, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
 
             # TEST stimulus
-            if not catch and not 'OneInt' in trial_type:
+            if not catch and not 'OneInt' in trial_type and not 'Delayed' in trial_type:
                 trial_info['neural_input'][:emt, eod_current:, t] += np.reshape(self.motion_tuning[:,test_dir],(-1,1))
 
             # FIXATION cue
-            if par['num_fix_tuned'] > 0:
+            if par['num_fix_tuned'] > 0 and 'OneInt' not in trial_type:
                 trial_info['neural_input'][emt:eft, eodead:eod_current, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
                 trial_info['neural_input'][emt:eft, eod_current:trial_length, t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+            elif par['num_fix_tuned'] > 0 and 'OneInt' in trial_type:
+                trial_info['neural_input'][emt:eft, eodead:, t] += np.reshape(self.fix_tuning[:,1],(-1,1))
 
             # RULE CUE
             if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
@@ -348,13 +356,26 @@ class Stimulus:
             Determine the desired network output response
             """
             trial_info['desired_output'][0, eodead:eod_current, t] = 1
-            if not catch and not 'OneInt' in trial_type:
+            if not catch and not 'OneInt' in trial_type and not 'Color' in trial_type:
                 if match == 0:
                     trial_info['desired_output'][1, eod_current:, t] = 1
                 else:
                     trial_info['desired_output'][2, eod_current:, t] = 1
-            elif 'OneInt' in trial_type:
-                trial_info['desired_output'][sample_cat+1, eof_current:, t] = 1
+            elif 'OneInt' in trial_type and not 'Color' in trial_type:
+                trial_info['desired_output'][sample_cat+1, eof:, t] = 1
+                trial_info['desired_output'][0, eof:, t] = 0
+            elif 'OneInt' in trial_type and 'Color' in trial_type:
+                s = (sample_cat+rule)%2
+                trial_info['desired_output'][s+1, eof:, t] = 1
+                trial_info['desired_output'][0, eof:, t] = 0
+            elif 'Delayed' in trial_type and not 'Color' in trial_type:
+                trial_info['desired_output'][sample_cat+1, eod_current:, t] = 1
+                trial_info['desired_output'][0, eod_current:, t] = 0
+            elif 'Delayed' in trial_type and 'Color' in trial_type:
+                s = (sample_cat+rule)%2
+                trial_info['desired_output'][s+1, eod_current:, t] = 1
+                trial_info['desired_output'][0, eod_current:, t] = 0
+
             else:
                 trial_info['desired_output'][0, eod_current:, t] = 1
 
@@ -370,11 +391,23 @@ class Stimulus:
 
 
         # debugging: plot the neural input activity
-
-        #self.plot_neural_input(trial_info)
-        #plt.imshow(trial_info['desired_output'][:,-1,:50], aspect = 'auto', interpolation='none')
-        #plt.show()
-        #quit()
+        """
+        plt.imshow(trial_info['neural_input'][:,:,0], aspect='auto', interpolation='none')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['neural_input'][:,:,1], aspect='auto', interpolation='none')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,:,0], aspect = 'auto', interpolation='none')
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,:,1], aspect = 'auto', interpolation='none')
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,:,2], aspect = 'auto', interpolation='none')
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,-1,:50], aspect = 'auto', interpolation='none')
+        plt.show()
+        quit()
+        """
 
         return trial_info
 
@@ -493,7 +526,8 @@ class Stimulus:
         Generate tuning functions for the Postle task
         """
         motion_tuning = np.zeros((par['num_motion_tuned'], par['num_receptive_fields'], par['num_motion_dirs']))
-        fix_tuning = np.zeros((par['num_fix_tuned'], par['num_receptive_fields']))
+        #fix_tuning = np.zeros((par['num_fix_tuned'], par['num_receptive_fields']))
+        fix_tuning = np.zeros((par['num_fix_tuned'], 2))
         rule_tuning = np.zeros((par['num_rule_tuned'], par['num_rules']))
 
         # generate list of prefered directions

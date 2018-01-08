@@ -32,8 +32,8 @@ class AdamOpt:
             self.v[var.op.name]  = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
             self.delta_grads[var.op.name]  = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
 
-        self.grad_descent = tf.train.GradientDescentOptimizer(learning_rate = learning_rate)
-        #self.grad_descent = tf.train.GradientDescentOptimizer(learning_rate = 1)
+        #self.grad_descent = tf.train.GradientDescentOptimizer(learning_rate = learning_rate)
+        self.grad_descent = tf.train.GradientDescentOptimizer(learning_rate = 1.0)
 
 
     def reset_params(self):
