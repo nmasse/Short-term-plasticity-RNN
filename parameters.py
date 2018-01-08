@@ -91,6 +91,9 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
     'analyze_tuning'        : True,
+
+    # GPU
+    'gpu'                   : False,
 }
 
 """

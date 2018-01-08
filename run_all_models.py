@@ -14,18 +14,21 @@ for task in task_list:
         update_parameters(updates)
 
         # Keep the try-except clauses to ensure proper GPU memory release
-        try:
-            # GPU designated by first argument (must be integer 0-3)
+        if par['gpu']:
             try:
-                print('Selecting GPU ',  sys.argv[1])
-                assert(int(sys.argv[1]) in [0,1,2,3])
-            except AssertionError:
-                quit('Error: Select a valid GPU number.')
+                # GPU designated by first argument (must be integer 0-3)
+                try:
+                    print('Selecting GPU ',  sys.argv[1])
+                    assert(int(sys.argv[1]) in [0,1,2,3])
+                except AssertionError:
+                    quit('Error: Select a valid GPU number.')
 
-            # Run model
-            model.train_and_analyze(sys.argv[1])
-        except KeyboardInterrupt:
-            quit('Quit by KeyboardInterrupt')
+                # Run model
+                model.train_and_analyze(sys.argv[1])
+            except KeyboardInterrupt:
+                quit('Quit by KeyboardInterrupt')
+        else:
+            model.train_and_analyze(0)
 
 
 # Command for observing python processes:
