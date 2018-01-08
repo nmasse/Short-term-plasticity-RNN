@@ -26,11 +26,11 @@ par = {
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 72,
+    'num_motion_tuned'      : 1 + 36*2,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
     'n_hidden'              : 300,
-    'n_output'              : 3,
+    'n_output'              : 1 + 36,
 
     # Timings and rates
     'dt'                    : 10,
@@ -64,7 +64,8 @@ par = {
     'iters_between_outputs' : 100,
 
     # Task specs
-    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim
+    'multistim_trial_length': 4000,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
     'fix_time'              : 300,
@@ -214,8 +215,11 @@ def update_trial_params():
         par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
+    elif par['trial_type'] == 'multistim':
+        print('Multistim params update placeholder.')
+
     else:
-        print(par['trial_type'], ' not a recognized trial type')
+        print(par['trial_type'], 'not a recognized trial type')
         quit()
 
 
@@ -268,6 +272,8 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS':
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
+    elif par['trial_type'] == 'multistim':
+        par['trial_length'] = par['multistim_trial_length']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
     # Length of each trial in time steps
