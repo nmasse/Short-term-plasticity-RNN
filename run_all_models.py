@@ -7,7 +7,7 @@ task_list = ['ABBA']
 
 
 for task in task_list:
-    for j in range(25):
+    for j in range(1):
         print('Training network on ', task,' task, network model number ', j)
         save_fn = task + str(j) + '.pkl'
         updates = {'trial_type': task, 'save_fn': save_fn}

@@ -28,7 +28,7 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 20,
     'n_output'              : 3,
 
     # Timings and rates
@@ -58,7 +58,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 100,
     'num_iterations'        : 20,
     'iters_between_outputs' : 100,
 
@@ -103,7 +103,7 @@ analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : True,
     'num_iterations'        : 1,
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 100,
     'var_delay'             : False,
     'learning_rate'         : 0,
     'catch_trial_pct'       : 0.0,
@@ -131,7 +131,7 @@ def update_parameters(updates):
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
-        print(key, val)
+        # print(key, val)
 
     update_trial_params()
     update_dependencies()
