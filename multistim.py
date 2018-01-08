@@ -68,7 +68,7 @@ class MultiStimulus:
             self.current_task = i
 
 
-    def make_batch(self):
+    def generate_trial(self):
         task = self.task_types[self.current_task]
         stim, resp, mask = task[0](*task[1:])
         return task[1], stim, resp, mask
