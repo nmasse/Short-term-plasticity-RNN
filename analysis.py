@@ -767,12 +767,12 @@ def get_perf(y, y_hat, mask):
     """
     Calculate task accuracy by comparing the actual network output to the desired output
     only examine time points when test stimulus is on
-    in another words, when y[0,:,:] is not 0
+    in another words, when y[-1,:,:] is not 0
     y is the desired output
     y_hat is the actual output
     """
     y_hat = np.stack(y_hat, axis=1)
-    mask *= y[0,:,:]==0
+    mask *= y[1,:,:]==0
     mask_non_match = mask*(y[1,:,:]==1)
     mask_match = mask*(y[2,:,:]==1)
     y = np.argmax(y, axis = 0)

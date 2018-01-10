@@ -69,6 +69,9 @@ class AdamOpt:
             elif var.op.name == "output/W_out":
                 print('Applying mask to w_out gradient')
                 grads *= par['w_out_mask']
+            elif var.op.name == "output/W_in":
+                print('Applying mask to w_in gradient')
+                grads *= par['w_in_mask']
 
             grads = tf.clip_by_norm(grads, par['clip_max_grad_val'])
             new_m = self.beta1*self.m[var.op.name] + (1-self.beta1)*grads

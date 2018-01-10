@@ -36,11 +36,11 @@ for i in [0,1,2,3,4,5,6]:
     for j,c in enumerate(c_vals):
         current_task_list = [task_list[j] for j in task_list_order[i]]
         update_parameters({'omega_c': c, 'task_list': current_task_list})
-        update_parameters({'gate_pct': 0.75})
+        update_parameters({'gate_pct': 0.0})
         update_parameters({'omega_xi': 0.01})
-        update_parameters({'n_hidden': 500})
+        update_parameters({'n_hidden': 300})
         update_parameters({'stabilization': 'pathint'})
-        save_fn = 'RNN_CL_SI_no_stp_h500_gating75_xi01_fixed_omega_' + str(1) + '_v' + str(i) + '.pkl'
+        save_fn = 'RNN_CL_SI_no_stp_h500_gating0_xi01_fixed_omega_' + str(1) + '_v' + str(i) + '.pkl'
         print(current_task_list)
         model.train_and_analyze(str(sys.argv[1]), save_fn)
 

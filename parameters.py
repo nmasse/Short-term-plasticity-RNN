@@ -15,50 +15,50 @@ par = {
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : False,
-    'stabilization'         : 'EWC',
+    'stabilization'         : 'pathint',
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 1 + 36*2,
-    'num_fix_tuned'         : 0,
+    'num_motion_tuned'      : 36*2,
+    'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 300,
-    'n_output'              : 1 + 36,
+    'n_hidden'              : 100,
+    #'n_output'              : 1 + 36,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 1e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 0.5,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_in_sd'           : 0.05,
+    'noise_rnn_sd'          : 0.2,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 4,        # magnitutde scaling factor for von Mises
-    'kappa'                 : 2,        # concentration scaling factor for von Mises
+    'tuning_height'         : 4.0,        # magnitutde scaling factor for von Mises
+    'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-5,
+    'spike_cost'            : 1e-7,
 
     # Synaptic plasticity specs
     'tau_fast'              : 100,
-    'tau_slow'              : 1000,
+    'tau_slow'              : 1500,
     'U_stf'                 : 0.15,
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
-    'num_iterations'        : 1000,
-    'iters_between_outputs' : 100,
+    'batch_train_size'      : 64,
+    'num_iterations'        : 400,
+    'iters_between_outputs' : 20,
 
     # Task specs
     'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim
@@ -243,8 +243,8 @@ def update_trial_params():
 
 
     # use this for all networks
-    par['num_rule_tuned'] = 12
-    par['num_fix_tuned'] = 12
+    #par['num_rule_tuned'] = 12
+    #par['num_fix_tuned'] = 12
 
 
 def update_dependencies():
@@ -252,8 +252,10 @@ def update_dependencies():
     Updates all parameter dependencies
     """
 
+    par['n_output'] = par['num_motion_dirs'] + 1
+
     # Number of input neurons
-    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
@@ -327,8 +329,10 @@ def update_dependencies():
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
-    #u = range(0,par['n_hiiden'],2)
-    #par['w_in0'][]
+    u = range(0,par['n_hidden'],2)
+    par['w_in0'][u,:] = 0
+    par['w_in_mask'] = np.ones(par['input_to_hidden_dims'], dtype = np.float32)
+    par['w_in_mask'][u,:] = 0
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -342,7 +346,7 @@ def update_dependencies():
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
         par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
-        par['w_rnn0'] = np.float32(np.eye(par['n_hidden']))
+        par['w_rnn0'] = np.float32(0.9*np.eye(par['n_hidden']))
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
@@ -355,9 +359,12 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
+    par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
+    u = range(1,par['n_hidden'],2)
+    par['w_out0'][:, u] = 0
+    par['w_out_mask'][:, u] = 0
 
     if par['EI']:
         par['ind_inh'] = np.where(par['EI_list'] == -1)[0]

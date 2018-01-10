@@ -9,9 +9,7 @@ class MultiStimulus:
         self.input_shape = [par['n_input'], par['num_time_steps'], par['batch_train_size']]
         self.output_shape = [par['n_output'], par['num_time_steps'], par['batch_train_size']]
 
-        self.mask_length = 100//par['dt']
-
-        self.modality_size = 36
+        self.modality_size = (par['num_motion_tuned'])//2
         self.pref_theta = np.linspace(0,2*np.pi,self.modality_size)
 
         self.dm_c_set = np.array([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08])
@@ -25,13 +23,13 @@ class MultiStimulus:
 
         self.get_tasks()
         self.task_id = 0
-        self.task_order = np.random.permutation(len(self.task_types))
+        #self.task_order = np.random.permutation(len(self.task_types))
+        self.task_order = np.arange(19)
         self.current_task = self.task_order[self.task_id]
 
 
     def circ_tuning(self, theta):
-        von_mises = np.exp(2*np.cos(theta-self.pref_theta[:,np.newaxis]))
-        return 0.8*von_mises/np.max(von_mises)
+        return par['tuning_height']*np.exp(par['kappa']*np.cos(theta-self.pref_theta[:,np.newaxis]))/np.exp(par['kappa'])
 
 
     def get_tasks(self):
@@ -60,18 +58,16 @@ class MultiStimulus:
         return self.task_types
 
 
-    def change_task(self, i=None):
-        if i is None:
-            self.current_task = self.task_order[self.task_id]
-            self.task_id += 1
-        else:
-            self.current_task = i
+    def generate_trial(self, current_task):
 
+        self.trial_info = {'neural_input': np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size'])),
+                           'desired_output': np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                           'train_mask': np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)}
+        self.trial_info['train_mask'][:par['dead_time']//par['dt'], :] = 0
 
-    def generate_trial(self):
-        task = self.task_types[self.current_task]
-        stim, resp, mask = task[0](*task[1:])
-        return task[1], stim, resp, mask
+        task = self.task_types[current_task]
+        task[0](*task[1:])
+        return task[1], self.trial_info
 
 
     def task_go(self, variant='go', offset=0):
@@ -80,19 +76,18 @@ class MultiStimulus:
         # Stimulus appears before fixation cue turns off
         # Response occurs when fixation turns off
 
-        # Check offset value
-        assert(0 <= offset <= 2*np.pi)
+        fix_resp = np.tile( par['tuning_height'],(par['num_fix_tuned'],1))
 
         # Task parameters
         if variant == 'go':
             stim_onset = np.random.randint(500, 1500, par['batch_train_size'])//par['dt']
             stim_off = -1
-            fixation_end = 1500//par['dt']
+            fixation_end = np.ones((par['batch_train_size']),dtype=np.int8)*1500//par['dt']
             resp_onset = fixation_end
         elif variant == 'rt_go':
             stim_onset = np.random.randint(500, 2500, par['batch_train_size'])//par['dt']
             stim_off = -1
-            fixation_end = -1
+            fixation_end = np.ones((par['batch_train_size']))*par['num_time_steps']
             resp_onset = stim_onset
         elif variant == 'dly_go':
             stim_onset = 500//par['dt']
@@ -103,28 +98,53 @@ class MultiStimulus:
             raise Exception('Bad task variant.')
 
         # Update parameter compatibility
-        stim_onset   = np.full(par['batch_train_size'], stim_onset)   if type(stim_onset)   != np.ndarray else stim_onset
-        fixation_end = np.full(par['batch_train_size'], fixation_end) if type(fixation_end) != np.ndarray else fixation_end
-        resp_onset   = np.full(par['batch_train_size'], resp_onset)   if type(resp_onset)   != np.ndarray else resp_onset
+        #stim_onset   = np.full(par['batch_train_size'], stim_onset)   if type(stim_onset)   != np.ndarray else stim_onset
+        #fixation_end = np.full(par['batch_train_size'], fixation_end) if type(fixation_end) != np.ndarray else fixation_end
+        #resp_onset   = np.full(par['batch_train_size'], resp_onset)   if type(resp_onset)   != np.ndarray else resp_onset
 
+        for b in range(par['batch_train_size']):
+
+            # input neurons index above par['num_motion_tuned'] encode fixation
+            self.trial_info['neural_input'][par['num_motion_tuned']:,:fixation_end[b], b] += par['tuning_height']
+            self.trial_info['desired_output'][-1,:fixation_end[b], b] = 1
+
+            modality = np.random.randint(2)
+            neuron_ind = range(self.modality_size*modality, self.modality_size*(1+modality))
+            stim_ind = np.random.choice(par['num_motion_dirs'])
+            target_ind = (stim_ind+round(par['num_motion_dirs']*offset/(2*np.pi)))%par['num_motion_dirs']
+            stim_dir = 2*np.pi*stim_ind/par['num_motion_dirs']
+            #print(b, modality, stim_ind,  target_ind, stim_dir)
+
+            self.trial_info['neural_input'][neuron_ind, stim_onset[b]:stim_off, b] += np.reshape(self.circ_tuning(stim_dir),(-1,1))
+            self.trial_info['desired_output'][target_ind, resp_onset[b]:, b] = 1
+            self.trial_info['train_mask'][resp_onset[b]:resp_onset[b]+par['mask_duration']//par['dt'], b] = 0
+
+        """
         # Setting up arrays
         modality_choice = np.random.choice(np.array([0,1], dtype=np.int8), par['batch_train_size'])
         modalities = np.zeros([2, self.modality_size, par['num_time_steps']+1, par['batch_train_size']])
         response   = np.zeros([self.modality_size, par['num_time_steps']+1, par['batch_train_size']])
         fixation   = np.zeros([1, par['num_time_steps']+1, par['batch_train_size']]) + 0.05
-        mask       = np.ones([self.modality_size+1, par['num_time_steps'], par['batch_train_size']])
-        mask[:,:self.mask_length,:] = 0
+        mask       = np.ones([par['num_time_steps'], par['batch_train_size']])
+        mask[:self.mask_length,:] = 0
 
         # Getting tunings
-        stim_dir = 2*np.pi*np.random.rand(1, par['batch_train_size'])
+        #stim_dir = 2*np.pi*np.random.rand(1, par['batch_train_size'])
+        stim_dir_ind = np.random.choice(par['num_motion_dirs'], par['batch_train_size'])
+        stim_dir = 2*np.pi*stim_dir_ind/par['num_motion_dirs']
         stim = self.circ_tuning(stim_dir)
         resp = self.circ_tuning((stim_dir+offset)%(2*np.pi)) + 0.05
+
+        #print(stim.shape)
+        #print(resp.shape)
+        #print(stim_dir.shape)
+        #quit()
 
         # Applying tunings to modalities and response arrays
         for b in range(par['batch_train_size']):
             modalities[modality_choice[b],:,stim_onset[b]:stim_off,b] = stim[:,b,np.newaxis]
             response[:,resp_onset[b]:,b] = resp[:,b,np.newaxis]
-            mask[:,resp_onset[b]:resp_onset[b]+self.mask_length,b] = 0
+            mask[resp_onset[b]:resp_onset[b]+self.mask_length,b] = 0
             fixation[:,:fixation_end[b],b] = 0.85
 
         # Tweak the fixation array
@@ -134,8 +154,8 @@ class MultiStimulus:
         # Merge activies and fixations into single vectors
         stimulus = np.concatenate([modalities[0], modalities[1], stim_fix], axis=0)[:,:-1,:]
         response = np.concatenate([response, resp_fix], axis=0)[:,:-1,:]
-
-        return stimulus, response, mask
+        """
+        return self.trial_info
 
 
     def task_dm(self, variant='dm1'):
@@ -185,11 +205,13 @@ class MultiStimulus:
             raise Exception('Bad task variant.')
 
         # Setting up arrays
+        """
         fixation = np.zeros([1, par['num_time_steps'], par['batch_train_size']]) + 0.05
         response = np.zeros([self.modality_size, par['num_time_steps'], par['batch_train_size']])
         stimulus = np.zeros([2*self.modality_size, par['num_time_steps'], par['batch_train_size']])
-        mask     = np.ones([self.modality_size+1, par['num_time_steps'], par['batch_train_size']])
-        mask[:,:self.mask_length,:] = 0
+        mask     = np.ones([par['num_time_steps'], par['batch_train_size']])
+        mask[:self.mask_length,:] = 0
+        """
 
         # Identify stimulus onset for each trial and build each trial from there
         stim_onset = 500//par['dt']
@@ -199,7 +221,7 @@ class MultiStimulus:
             fixation[:,:stim_onset,b] = 0.85
             stimulus[:,stim_onset:stim_off[b],b] = np.concatenate([modality1[:,b], modality2[:,b]], axis=0)[:,np.newaxis]
             response[:,resp_time[b]:,b] = resp[:,b,np.newaxis]
-            mask[:,resp_time[b]:resp_time[b]+self.mask_length,b] = 0
+            mask[resp_time[b]:resp_time[b]+self.mask_length,b] = 0
 
         # Tweak the fixation array
         stim_fix = np.round(fixation)
@@ -269,8 +291,8 @@ class MultiStimulus:
         fixation = np.zeros([1, par['num_time_steps'], par['batch_train_size']]) + 0.05
         response = np.zeros([self.modality_size, par['num_time_steps'], par['batch_train_size']])
         stimulus = np.zeros([2*self.modality_size, par['num_time_steps'], par['batch_train_size']])
-        mask     = np.ones([self.modality_size+1, par['num_time_steps'], par['batch_train_size']])
-        mask[:,:self.mask_length,:] = 0
+        mask     = np.ones([par['num_time_steps'], par['batch_train_size']])
+        mask[:self.mask_length,:] = 0
 
         # Identify stimulus onset for each trial and build each trial from there
         stim_on1   = 500//par['dt']
@@ -283,7 +305,7 @@ class MultiStimulus:
             stimulus[:,stim_on1:stim_off1,b] = np.concatenate([modality1_t1[:,b], modality2_t1[:,b]], axis=0)[:,np.newaxis]
             stimulus[:,stim_on2[0,b]:stim_off2[0,b],b] = np.concatenate([modality1_t2[:,b], modality2_t2[:,b]], axis=0)[:,np.newaxis]
             response[:,resp_time[0,b]:,b] = resp[:,b,np.newaxis]
-            mask[:,resp_time[0,b]:resp_time[0,b]+self.mask_length,b] = 0
+            mask[resp_time[0,b]:resp_time[0,b]+self.mask_length,b] = 0
 
         # Tweak the fixation array
         stim_fix = np.round(fixation)
@@ -335,8 +357,8 @@ class MultiStimulus:
         response = np.zeros([self.modality_size, par['num_time_steps'], par['batch_train_size']])
         modalities = np.zeros([2, self.modality_size, par['num_time_steps'], par['batch_train_size']])
         stimulus = np.zeros([2*self.modality_size, par['num_time_steps'], par['batch_train_size']])
-        mask     = np.ones([self.modality_size+1, par['num_time_steps'], par['batch_train_size']])
-        mask[:,:self.mask_length,:] = 0
+        mask     = np.ones([par['num_time_steps'], par['batch_train_size']])
+        mask[:self.mask_length,:] = 0
 
         # Decide timings and build each trial
         stim1_on  = 300//par['dt']
@@ -348,7 +370,7 @@ class MultiStimulus:
             fixation[:,:resp_time[b],b] = 0.85
             modalities[modality_choice[0,b],:,stim1_on:stim1_off,b] = stimulus1[:,b,np.newaxis]
             modalities[modality_choice[1,b],:,stim2_on[b]:stim2_off[b],b] = stimulus2[:,b,np.newaxis]
-            mask[:,resp_time[b]:resp_time[b]+self.mask_length,b] = 0
+            mask[resp_time[b]:resp_time[b]+self.mask_length,b] = 0
             response[:,resp_time[b]:,b] = resp[:,b,np.newaxis]
             if (not match[b] and variant in ['dms', 'dmc']) or (match[b] and variant in ['dnms', 'dnmc']):
                 fixation[:,:,b] = 0.85
