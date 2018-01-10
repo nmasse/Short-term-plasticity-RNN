@@ -184,29 +184,38 @@ class MultiStimulus:
         resp_dir_mod2 = np.where(gamma_s1_m2 > gamma_s2_m2, stim_dir1, stim_dir2)
         resp_dir_sum  = np.where(gamma_s1_m1 + gamma_s1_m2 > gamma_s2_m1 + gamma_s2_m2, stim_dir1, stim_dir2)
 
+        resp_dir_mod1 = np.round(par['num_motion_dirs']*resp_dir_mod1/(2*np.pi))
+        resp_dir_mod2 = np.round(par['num_motion_dirs']*resp_dir_mod2/(2*np.pi))
+        resp_dir_sum = np.round(par['num_motion_dirs']*resp_dir_sum/(2*np.pi))
+
         # Apply stimuli to modalities and build appropriate response
         if variant == 'dm1':
             modality1 = gamma_s1_m1*stim1 + gamma_s2_m1*stim2
             modality2 = np.zeros_like(stim1) + 0.05
-            resp = self.circ_tuning(resp_dir_mod1, resp=True) + 0.05
+            resp_dirs = resp_dir_mod1
         elif variant == 'dm2':
             modality1 = np.zeros_like(stim1) + 0.05
             modality2 = gamma_s1_m2*stim1 + gamma_s2_m2*stim2
-            resp = self.circ_tuning(resp_dir_mod2, resp=True) + 0.05
+            resp_dirs = resp_dir_mod2
         elif variant == 'ctx_dm1':
             modality1 = gamma_s1_m1*stim1 + gamma_s2_m1*stim2
             modality2 = gamma_s1_m2*stim1 + gamma_s2_m2*stim2
+            resp_dirs = resp_dir_mod1
             resp = self.circ_tuning(resp_dir_mod1, resp=True) + 0.05
         elif variant == 'ctx_dm2':
             modality1 = gamma_s1_m1*stim1 + gamma_s2_m1*stim2
             modality2 = gamma_s1_m2*stim1 + gamma_s2_m2*stim2
-            resp = self.circ_tuning(resp_dir_mod2, resp=True) + 0.05
+            resp_dirs = resp_dir_mod2
         elif variant == 'multsen_dm':
             modality1 = gamma_s1_m1*stim1 + gamma_s2_m1*stim2
             modality2 = gamma_s1_m2*stim1 + gamma_s2_m2*stim2
-            resp = self.circ_tuning(resp_dir_sum, resp=True) + 0.05
+            resp_dirs = resp_dir_sum
         else:
             raise Exception('Bad task variant.')
+
+        resp = np.zeros([par['num_motion_dirs'], par['batch_train_size']])
+        for b in range(par['batch_train_size']):
+            resp[np.int8(resp_dirs[0,b]%8),b] = 1
 
         # Setting up arrays
         fixation = np.zeros([1, par['num_time_steps'], par['batch_train_size']]) + 0.05
@@ -392,7 +401,7 @@ class MultiStimulus:
         return stimulus, response, mask
 
 ### EXAMPLE ###
-"""
+
 st = MultiStimulus()
 t, trial_info = st.generate_trial(7)
 s = trial_info['neural_input']
@@ -412,4 +421,3 @@ for i in range(8):
 
 plt.show()
 quit()
-"""
