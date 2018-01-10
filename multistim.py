@@ -87,12 +87,12 @@ class MultiStimulus:
         elif variant == 'rt_go':
             stim_onset = np.random.randint(500, 2500, par['batch_train_size'])//par['dt']
             stim_off = -1
-            fixation_end = np.ones((par['batch_train_size']))*par['num_time_steps']
+            fixation_end = np.ones((par['batch_train_size']),dtype=np.int8)*par['num_time_steps']
             resp_onset = stim_onset
         elif variant == 'dly_go':
-            stim_onset = 500//par['dt']
+            stim_onset = 500//par['dt']*np.ones((par['batch_train_size']),dtype=np.int8)
             stim_off = 750//par['dt']
-            fixation_end = (1500 + np.random.choice([200,400,800,1600], size=par['batch_train_size']))//par['dt']
+            fixation_end = np.int8((1500 + np.random.choice([200,400,800,1600], size=par['batch_train_size']))//par['dt'])
             resp_onset = fixation_end
         else:
             raise Exception('Bad task variant.')
@@ -105,7 +105,7 @@ class MultiStimulus:
         for b in range(par['batch_train_size']):
 
             # input neurons index above par['num_motion_tuned'] encode fixation
-            self.trial_info['neural_input'][par['num_motion_tuned']:,:fixation_end[b], b] += par['tuning_height']
+            self.trial_info['neural_input'][par['num_motion_tuned']:,:fixation_end[b], b] += np.reshape(fix_resp,(-1,1))
             self.trial_info['desired_output'][-1,:fixation_end[b], b] = 1
 
             modality = np.random.randint(2)
