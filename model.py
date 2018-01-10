@@ -186,13 +186,13 @@ class Model:
             #    tf.square(previous_weights_mu_minus_1[var.op.name] - var)))
             reset_prev_vars_ops.append( tf.assign(previous_weights_mu_minus_1[var.op.name], var ) )
 
-
+        """
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
+
 
         """
         #self.y_hat = tf.nn.softmax(self.y_hat,dim = 0)
@@ -260,54 +260,6 @@ class Model:
             for (desired_output, mask) in zip(self.target_data, self.mask)]
 
         self.accuracy = tf.reduce_sum(tf.stack(correct_prediction))/tf.reduce_sum(tf.stack(correct_count))
-
-
-    def optimize_old(self):
-
-        """
-        Calculate the loss functions and optimize the weights
-
-        perf_loss = [mask*tf.reduce_sum(tf.square(y_hat-desired_output),axis=0)
-                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
-        """
-        cross_entropy
-        """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
-        ""
-        # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_sum(tf.square(h), axis=0) for h in self.hidden_state_hist]
-
-
-        self.perf_loss = tf.reduce_sum(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_sum(tf.stack(spike_loss, axis=0))
-
-        self.loss = self.perf_loss + self.spike_loss
-
-        opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
-
-
-
-        """
-        Apply any applicable weights masks to the gradient and clip
-
-        grads_and_vars = opt.compute_gradients(self.loss)
-        capped_gvs = []
-        for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0":
-                grad *= par['w_rnn_mask']
-                print('Applied weight mask to w_rnn.')
-            elif var.name == "output/W_out:0":
-                grad *= par['w_out_mask']
-                print('Applied weight mask to w_out.')
-            if not str(type(grad)) == "<class 'NoneType'>":
-                capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
-
-        self.train_op = opt.apply_gradients(capped_gvs)
-        """
-
 
     def EWC(self, variables):
         # Kirkpatrick method
@@ -520,8 +472,8 @@ def main(gpu_id, save_fn):
             print(model_performance['accuracy'])
             model_performance['par'] = par
             model_performance['task_list'] = par['task_list']
-            pickle.dump(model_performance, open(par['save_dir'] + save_fn, 'wb'))
-            print('Saving data ', save_fn)
+            #pickle.dump(model_performance, open(par['save_dir'] + save_fn, 'wb'))
+            #print('Saving data ', save_fn)
             #iteration_time = time.time() - t_start
             #model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
 
@@ -616,4 +568,4 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
 
 
-main('0', 'testing')
+#main('0', 'testing')
