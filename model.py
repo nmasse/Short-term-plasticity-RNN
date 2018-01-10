@@ -254,9 +254,9 @@ class Model:
         correct_count = [tf.reduce_sum(mask) for mask in self.mask]
         """
 
-        correct_prediction = [tf.reduce_sum(mask*tf.cast(tf.greater(tf.argmax(desired_output,0), 0), tf.float32)*tf.cast(tf.equal(tf.argmax(y_hat,0), tf.argmax(desired_output,0)), tf.float32)) \
+        correct_prediction = [tf.reduce_sum(mask*tf.cast(tf.less(tf.argmax(desired_output,0), par['num_motion_dirs']), tf.float32)*tf.cast(tf.equal(tf.argmax(y_hat,0), tf.argmax(desired_output,0)), tf.float32)) \
             for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        correct_count = [tf.reduce_sum(mask*tf.cast(tf.greater(tf.argmax(desired_output,0),0),tf.float32)) \
+        correct_count = [tf.reduce_sum(mask*tf.cast(tf.less(tf.argmax(desired_output,0),par['num_motion_dirs']),tf.float32)) \
             for (desired_output, mask) in zip(self.target_data, self.mask)]
 
         self.accuracy = tf.reduce_sum(tf.stack(correct_prediction))/tf.reduce_sum(tf.stack(correct_count))
