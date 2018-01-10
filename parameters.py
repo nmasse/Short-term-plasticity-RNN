@@ -16,6 +16,7 @@ par = {
     'load_previous_model'   : False,
     'analyze_model'         : False,
     'stabilization'         : 'pathint',
+    'no_gpu'                : False,
 
     # Network configuration
     'synapse_config'        : None, # Full is 'std_stf'

@@ -189,6 +189,7 @@ class Model:
 
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+
         """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
@@ -389,7 +390,8 @@ def train_and_analyze(gpu_id, save_fn):
 
 def main(gpu_id, save_fn):
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+    if not par['no_gpu']:
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
 
     """
     Reset TensorFlow before running anything
@@ -420,9 +422,14 @@ def main(gpu_id, save_fn):
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session(config=config) as sess:
 
-        with tf.device("/gpu:0"):
+        if par['no_gpu']:
             model = Model(x, td, y, mask)
             init = tf.global_variables_initializer()
+        else:
+            with tf.device("/gpu:0"):
+                model = Model(x, td, y, mask)
+                init = tf.global_variables_initializer()
+
         sess.run(init)
         t_start = time.time()
         sess.run(model.reset_prev_vars)
