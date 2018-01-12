@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
+from itertools import product
 
 print("--> Loading parameters...")
 
@@ -20,7 +21,7 @@ par = {
 
     # Network configuration
     'synapse_config'        : None, # Full is 'std_stf'
-    'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'          : 1.0,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
@@ -32,15 +33,15 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 1e-2,
-    'membrane_time_constant': 100,
+    'learning_rate'         : 2e-3,
+    'membrane_time_constant': 200,
     'connection_prob'       : 0.5,         # Usually 1
 
     # Variance values
-    'clip_max_grad_val'     : 1,
+    'clip_max_grad_val'     : 0.1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.05,
-    'noise_rnn_sd'          : 0.2,
+    'noise_in_sd'           : 0.1,
+    'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -48,7 +49,7 @@ par = {
     'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-7,
+    'spike_cost'            : 5e-3,
 
     # Synaptic plasticity specs
     'tau_fast'              : 100,
@@ -57,13 +58,13 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 64,
+    'batch_train_size'      : 512,
     'num_iterations'        : 400,
     'iters_between_outputs' : 20,
 
     # Task specs
     'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim
-    'multistim_trial_length': 4000,
+    'multistim_trial_length': 3200,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 200,
     'fix_time'              : 200,
@@ -71,7 +72,7 @@ par = {
     'delay_time'            : 200,
     'test_time'             : 400,
     'variable_delay_max'    : 400,
-    'mask_duration'         : 40,  # duration of traing mask after test onset
+    'mask_duration'         : 200,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -102,6 +103,9 @@ par = {
     # Only one can be True
     'clamp'                 : 'neurons', # can be either 'dendrites', 'neurons', 'partial' or None
     'gate_pct'              : 0.0,
+    'dynamic_topdown'       : True,
+    'num_tasks'             : 20,
+    'td_cost'               : 0.1,
 
     'EWC_fisher_calc_batch' : 8, # batch size when calculating EWC
     'EWC_fisher_num_batches': 256, # number of batches size when calculating EWC
@@ -261,7 +265,7 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Create TD
-    par['topdown'] = [np.float32(np.array(np.random.choice([0,1], par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']]))) for i in range(100)]
+    par['topdown'] = [np.float32(np.array(np.random.choice(np.float32([0.0,1.0]), par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']]))) for i in range(par['num_tasks'])]
     """
     par['topdown'] = []
     for i in range(10):
@@ -327,13 +331,16 @@ def update_dependencies():
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
+    num_layers = 1
+    neuron_layers = [range(i,par['n_hidden'],num_layers) for i in range(num_layers)]
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
-    u = range(0,par['n_hidden'],2)
-    par['w_in0'][u,:] = 0
     par['w_in_mask'] = np.ones(par['input_to_hidden_dims'], dtype = np.float32)
-    par['w_in_mask'][u,:] = 0
+    for i in range(2, num_layers):
+        par['w_in0'][neuron_layers[i],:] = 0
+        par['w_in_mask'][neuron_layers[i],:] = 0
+
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -347,10 +354,17 @@ def update_dependencies():
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
         par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
-        par['w_rnn0'] = np.float32(0.9*np.eye(par['n_hidden']))
+        par['w_rnn0'] = np.float32(0.5*np.eye(par['n_hidden']))
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
+
+    # only connections can exist between adjacent layers
+    for i,j in product(range(num_layers), range(num_layers)):
+        if np.abs(i-j) > 1:
+            for k,m in product(neuron_layers[i], neuron_layers[j]):
+                par['w_rnn0'][k,m] = 0
+                par['w_rnn_mask'][k,m] = 0
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
@@ -358,14 +372,13 @@ def update_dependencies():
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
 
 
-
     # Initialize output weights and biases
     par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
-    u = range(1,par['n_hidden'],2)
-    par['w_out0'][:, u] = 0
-    par['w_out_mask'][:, u] = 0
+    for i in range(num_layers - 1):
+        par['w_out0'][:, neuron_layers[i]] = 0
+        par['w_out_mask'][:, neuron_layers[i]] = 0
 
     if par['EI']:
         par['ind_inh'] = np.where(par['EI_list'] == -1)[0]

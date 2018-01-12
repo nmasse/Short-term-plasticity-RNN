@@ -26,13 +26,18 @@ Model setup and execution
 
 class Model:
 
-    def __init__(self, input_data, td, target_data, mask):
+    def __init__(self, input_data, td, target_data, mask, td_input, gate_learning):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
         self.input_data = tf.unstack(input_data, axis=1)
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
-        self.td = tf.tile(tf.reshape(td,[par['n_hidden'],1]), [1, par['batch_train_size']])
+        if par['dynamic_topdown']:
+            self.td_input = td_input
+        else:
+            self.td = tf.tile(tf.reshape(td,[par['n_hidden'],1]), [1, par['batch_train_size']])
+            self.td_input = -1
+        self.gate_learning = gate_learning
 
         #self.td = tf.constant(np.float32(1))
 
@@ -82,11 +87,20 @@ class Model:
             W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
             W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
+            if par['dynamic_topdown']:
+                W_td = tf.get_variable('W_td', initializer = np.transpose(np.stack(par['topdown'])), trainable=True)
+
         self.W_ei = tf.constant(par['EI_matrix'])
 
         self.hidden_state_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
+
+        if par['dynamic_topdown']:
+            #self.td = tf.matmul(tf.minimum(np.float32(1), tf.nn.relu(W_td)), self.td_input)
+            #self.td = tf.matmul(tf.minimum(np.float32(0.99), tf.nn.relu(W_td)), self.td_input)
+            self.td = tf.matmul(tf.nn.sigmoid(W_td), self.td_input)
+            print('td', self.td)
 
         """
         Loop through the neural inputs to the RNN, indexed in time
@@ -96,7 +110,6 @@ class Model:
             self.hidden_state_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
-
 
     def rnn_cell(self, rnn_input, h, syn_x, syn_u):
 
@@ -207,16 +220,27 @@ class Model:
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.matmul(tf.nn.relu(self.W_ei), h)) for h in self.hidden_state_hist]
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
         self.loss = self.perf_loss + self.spike_loss
 
+        """
+        for var in variables:
+            if not var.op.name == "rnn_cell/W_td":
+                print('weight cost ', var.op.name)
+                self.loss += tf.constant(0.0001)*tf.reduce_sum(tf.abs(var))
+        """
 
+        if par['dynamic_topdown']:
+            self.td_loss = par['td_cost']*tf.reduce_mean(self.td)
+        else:
+            self.td_loss = 0.0
 
         # OPTION 1
-        self.train_op = adam_optimizer.compute_gradients(self.loss + self.aux_loss)
+        self.train_op = adam_optimizer.compute_gradients(self.loss + self.aux_loss + self.td_loss, self.gate_learning)
 
         # OPTION 2
         """
@@ -310,6 +334,16 @@ class Model:
             update_big_omega_ops.append( tf.assign_add( self.big_omega_var[var.op.name], tf.div(tf.nn.relu(small_omega_var[var.op.name]), \
             	(par['omega_xi'] + tf.square(delta_params[var.op.name])))))
 
+        """
+        gated_neurons = {}
+        s = tf.cast(tf.greater(self.td, 0), tf.float32)
+        rnn_gate = tf.cast(tf.greater(tf.matmul(s,tf.transpose(s)),0), tf.float32)
+        print('rnn_gate', rnn_gate)
+        for var in variables:
+            gated_neurons[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
+            if var.op.name == 'rnn_cell/W_rnn':
+                print('gated weights ', var.op.name)
+        """
 
         # After each task is complete, call update_big_omega and reset_small_omega
         self.update_big_omega = tf.group(*update_big_omega_ops)
@@ -365,6 +399,8 @@ def main(gpu_id, save_fn):
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
     td = tf.placeholder(tf.float32, shape=[par['n_hidden']]) # target data
+    td_input = tf.placeholder(tf.float32, shape=[par['num_tasks'], par['batch_train_size']]) # top-down input signal
+    gate_learning = tf.placeholder(tf.float32)
 
     config = tf.ConfigProto()
     #config.gpu_options.allow_growth=True
@@ -375,11 +411,11 @@ def main(gpu_id, save_fn):
     with tf.Session(config=config) as sess:
 
         if par['no_gpu']:
-            model = Model(x, td, y, mask)
+            model = Model(x, td, y, mask, td_input, gate_learning)
             init = tf.global_variables_initializer()
         else:
             with tf.device("/gpu:0"):
-                model = Model(x, td, y, mask)
+                model = Model(x, td, y, mask, td_input, gate_learning)
                 init = tf.global_variables_initializer()
 
         sess.run(init)
@@ -395,13 +431,21 @@ def main(gpu_id, save_fn):
         # keep track of the model performance across training
         model_performance = {'accuracy': np.zeros((len(par['task_list']), len(par['task_list'])), dtype=np.float32)}
 
+
         for j in range(19):
+
+            td_input_signal = np.zeros((par['num_tasks'], par['batch_train_size']), dtype = np.float32)
+            td_input_signal[j, :] = 1
 
             for i in range(par['num_iterations']):
 
                 # generate batch of batch_train_size
                 trial_info = {}
                 task_name, trial_info = stim.generate_trial(j)
+                if i < 0:
+                    gl = 0.0
+                else:
+                    gl = 1.0
                 """
                 plt.imshow(trial_info['desired_output'][:,:,0], interpolation='none', aspect='auto')
                 plt.colorbar()
@@ -427,22 +471,25 @@ def main(gpu_id, save_fn):
                         model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist, model.aux_loss], feed_dict = {x: trial_info['neural_input'], \
                         td:par['topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], gate_learning: gate})
                     """
-                    _, _, acc, aux_loss, perf_loss, h = sess.run([model.train_op, model.update_grads,model.accuracy, \
-                        model.aux_loss, model.perf_loss, model.hidden_state_hist], feed_dict = {x: trial_info['neural_input'], \
-                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask']})
+                    _, _, acc, aux_loss, perf_loss, h, td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
+                        model.aux_loss, model.perf_loss, model.hidden_state_hist, model.td], feed_dict = {x: trial_info['neural_input'], \
+                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
-                    sess.run(model.update_small_omega)
+                    # This is potentially important, especially for RNNs
+                    # Perf loss can be very large during first several iterations, leading to very lareg omega_c values
+                    if perf_loss < 2:
+                        sess.run(model.update_small_omega)
 
 
                 elif par['stabilization'] == 'EWC':
                     aux_loss = -1
                     _, acc, perf_loss, h = sess.run([model.train_op, model.accuracy, model.perf_loss, model.hidden_state_hist], \
                         feed_dict = {x: trial_info['neural_input'], \
-                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask']})
+                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
 
                 if (i-1)//par['iters_between_outputs'] == (i-1)/par['iters_between_outputs']:
-                    print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h))
+                    print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), ' TD ', np.mean(td_gating))
                     #bo_var = [np.sum(b) for b in bo.values()]
                     #print('Big Omega ', bo_var)
                     #bo_var = [np.sum(b) for b in bot.values()]
@@ -459,7 +506,7 @@ def main(gpu_id, save_fn):
                 for n in range(par['EWC_fisher_num_batches']):
                     _, trial_info = stim.generate_trial(j)
                     big_omegas = sess.run([model.update_big_omega,model.big_omega_var], feed_dict = {x:trial_info['neural_input'], \
-                    td: np.float32(par['topdown'][j]),  y: trial_info['desired_output'],mask:trial_info['train_mask']})
+                    td: np.float32(par['topdown'][j]),  y: trial_info['desired_output'],mask:trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
             sess.run(model.reset_adam_op)
             sess.run(model.reset_prev_vars)
@@ -472,7 +519,7 @@ def main(gpu_id, save_fn):
                 _, trial_info = stim.generate_trial(j)
                 acc, h, syn_x, syn_u = sess.run([model.accuracy, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                     feed_dict = {x: trial_info['neural_input'], td: np.float32(par['topdown'][k]), \
-                    y: trial_info['desired_output'], mask: trial_info['train_mask']})
+                    y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal})
                 print('ACC ',j,k,acc)
                 model_performance['accuracy'][j,k] = acc
 
