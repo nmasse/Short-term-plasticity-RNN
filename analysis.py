@@ -7,6 +7,7 @@ from parameters import *
 from sklearn import svm
 import time
 import pickle
+import matplotlib.pyplot as plt
 
 def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
@@ -380,6 +381,12 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         #test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+5*par['ABBA_delay'])//par['dt']
         test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+i*par['ABBA_delay'])//par['dt'] for i in range(1,6,2)]
+    elif par['trial_type'] == 'DMRS90':
+        test_onset = []
+        test_onset.append((par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
+        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+100)//par['dt'])
+        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+200)//par['dt'])
+        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
     else:
         test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']]
 
@@ -388,11 +395,23 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     for k in range(17):
         suppression_time_range.append(range(test_onset[-1]-k*10, test_onset[-1]))
 
+    # Assuming
+    neuron_groups = []
+    neuron_groups.append(range(0,par['num_exc_units'],2))
+    neuron_groups.append(range(1,par['num_exc_units'],2))
+    neuron_groups.append(range(par['num_exc_units'],par['num_exc_units']+par['num_inh_units'],2))
+    neuron_groups.append(range(par['num_exc_units']+1,par['num_exc_units']+par['num_inh_units'],2))
+    #neuron_groups.append(range(0,par['num_exc_units']+par['num_inh_units'],2))
+    #neuron_groups.append(range(1,par['num_exc_units']+par['num_inh_units'],2))
+    #neuron_groups.append(range(0,par['num_exc_units']+par['num_inh_units'],1))
+
     simulation_results = {
-        'accuracy'                  : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_neural_shuffled'  : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_syn_shuffled'     : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_suppression'      : np.zeros((par['num_rules'], len(suppression_time_range), 7, 3))}
+        'accuracy'                      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
+        'accuracy_neural_shuffled'      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
+        'accuracy_syn_shuffled'         : np.zeros((par['num_rules'], num_test_periods, num_reps)),
+        'accuracy_suppression'          : np.zeros((par['num_rules'], len(suppression_time_range), 7, 3)),
+        'accuracy_neural_shuffled_grp'  : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps)),
+        'accuracy_syn_shuffled_grp'     : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps))}
 
 
     _, trial_length, batch_train_size = h.shape
@@ -435,6 +454,31 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                 syn_u_init = syn_u_init[:,ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 simulation_results['accuracy_syn_shuffled'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
+
+                """
+                Neuron group shuffling
+                """
+                for g in range(len(neuron_groups)):
+                    # reset everything
+                    hidden_init = h[:,test_onset[t]-1,trial_ind]
+                    syn_x_init = syn_x[:,test_onset[t]-1,trial_ind]
+                    syn_u_init = syn_u[:,test_onset[t]-1,trial_ind]
+
+                    # shuffle neuronal activity
+                    ind_shuffle = np.random.permutation(len(trial_ind))
+                    for neuron_num in neuron_groups[g]:
+                        hidden_init[neuron_num,:] = hidden_init[neuron_num,ind_shuffle]
+                    y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+                    simulation_results['accuracy_neural_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
+
+                    # reset neuronal activity, shuffle synaptic activity
+                    hidden_init = h[:,test_onset[t]-1,trial_ind]
+                    for neuron_num in neuron_groups[g]:
+                        syn_x_init[neuron_num,:] = syn_x_init[neuron_num,ind_shuffle]
+                        syn_u_init[neuron_num,:] = syn_u_init[neuron_num,ind_shuffle]
+                    y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+                    simulation_results['accuracy_syn_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
+
 
         if par['suppress_analysis']:
 

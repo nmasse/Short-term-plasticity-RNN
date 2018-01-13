@@ -32,7 +32,7 @@ par = {
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 30,
+    'dt'                    : 10,
     'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -59,7 +59,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 20,
+    'num_iterations'        : 2000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -86,11 +86,13 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : True,
+    'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
-    'suppress_analysis'     : True,
+    'suppress_analysis'     : False,
     'analyze_tuning'        : True,
+
+    'ABBA_delay'            : 0
 }
 
 """
@@ -287,9 +289,14 @@ def update_dependencies():
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
+
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
-        par['w_rnn0'][:, par['num_exc_units']] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
+        print('SR ',spectral_radius(par['w_rnn0']))
+        #par['w_rnn0'] *= 0.3
+        #print('SR ',spectral_radius(par['w_rnn0']))
+        #par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
+
 
     # Initialize output weights and biases
     par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
@@ -348,6 +355,7 @@ def update_dependencies():
 
 def initialize(dims, connection_prob):
     w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
 
