@@ -14,7 +14,7 @@ class Stimulus:
     def generate_trial(self):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC']:
+        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC']:
             trial_info = self.generate_motion_working_memory_trial()
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
