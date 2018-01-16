@@ -86,10 +86,10 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : False,
+    'decode_test'           : True,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
-    'suppress_analysis'     : False,
+    'suppress_analysis'     : True,
     'analyze_tuning'        : True,
 
     'ABBA_delay'            : 0
@@ -152,6 +152,9 @@ def update_trial_params():
 
     elif par['trial_type'] == 'DMRS90':
         par['rotation_match'] = 90
+
+    elif par['trial_type'] == 'DMRS90ccw':
+        par['rotation_match'] = -90
 
     elif  par['trial_type'] == 'DMRS180':
         par['rotation_match'] = 180
