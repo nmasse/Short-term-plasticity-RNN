@@ -17,7 +17,7 @@ par = {
     'load_previous_model'   : False,
     'analyze_model'         : False,
     'stabilization'         : 'pathint',
-    'no_gpu'                : False,
+    'no_gpu'                : True,
 
     # Network configuration
     'synapse_config'        : None, # Full is 'std_stf'
@@ -355,7 +355,7 @@ def update_dependencies():
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
         par['w_rnn0'][:,:,par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
-        par['w_rnn0'] = np.stack([np.float32(0.5*np.eye(par['n_hidden']))[:,np.newaxis,:]]*par['n_dendrites'], axis=1)
+        par['w_rnn0'] = np.concatenate([np.float32(0.5*np.eye(par['n_hidden']))[:,np.newaxis,:]]*par['n_dendrites'], axis=1)
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
@@ -439,8 +439,10 @@ def initialize(dims, connection_prob):
 
 
 def spectral_radius(A):
-
-    return np.max(abs(np.linalg.eigvals(A)))
+    if A.ndim == 3:
+        return np.max(abs(np.linalg.eigvals(np.sum(A, axis=1))))
+    else:
+        return np.max(abs(np.linalg.eigvals(np.sum(A))))
 
 update_trial_params()
 update_dependencies()

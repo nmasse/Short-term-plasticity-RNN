@@ -202,21 +202,9 @@ class Model:
         """
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
         """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
-
-        """
-        #self.y_hat = tf.nn.softmax(self.y_hat,dim = 0)
-        print('y_hat', self.y_hat[0])
-        print('target_data', self.target_data[0])
-
-        perf_loss = [mask*tf.reduce_sum(-desired_output*tf.log(epsilon + tf.nn.softmax(y_hat, dim=0)) \
-            - (1.0-desired_output)*tf.log(1.0 + epsilon - tf.nn.softmax(y_hat, dim=0)), axis = 0) \
-            for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
@@ -422,6 +410,8 @@ def main(gpu_id, save_fn):
         t_start = time.time()
         sess.run(model.reset_prev_vars)
 
+        quit()
+
         saver = tf.train.Saver()
         # Restore variables from previous model if desired
         if par['load_previous_model']:
@@ -622,4 +612,4 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
 
 
-#main('0', 'testing')
+main('0', 'testing')
