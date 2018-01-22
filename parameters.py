@@ -29,6 +29,7 @@ par = {
     'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
+    'n_dendrites'           : 5,
     #'n_output'              : 1 + 36,
 
     # Timings and rates
@@ -328,8 +329,8 @@ def update_dependencies():
 
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
-    par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
-    par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
+    par['input_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_input']]
+    par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_hidden']]
 
     num_layers = 1
     neuron_layers = [range(i,par['n_hidden'],num_layers) for i in range(num_layers)]
@@ -338,8 +339,8 @@ def update_dependencies():
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
     par['w_in_mask'] = np.ones(par['input_to_hidden_dims'], dtype = np.float32)
     for i in range(2, num_layers):
-        par['w_in0'][neuron_layers[i],:] = 0
-        par['w_in_mask'][neuron_layers[i],:] = 0
+        par['w_in0'][neuron_layers[i],:,:] = 0
+        par['w_in_mask'][neuron_layers[i],:,:] = 0
 
 
     # Initialize starting recurrent weights
@@ -350,11 +351,11 @@ def update_dependencies():
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
 
         for i in range(par['n_hidden']):
-            par['w_rnn0'][i,i] = 0
+            par['w_rnn0'][i,:,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
-        par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
+        par['w_rnn0'][:,:,par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
-        par['w_rnn0'] = np.float32(0.5*np.eye(par['n_hidden']))
+        par['w_rnn0'] = np.stack([np.float32(0.5*np.eye(par['n_hidden']))[:,np.newaxis,:]]*par['n_dendrites'], axis=1)
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
@@ -363,8 +364,8 @@ def update_dependencies():
     for i,j in product(range(num_layers), range(num_layers)):
         if np.abs(i-j) > 1:
             for k,m in product(neuron_layers[i], neuron_layers[j]):
-                par['w_rnn0'][k,m] = 0
-                par['w_rnn_mask'][k,m] = 0
+                par['w_rnn0'][k,:,m] = 0
+                par['w_rnn_mask'][k,:,m] = 0
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
