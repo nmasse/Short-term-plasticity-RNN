@@ -8,6 +8,8 @@ import numpy as np
 import stimulus
 import time
 import analysis
+from stp_cell import STPCell
+from collections import namedtuple
 from parameters import *
 
 # Ignore "use compiled version of TensorFlow" errors
@@ -25,9 +27,9 @@ class Model:
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
-        self.mask = tf.unstack(mask, axis=0)
+        self.input_data = input_data
+        self.target_data = target_data
+        self.mask = mask
 
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
@@ -49,7 +51,46 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """
-        self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
+
+        # Create namedtuple when including syn_x, syn_u
+        if par['synapse_config'] == 'stf': 
+            State_tuple = namedtuple('State', ['hidden', 'syn_u'])
+            state = State_tuple(self.hidden_init, self.synapse_u_init)
+        elif par['synapse_config'] == 'std':
+            State_tuple = namedtuple('State', ['hidden', 'syn_x'])
+            state = State_tuple(self.hidden_init, self.synapse_x_init)
+        elif par['synapse_config'] == 'std_stf': 
+            State_tuple = namedtuple('State', ['hidden', 'syn_x', 'syn_u'])
+            state = State_tuple(self.hidden_init, self.synapse_x_init, self.synapse_u_init)
+        else:
+            state = self.hidden_init
+
+
+        # EI matrix
+        self.W_ei = tf.constant(par['EI_matrix'])
+
+        # variables for history
+        self.hidden_state_hist = []
+        self.syn_x_hist = []
+        self.syn_u_hist = []
+
+        # Create cell from STPCell class in network.py
+        cell = STPCell()
+        self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
+
+        # MIGHT NEED TO MIGRATE INTO THE CALL FUNCTION
+        # saving data to hist
+        if par['synapse_config'] == 'stf': 
+            self.syn_u_hist.append(self.output.syn_u)
+        elif par['synapse_config'] == 'std':
+            self.syn_x_hist.append(self.output.syn_x)
+        elif par['synapse_config'] == 'std_stf': 
+            self.syn_x_hist.append(self.output.syn_x)
+            self.syn_u_hist.append(self.output.syn_u)
+        else:
+            pass
+        self.hidden_state_hist.append(self.output.hidden)
+
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
@@ -59,6 +100,7 @@ class Model:
         Network output
         Only use excitatory projections from the RNN to the output layer
         """
+        # self.y_hat = tf.matmul(tf.reshape(self.hidden_state, (-1, self.n_hidden)), W_out)+b_out
         self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
 
 
@@ -73,9 +115,7 @@ class Model:
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
 
-        self.hidden_state_hist = []
-        self.syn_x_hist = []
-        self.syn_u_hist = []
+        
 
         """
         Loop through the neural inputs to the RNN, indexed in time
