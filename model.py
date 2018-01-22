@@ -163,6 +163,12 @@ class Model:
         Only use excitatory projections from input layer to RNN
         All input and RNN activity will be non-negative
         """
+
+        # Dendrite summations
+        W_in = tf.reduce_sum(W_in, axis=1)
+        W_rnn_effective = tf.reduce_sum(W_rnn_effective, axis=1)
+
+        # Hidden state update
         h = self.td*tf.nn.relu(h*(1-par['alpha_neuron'])
                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
