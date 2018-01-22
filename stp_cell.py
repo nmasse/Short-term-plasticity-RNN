@@ -23,7 +23,7 @@ class STPCell(RNNCell):
         self.w_in0 = par['w_in0']
         self.b_rnn0 = par['b_rnn0']
         # self.EI_matrix = par['EI_matrix']
-        self.EI = par['EI']
+        self.W_ei = par['EI']
         self.noise_rnn = par['noise_rnn']
 
         # time constants
@@ -107,10 +107,10 @@ class STPCell(RNNCell):
         If self.EI is True, then excitatory and inhibiotry neurons are desired, and will we ensure that recurrent enurons 
         are of only one type, and that W_in weights are non-negative 
         """
-        if self.EI:
+        if self.W_ei:
             new_state = tf.nn.relu(hidden_state*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(self.W_in), tf.nn.relu(inputs))
-                       + tf.matmul(tf.matmul(tf.nn.relu(self.W_rnn), self.W_ei), state_post) + b_rnn)
+                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(self.W_in), tf.nn.relu(tf.transpose(inputs)))
+                       + tf.matmul(tf.matmul(tf.nn.relu(self.W_rnn), par['EI_matrix']), state_post) + self.b_rnn)
                        + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
             # new_state = tf.nn.relu((1-self.alpha_neuron)*hidden_state + self.alpha_neuron*(tf.matmul(tf.nn.relu(inputs), tf.nn.relu(W_in)) + tf.matmul(state_post, tf.matmul(tf.nn.relu(W_rnn), W_ei)) + b_rnn) + tf.random_normal(tf.shape(hidden_state), 0, self.noise_rnn, dtype=tf.float32))
         else:                                 
@@ -127,4 +127,5 @@ class STPCell(RNNCell):
         else:
             state = new_state
 
+        print(state)
         return state, state

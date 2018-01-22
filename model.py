@@ -27,7 +27,8 @@ class Model:
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        self.input_data = input_data
+        # self.input_data = input_data
+        self.input_data = tf.reshape(input_data, [par['batch_train_size'], par['num_time_steps'], par['n_input']])
         self.target_data = target_data
         self.mask = mask
 
@@ -76,7 +77,7 @@ class Model:
 
         # Create cell from STPCell class in network.py
         cell = STPCell()
-        self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
+        self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=False)
 
         # MIGHT NEED TO MIGRATE INTO THE CALL FUNCTION
         # saving data to hist
