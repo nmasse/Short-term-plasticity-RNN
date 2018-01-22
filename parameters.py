@@ -17,11 +17,11 @@ par = {
     'load_previous_model'   : False,
     'analyze_model'         : False,
     'stabilization'         : 'pathint',
-    'no_gpu'                : True,
+    'no_gpu'                : False,
 
     # Network configuration
     'synapse_config'        : None, # Full is 'std_stf'
-    'exc_inh_prop'          : 1.0,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
@@ -31,6 +31,13 @@ par = {
     'n_hidden'              : 100,
     'n_dendrites'           : 5,
     #'n_output'              : 1 + 36,
+
+    # Euclidean shape
+    'num_sublayers'         : 4,
+    'neuron_dx'             : 1.0,
+    'neuron_dy'             : 0.0,
+    'neuron_dz'             : 10.0,
+    'wiring_cost'           : 1e-3,
 
     # Timings and rates
     'dt'                    : 10,
@@ -291,9 +298,8 @@ def update_dependencies():
 
     par['num_exc_units'] = int(np.round(par['n_hidden']*par['exc_inh_prop']))
     par['num_inh_units'] = par['n_hidden'] - par['num_exc_units']
-
     par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32)
-    par['EI_list'][-par['num_inh_units']:] = -1.
+    par['EI_list'][::par['n_hidden']//par['num_inh_units']] = -1.
 
     par['EI_matrix'] = np.diag(par['EI_list'])
 
@@ -331,17 +337,11 @@ def update_dependencies():
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_hidden']]
-
-    num_layers = 1
-    neuron_layers = [range(i,par['n_hidden'],num_layers) for i in range(num_layers)]
+    par['hidden_to_output_dims'] = [par['n_output'], par['n_hidden']]
 
     # Initialize input weights
     par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
     par['w_in_mask'] = np.ones(par['input_to_hidden_dims'], dtype = np.float32)
-    for i in range(2, num_layers):
-        par['w_in0'][neuron_layers[i],:,:] = 0
-        par['w_in_mask'][neuron_layers[i],:,:] = 0
-
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -352,7 +352,7 @@ def update_dependencies():
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,:,i] = 0
-        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])[:,np.newaxis,:]
         par['w_rnn0'][:,:,par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
         par['w_rnn0'] = np.concatenate([np.float32(0.5*np.eye(par['n_hidden']))[:,np.newaxis,:]]*par['n_dendrites'], axis=1)
@@ -360,12 +360,7 @@ def update_dependencies():
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
 
-    # only connections can exist between adjacent layers
-    for i,j in product(range(num_layers), range(num_layers)):
-        if np.abs(i-j) > 1:
-            for k,m in product(neuron_layers[i], neuron_layers[j]):
-                par['w_rnn0'][k,:,m] = 0
-                par['w_rnn_mask'][k,:,m] = 0
+
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
@@ -374,17 +369,71 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] = initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
+    par['w_out0'] = initialize(par['hidden_to_output_dims'], par['connection_prob'])
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
-    par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
-    for i in range(num_layers - 1):
-        par['w_out0'][:, neuron_layers[i]] = 0
-        par['w_out_mask'][:, neuron_layers[i]] = 0
+    par['w_out_mask'] = np.ones(par['hidden_to_output_dims'], dtype=np.float32)
 
     if par['EI']:
         par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
+
+    # Defining sublayers
+    n_per_sub = par['n_hidden']//par['num_sublayers']
+    sublayers = []
+    for i in range(par['num_sublayers']):
+        if i == par['num_sublayers'] - 1:
+            app = par['n_hidden']%par['num_sublayers']
+        else:
+            app = 0
+        sublayers.append(range(i*n_per_sub,(i+1)*n_per_sub+app))
+
+    # Determine physical sublayer positions
+    input_pos = np.zeros([par['n_input'], 3])
+    input_pos[:,0] = par['neuron_dx']*(np.arange(par['n_input'])-np.mean(np.arange(par['n_input'])))
+    input_pos[:,1] = 0
+    input_pos[:,2] = 0
+
+    hidden_pos = np.zeros([par['n_hidden'], 3])
+    hidden_pos[:,1] = 0
+    for i, s in enumerate(sublayers):
+        hidden_pos[s,0] = par['neuron_dx']*(np.arange(len(s))-np.mean(np.arange(len(s))))
+        hidden_pos[s,2] = (i+1)*par['neuron_dz']
+
+    output_pos = np.zeros([par['n_output'], 3])
+    output_pos[:,0] = par['neuron_dx']*(np.arange(par['n_output'])-np.mean(np.arange(par['n_output'])))
+    output_pos[:,1] = 0
+    output_pos[:,2] = np.max(hidden_pos[:,2]) + par['neuron_dz']
+
+    # Apply physical positions to relative positional matrix
+    par['w_in_pos'] = np.zeros(par['input_to_hidden_dims'])
+    for i,j in product(range(par['n_input']), range(par['n_hidden'])):
+        par['w_in_pos'][j,:,i] = np.sqrt(np.sum(np.square(input_pos[i,:] - hidden_pos[j,:])))
+
+    par['w_rnn_pos'] = np.zeros(par['hidden_to_hidden_dims'])
+    for i,j in product(range(par['n_hidden']), range(par['n_hidden'])):
+        par['w_rnn_pos'][j,:,i] = np.sqrt(np.sum(np.square(hidden_pos[i,:] - hidden_pos[j,:])))
+
+    par['w_out_pos'] = np.zeros(par['hidden_to_output_dims'])
+    for i,j in product(range(par['n_hidden']), range(par['n_output'])):
+        par['w_out_pos'][j,i] = np.sqrt(np.sum(np.square(hidden_pos[i,:] - output_pos[j,:])))
+
+    # Specify sublayer connections
+    for i in range(1, par['num_sublayers']):
+        par['w_in0'][sublayers[i],:,:] = 0
+        par['w_in_mask'][sublayers[i],:,:] = 0
+
+    # connections can only exist between adjacent layers
+    for i,j in product(range(par['num_sublayers']), range(par['num_sublayers'])):
+        if np.abs(i-j) > 1:
+            for k,m in product(sublayers[i], sublayers[j]):
+                par['w_rnn0'][k,:,m] = 0
+                par['w_rnn_mask'][k,:,m] = 0
+
+    for i in range(par['num_sublayers'] - 1):
+        par['w_out0'][:, sublayers[i]] = 0
+        par['w_out_mask'][:, sublayers[i]] = 0
+
 
     """
     Setting up synaptic parameters

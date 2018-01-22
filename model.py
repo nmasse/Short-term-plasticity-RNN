@@ -100,7 +100,7 @@ class Model:
             #self.td = tf.matmul(tf.minimum(np.float32(1), tf.nn.relu(W_td)), self.td_input)
             #self.td = tf.matmul(tf.minimum(np.float32(0.99), tf.nn.relu(W_td)), self.td_input)
             self.td = tf.matmul(tf.nn.sigmoid(W_td), self.td_input)
-            print('td', self.td)
+            #print('td', self.td)
 
         """
         Loop through the neural inputs to the RNN, indexed in time
@@ -124,7 +124,7 @@ class Model:
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
+            W_rnn_effective = tf.tensordot(tf.nn.relu(W_rnn), self.W_ei, [[2],[0]])
         else:
             W_rnn_effective = W_rnn
 
@@ -217,9 +217,19 @@ class Model:
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.matmul(tf.nn.relu(self.W_ei), h)) for h in self.hidden_state_hist]
 
+        self.wiring_loss = tf.constant(0.)
+        for var in [var for var in variables if ('W' in var.op.name and not 'td' in var.op.name)]:
+            if 'W_in' in var.op.name:
+                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_in_pos'], dtype=tf.float32))
+            elif 'W_rnn' in var.op.name:
+                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_rnn_pos'], dtype=tf.float32))
+            elif 'W_rnn' in var.op.name:
+                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_out_pos'], dtype=tf.float32))
+
+        self.wiring_loss *= par['wiring_cost']
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-        self.loss = self.perf_loss + self.spike_loss
+        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
 
         """
         for var in variables:
