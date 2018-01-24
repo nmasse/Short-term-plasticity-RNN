@@ -426,8 +426,6 @@ def main(gpu_id, save_fn):
         t_start = time.time()
         sess.run(model.reset_prev_vars)
 
-        quit()
-
         saver = tf.train.Saver()
         # Restore variables from previous model if desired
         if par['load_previous_model']:
