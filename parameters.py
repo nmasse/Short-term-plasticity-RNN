@@ -35,7 +35,7 @@ par = {
     # Euclidean shape
     'num_sublayers'         : 4,
     'neuron_dx'             : 1.0,
-    'neuron_dy'             : 0.0,
+    'neuron_dy'             : 1.0,
     'neuron_dz'             : 10.0,
     'wiring_cost'           : 1e-3,
 
@@ -378,31 +378,32 @@ def update_dependencies():
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
 
-    # Defining sublayers
+    # Defining sublayers for the hidden layer
     n_per_sub = par['n_hidden']//par['num_sublayers']
     sublayers = []
+    sublayer_sizes = []
     for i in range(par['num_sublayers']):
         if i == par['num_sublayers'] - 1:
             app = par['n_hidden']%par['num_sublayers']
         else:
             app = 0
         sublayers.append(range(i*n_per_sub,(i+1)*n_per_sub+app))
+        sublayer_sizes.append(n_per_sub+app)
 
     # Determine physical sublayer positions
     input_pos = np.zeros([par['n_input'], 3])
-    input_pos[:,0] = par['neuron_dx']*(np.arange(par['n_input'])-np.mean(np.arange(par['n_input'])))
-    input_pos[:,1] = 0
+    hidden_pos = np.zeros([par['n_hidden'], 3])
+    output_pos = np.zeros([par['n_output'], 3])
+
+    # Build layer geometry
+    input_pos[:,0:2] = square_locs(par['n_input'], par['neuron_dx'], par['neuron_dy']).T
     input_pos[:,2] = 0
 
-    hidden_pos = np.zeros([par['n_hidden'], 3])
-    hidden_pos[:,1] = 0
-    for i, s in enumerate(sublayers):
-        hidden_pos[s,0] = par['neuron_dx']*(np.arange(len(s))-np.mean(np.arange(len(s))))
+    for i, (s, l) in enumerate(zip(sublayers, sublayer_sizes)):
+        hidden_pos[s,0:2] = square_locs(l, par['neuron_dx'], par['neuron_dy']).T
         hidden_pos[s,2] = (i+1)*par['neuron_dz']
 
-    output_pos = np.zeros([par['n_output'], 3])
-    output_pos[:,0] = par['neuron_dx']*(np.arange(par['n_output'])-np.mean(np.arange(par['n_output'])))
-    output_pos[:,1] = 0
+    output_pos[:,0:2] = square_locs(par['n_output'], par['neuron_dx'], par['neuron_dy']).T
     output_pos[:,2] = np.max(hidden_pos[:,2]) + par['neuron_dz']
 
     # Apply physical positions to relative positional matrix
@@ -418,18 +419,19 @@ def update_dependencies():
     for i,j in product(range(par['n_hidden']), range(par['n_output'])):
         par['w_out_pos'][j,i] = np.sqrt(np.sum(np.square(hidden_pos[i,:] - output_pos[j,:])))
 
-    # Specify sublayer connections
+    # Specify connections to sublayers
     for i in range(1, par['num_sublayers']):
         par['w_in0'][sublayers[i],:,:] = 0
         par['w_in_mask'][sublayers[i],:,:] = 0
 
-    # connections can only exist between adjacent layers
+    # Only allow connections between adjacent sublayers
     for i,j in product(range(par['num_sublayers']), range(par['num_sublayers'])):
         if np.abs(i-j) > 1:
             for k,m in product(sublayers[i], sublayers[j]):
                 par['w_rnn0'][k,:,m] = 0
                 par['w_rnn_mask'][k,:,m] = 0
 
+    # Specify connections from sublayers
     for i in range(par['num_sublayers'] - 1):
         par['w_out0'][:, sublayers[i]] = 0
         par['w_out_mask'][:, sublayers[i]] = 0
@@ -480,6 +482,7 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
+
 def initialize(dims, connection_prob):
     #w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
     w = np.random.uniform(low=0, high=0.5, size=dims)
@@ -492,6 +495,23 @@ def spectral_radius(A):
         return np.max(abs(np.linalg.eigvals(np.sum(A, axis=1))))
     else:
         return np.max(abs(np.linalg.eigvals(np.sum(A))))
+
+
+def square_locs(num_locs, d1, d2):
+
+    locs_per_side = np.int32(np.sqrt(num_locs))
+    while locs_per_side**2 < num_locs:
+        locs_per_side += 1
+
+    x_set = np.repeat(d1*np.arange(locs_per_side)[:,np.newaxis], locs_per_side, axis=1).flatten()
+    y_set = np.repeat(d2*np.arange(locs_per_side)[np.newaxis,:], locs_per_side, axis=0).flatten()
+    locs  = np.stack([x_set, y_set])[:,:num_locs]
+
+    locs[0,:] -= np.max(locs[0,:])/2
+    locs[1,:] -= np.max(locs[1,:])/2
+
+    return locs
+
 
 update_trial_params()
 update_dependencies()
