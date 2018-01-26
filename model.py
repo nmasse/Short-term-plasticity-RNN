@@ -217,6 +217,10 @@ class Model:
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.matmul(tf.nn.relu(self.W_ei), h)) for h in self.hidden_state_hist]
 
+        """
+        TODO: we only want to reduce the wiring cost for connections weights in which the pre- and post-synaptic partners are active
+        for the current task
+        """
         self.wiring_loss = tf.constant(0.)
         for var in [var for var in variables if ('W' in var.op.name and not 'td' in var.op.name)]:
             if 'W_in' in var.op.name:
