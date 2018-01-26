@@ -108,13 +108,13 @@ par = {
     'scale_factor'          : 1,
 
     # Projection of top-down activity
-    # Only one can be True
-    'clamp'                 : 'neurons', # can be either 'dendrites', 'neurons', 'partial' or None
-    'gate_pct'              : 0.0,
+    'neuron_gate_pct'       : 0.0,
+    'dendrite_gate_pct'     : 0.0,
     'dynamic_topdown'       : False,
     'num_tasks'             : 12,
     'td_cost'               : 0.1,
 
+    # Fisher information parameters
     'EWC_fisher_calc_batch' : 8, # batch size when calculating EWC
     'EWC_fisher_num_batches': 256, # number of batches size when calculating EWC
 }
@@ -273,20 +273,12 @@ def update_dependencies():
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Create TD
-    par['topdown'] = [np.float32(np.array(np.random.choice(np.float32([0.0,1.0]), par['n_hidden'], p = [par['gate_pct'], 1-par['gate_pct']]))) for i in range(par['num_tasks'])]
-    """
-    par['topdown'] = []
-    for i in range(10):
-        v = np.zeros((300))
-        v[i*50:(i+1)*50] = 1
-        par['topdown'].append(v)
-    """
+    par['neuron_topdown'] = []
+    par['dendrite_topdown'] = []
+    for _ in range(par['num_tasks']):
+        par['neuron_topdown'].append(np.float32(np.random.choice([0,1], par['n_hidden'], p= [par['neuron_gate_pct'], 1-par['neuron_gate_pct']])))
+        par['dendrite_topdown'].append(np.float32(np.random.choice([0,1], [par['n_hidden'], par['n_dendrites']], p= [par['dendrite_gate_pct'], 1-par['dendrite_gate_pct']])))
 
-    print('mean td 0 ', np.mean(par['topdown'][0]))
-    print('mean td 1 ', np.mean(par['topdown'][1]))
-    print('mean td 2 ', np.mean(par['topdown'][2]))
-    # Possible rules based on rule type values
-    #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
 
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
