@@ -220,11 +220,11 @@ class Model:
         self.wiring_loss = tf.constant(0.)
         for var in [var for var in variables if ('W' in var.op.name and not 'td' in var.op.name)]:
             if 'W_in' in var.op.name:
-                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_in_pos'], dtype=tf.float32))
+                self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_in_pos'], dtype=tf.float32))
             elif 'W_rnn' in var.op.name:
-                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_rnn_pos'], dtype=tf.float32))
+                self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_rnn_pos'], dtype=tf.float32))
             elif 'W_rnn' in var.op.name:
-                self.wiring_loss += tf.reduce_sum(var * tf.constant(par['w_out_pos'], dtype=tf.float32))
+                self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_out_pos'], dtype=tf.float32))
 
         self.wiring_loss *= par['wiring_cost']
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
@@ -475,8 +475,8 @@ def main(gpu_id, save_fn):
                         model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist, model.aux_loss], feed_dict = {x: trial_info['neural_input'], \
                         td:par['topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], gate_learning: gate})
                     """
-                    _, _, acc, aux_loss, perf_loss, h, td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
-                        model.aux_loss, model.perf_loss, model.hidden_state_hist, model.td], feed_dict = {x: trial_info['neural_input'], \
+                    _, _, acc, aux_loss, perf_loss, wiring_loss, h, td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
+                        model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.td], feed_dict = {x: trial_info['neural_input'], \
                         td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
                     # This is potentially important, especially for RNNs
@@ -493,7 +493,8 @@ def main(gpu_id, save_fn):
 
 
                 if (i-1)//par['iters_between_outputs'] == (i-1)/par['iters_between_outputs']:
-                    print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), ' TD ', np.mean(td_gating))
+                    print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), \
+                        ' TD ', np.mean(td_gating), ' WL ', wiring_loss)
                     #bo_var = [np.sum(b) for b in bo.values()]
                     #print('Big Omega ', bo_var)
                     #bo_var = [np.sum(b) for b in bot.values()]
@@ -626,4 +627,4 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
 
 
-main('0', 'testing')
+#main('0', 'testing')
