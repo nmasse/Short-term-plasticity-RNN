@@ -28,25 +28,25 @@ par = {
     'num_motion_tuned'      : 36*2,
     'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 200,
     'n_dendrites'           : 5,
-    #'n_output'              : 1 + 36,
+    #'n_output'             : 36,
 
     # Euclidean shape
-    'num_sublayers'         : 4,
+    'num_sublayers'         : 3,
     'neuron_dx'             : 1.0,
     'neuron_dy'             : 1.0,
     'neuron_dz'             : 10.0,
-    'wiring_cost'           : 1e-3,
+    'wiring_cost'           : 2e-6, #1e-3,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-3,
-    'membrane_time_constant': 200,
-    'connection_prob'       : 0.5,         # Usually 1
+    'learning_rate'         : 5e-3,
+    'membrane_time_constant': 50,
+    'connection_prob'       : 1.0,         # Usually 1
 
     # Variance values
-    'clip_max_grad_val'     : 0.1,
+    'clip_max_grad_val'     : 0.5,
     'input_mean'            : 0.0,
     'noise_in_sd'           : 0.1,
     'noise_rnn_sd'          : 0.5,
@@ -57,7 +57,7 @@ par = {
     'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 5e-3,
+    'spike_cost'            : 1e-3,
 
     # Synaptic plasticity specs
     'tau_fast'              : 100,
@@ -102,7 +102,7 @@ par = {
     'analyze_tuning'        : True,
 
     # Omega parameters
-    'omega_c'               : 6,
+    'omega_c'               : 0.1,
     'omega_xi'              : 0.001,
     'last_layer_mult'       : 2,
     'scale_factor'          : 1,
@@ -111,8 +111,8 @@ par = {
     # Only one can be True
     'clamp'                 : 'neurons', # can be either 'dendrites', 'neurons', 'partial' or None
     'gate_pct'              : 0.0,
-    'dynamic_topdown'       : True,
-    'num_tasks'             : 20,
+    'dynamic_topdown'       : False,
+    'num_tasks'             : 12,
     'td_cost'               : 0.1,
 
     'EWC_fisher_calc_batch' : 8, # batch size when calculating EWC
@@ -353,7 +353,7 @@ def update_dependencies():
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,:,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])[:,np.newaxis,:]
-        par['w_rnn0'][:,:,par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
+        #par['w_rnn0'][:,:,par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
     else:
         par['w_rnn0'] = np.concatenate([np.float32(0.5*np.eye(par['n_hidden']))[:,np.newaxis,:]]*par['n_dendrites'], axis=1)
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
@@ -484,8 +484,8 @@ def update_dependencies():
 
 
 def initialize(dims, connection_prob):
-    #w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
-    w = np.random.uniform(low=0, high=0.5, size=dims)
+    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    #w = np.random.uniform(low=0, high=0.5, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
 
