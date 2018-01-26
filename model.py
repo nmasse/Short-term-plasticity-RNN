@@ -164,15 +164,15 @@ class Model:
         All input and RNN activity will be non-negative
         """
 
-        # Dendrite summations
-        W_in = tf.reduce_sum(W_in, axis=1)
-        W_rnn_effective = tf.reduce_sum(W_rnn_effective, axis=1)
+        # Calculating hidden activities, accounting for dendrites
+        inp_act = tf.tensordot(tf.nn.relu(W_in), tf.nn.relu(rnn_input), [[2],[0]])
+        rnn_act = tf.tensordot(W_rnn_effective, h_post, [[2],[0]])
+        total_act = par['alpha_neuron']*inp_act + rnn_act
+        total_act_eff = tf.reduce_sum(total_act, axis=1)
 
         # Hidden state update
-        h = self.td*tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
+        h = self.td*tf.nn.relu(h*(1-par['alpha_neuron']) + total_act_eff + b_rnn) \
+          + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32)
 
         return h, syn_x, syn_u
 
