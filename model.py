@@ -26,16 +26,18 @@ Model setup and execution
 
 class Model:
 
-    def __init__(self, input_data, td, target_data, mask, td_input, gate_learning):
+    def __init__(self, input_data, neuron_td, dendrite_td, target_data, mask, td_input, gate_learning):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
         self.input_data = tf.unstack(input_data, axis=1)
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
+
         if par['dynamic_topdown']:
             self.td_input = td_input
         else:
-            self.td = tf.tile(tf.reshape(td,[par['n_hidden'],1]), [1, par['batch_train_size']])
+            self.neuron_td   = tf.tile(neuron_td[:,tf.newaxis], [1, par['batch_train_size']])
+            self.dendrite_td = tf.tile(dendrite_td[...,tf.newaxis], [1, 1, par['batch_train_size']])
             self.td_input = -1
         self.gate_learning = gate_learning
 
@@ -88,7 +90,7 @@ class Model:
             W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
             if par['dynamic_topdown']:
-                W_td = tf.get_variable('W_td', initializer = np.transpose(np.stack(par['topdown'])), trainable=True)
+                W_td = tf.get_variable('W_td', initializer = np.transpose(np.stack(par['neuron_topdown'])), trainable=True)
 
         self.W_ei = tf.constant(par['EI_matrix'])
 
@@ -99,7 +101,7 @@ class Model:
         if par['dynamic_topdown']:
             #self.td = tf.matmul(tf.minimum(np.float32(1), tf.nn.relu(W_td)), self.td_input)
             #self.td = tf.matmul(tf.minimum(np.float32(0.99), tf.nn.relu(W_td)), self.td_input)
-            self.td = tf.matmul(tf.nn.sigmoid(W_td), self.td_input)
+            self.neuron_td = tf.matmul(tf.nn.sigmoid(W_td), self.td_input)
             #print('td', self.td)
 
         """
@@ -164,16 +166,16 @@ class Model:
         All input and RNN activity will be non-negative
         """
 
-        # Dendrite summations
-        W_in = tf.reduce_sum(W_in, axis=1)
-        W_rnn_effective = tf.reduce_sum(W_rnn_effective, axis=1)
+        # Calculating hidden activities, accounting for dendrites
+        inp_act = tf.tensordot(tf.nn.relu(W_in), tf.nn.relu(rnn_input), [[2],[0]])
+        rnn_act = tf.tensordot(W_rnn_effective, h_post, [[2],[0]])
+        total_act = par['alpha_neuron']*inp_act + rnn_act
+        total_act_eff = tf.reduce_sum(self.dendrite_td*total_act, axis=1)
 
         # Hidden state update
-        h = self.td*tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
-
+        h = self.neuron_td*tf.nn.relu(h*(1-par['alpha_neuron']) + total_act_eff + b_rnn) \
+          + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32)
+        
         return h, syn_x, syn_u
 
 
@@ -243,7 +245,7 @@ class Model:
         """
 
         if par['dynamic_topdown']:
-            self.td_loss = par['td_cost']*tf.reduce_mean(self.td)
+            self.td_loss = par['td_cost']*tf.reduce_mean(self.neuron_td)
         else:
             self.td_loss = 0.0
 
@@ -406,7 +408,8 @@ def main(gpu_id, save_fn):
     mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
-    td = tf.placeholder(tf.float32, shape=[par['n_hidden']]) # target data
+    td_neur = tf.placeholder(tf.float32, shape=[par['n_hidden']]) # target data
+    td_dend = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['n_dendrites']]) # target data
     td_input = tf.placeholder(tf.float32, shape=[par['num_tasks'], par['batch_train_size']]) # top-down input signal
     gate_learning = tf.placeholder(tf.float32)
 
@@ -419,11 +422,11 @@ def main(gpu_id, save_fn):
     with tf.Session(config=config) as sess:
 
         if par['no_gpu']:
-            model = Model(x, td, y, mask, td_input, gate_learning)
+            model = Model(x, td_neur, td_dend, y, mask, td_input, gate_learning)
             init = tf.global_variables_initializer()
         else:
             with tf.device("/gpu:0"):
-                model = Model(x, td, y, mask, td_input, gate_learning)
+                model = Model(x, td_neur, td_dend, y, mask, td_input, gate_learning)
                 init = tf.global_variables_initializer()
 
         sess.run(init)
@@ -454,24 +457,7 @@ def main(gpu_id, save_fn):
                     gl = 0.0
                 else:
                     gl = 1.0
-                """
-                plt.imshow(trial_info['desired_output'][:,:,0], interpolation='none', aspect='auto')
-                plt.colorbar()
-                plt.show()
-                plt.imshow(trial_info['desired_output'][:,:,1], interpolation='none', aspect='auto')
-                plt.colorbar()
-                plt.show()
-                plt.imshow(trial_info['desired_output'][:,:,2], interpolation='none', aspect='auto')
-                plt.colorbar()
-                plt.show()
-                plt.imshow(trial_info['neural_input'][:,:,1], interpolation='none', aspect='auto')
-                plt.colorbar()
-                plt.show()
-                plt.imshow(trial_info['neural_input'][:,:,1], interpolation='none', aspect='auto')
-                plt.colorbar()
-                plt.show()
-                quit()
-                """
+
                 if par['stabilization'] == 'pathint':
                     """
                     _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist, aux_loss = \
@@ -481,7 +467,7 @@ def main(gpu_id, save_fn):
                     """
                     _, _, acc, aux_loss, perf_loss, wiring_loss, h, td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
                         model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.td], feed_dict = {x: trial_info['neural_input'], \
-                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
+                        td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
                     # This is potentially important, especially for RNNs
                     # Perf loss can be very large during first several iterations, leading to very lareg omega_c values
@@ -493,7 +479,7 @@ def main(gpu_id, save_fn):
                     aux_loss = -1
                     _, acc, perf_loss, h = sess.run([model.train_op, model.accuracy, model.perf_loss, model.hidden_state_hist], \
                         feed_dict = {x: trial_info['neural_input'], \
-                        td: np.float32(par['topdown'][j]), y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
+                        td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
 
                 if (i-1)//par['iters_between_outputs'] == (i-1)/par['iters_between_outputs']:
@@ -515,7 +501,7 @@ def main(gpu_id, save_fn):
                 for n in range(par['EWC_fisher_num_batches']):
                     _, trial_info = stim.generate_trial(j)
                     big_omegas = sess.run([model.update_big_omega,model.big_omega_var], feed_dict = {x:trial_info['neural_input'], \
-                    td: np.float32(par['topdown'][j]),  y: trial_info['desired_output'],mask:trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
+                    td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'],mask:trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
             sess.run(model.reset_adam_op)
             sess.run(model.reset_prev_vars)
