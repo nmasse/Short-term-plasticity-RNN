@@ -175,7 +175,7 @@ class Model:
         # Hidden state update
         h = self.neuron_td*tf.nn.relu(h*(1-par['alpha_neuron']) + total_act_eff + b_rnn) \
           + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32)
-        
+
         return h, syn_x, syn_u
 
 
@@ -318,8 +318,8 @@ class Model:
     def pathint_stabilization(self, variables, adam_optimizer, previous_weights_mu_minus_1):
         # Zenke method
 
-        #optimizer_task = tf.train.GradientDescentOptimizer(learning_rate =  par['learning_rate'])
-        optimizer_task = tf.train.GradientDescentOptimizer(learning_rate =  1)
+        #optimizer_task = tf.train.GradientDescentOptimizer(learning_rate = par['learning_rate'])
+        optimizer_task = tf.train.GradientDescentOptimizer(learning_rate = 1)
         small_omega_var = {}
         delta_params = {}
 
@@ -343,17 +343,6 @@ class Model:
             """
             update_big_omega_ops.append( tf.assign_add( self.big_omega_var[var.op.name], tf.div(tf.nn.relu(small_omega_var[var.op.name]), \
             	(par['omega_xi'] + tf.square(delta_params[var.op.name])))))
-
-        """
-        gated_neurons = {}
-        s = tf.cast(tf.greater(self.td, 0), tf.float32)
-        rnn_gate = tf.cast(tf.greater(tf.matmul(s,tf.transpose(s)),0), tf.float32)
-        print('rnn_gate', rnn_gate)
-        for var in variables:
-            gated_neurons[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
-            if var.op.name == 'rnn_cell/W_rnn':
-                print('gated weights ', var.op.name)
-        """
 
         # After each task is complete, call update_big_omega and reset_small_omega
         self.update_big_omega = tf.group(*update_big_omega_ops)
@@ -459,14 +448,8 @@ def main(gpu_id, save_fn):
                     gl = 1.0
 
                 if par['stabilization'] == 'pathint':
-                    """
-                    _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist, aux_loss = \
-                        sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
-                        model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist, model.aux_loss], feed_dict = {x: trial_info['neural_input'], \
-                        td:par['topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], gate_learning: gate})
-                    """
-                    _, _, acc, aux_loss, perf_loss, wiring_loss, h, td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
-                        model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.td], feed_dict = {x: trial_info['neural_input'], \
+                    _, _, acc, aux_loss, perf_loss, wiring_loss, h, neuron_td_gating, dendrite_td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
+                        model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.neuron_td, model.dendrite_td], feed_dict = {x: trial_info['neural_input'], \
                         td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
                     # This is potentially important, especially for RNNs
@@ -484,7 +467,7 @@ def main(gpu_id, save_fn):
 
                 if (i-1)//par['iters_between_outputs'] == (i-1)/par['iters_between_outputs']:
                     print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), \
-                        ' TD ', np.mean(td_gating), ' WL ', wiring_loss)
+                        ' TD ', np.mean(neuron_td_gating), np.mean(dendrite_td_gating), ' WL ', wiring_loss)
                     #bo_var = [np.sum(b) for b in bo.values()]
                     #print('Big Omega ', bo_var)
                     #bo_var = [np.sum(b) for b in bot.values()]
@@ -617,4 +600,4 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
 
 
-#main('0', 'testing')
+main('0', 'testing')
