@@ -24,8 +24,8 @@ def plot_all_figures():
     #plot_SF2_v2(fig_params)
     #plot_F3(fig_params)
     #plot_F4(fig_params)
-    #plot_summary_figure(fig_params)
-    plot_F5(fig_params)
+    plot_summary_figure(fig_params)
+    #plot_F5(fig_params)
     #plot_F6_v2(fig_params)
 
 
@@ -761,7 +761,7 @@ def plot_summary_figure(fig_params):
 
     #delay_epoch = [de1,de1,de1,de3,]
     neuron_ind = [range(0,100,2), range(1,100,2)]
-    fig = plt.figure(figsize=(6,3))
+    fig = plt.figure(figsize=(4,4))
 
     delay_accuracy = np.zeros((num_tasks+2, fig_params['models_per_task']))
     manipulation = np.zeros((num_tasks+2, fig_params['models_per_task']))
@@ -847,7 +847,7 @@ def plot_summary_figure(fig_params):
     ax.errorbar(u0[5:],u1[5:],xerr = sd0[5:],yerr = sd1[5:])
     plt.show()
 
-    fig = plt.figure(figsize=(5,5))
+    fig = plt.figure(figsize=(4,4))
     ax = fig.add_subplot(1,1,1)
     col = ['b','y','r','r','k','g','b','k','m','c','y']
     #col = ['b','y','r','k','g','b','k','m','c']
@@ -858,6 +858,14 @@ def plot_summary_figure(fig_params):
     ax.set_ylabel('Manipulation')
     #ax.legend(['DMS','DMC','DMRS','DMRS45','DMRS180','DMS+DMRS','ABCA','ABBA','Attended','Unattended'])
     ax.legend(['DMS','DMRS','DMRS45','DMRS180','ABCA','ABBA','DMS+DMRS (DMS)','DMS+DMRS (DMRS)','Attended','Unattended'])
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.plot([0.125,0.125],[0,1],'k--')
+    ax.set_xlim([0,0.7])
+    ax.set_ylim([0,0.32])
+    ax.set_aspect(0.7/0.32)
     plt.tight_layout()
     plt.savefig('Fig_summary.pdf', format='pdf')
     plt.show()
