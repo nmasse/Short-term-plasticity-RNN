@@ -468,9 +468,9 @@ def main(gpu_id, save_fn):
                     if perf_loss < 2:
                         sess.run(model.update_small_omega)
 
-                    print('Mean RNN grad:', np.mean(rnn_grad))
+                    print('Mean RNN grad: ', np.mean(rnn_grad))
+                    print('Mean RNN omega:', np.mean(rnn_omega))
 
-                    
 
                     if i == 0 and j != 0:
                         f, ax = plt.subplots(2)
