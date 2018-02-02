@@ -165,11 +165,12 @@ class Model:
         Only use excitatory projections from input layer to RNN
         All input and RNN activity will be non-negative
         """
+        self.inp = rnn_input
 
         # Calculating hidden activities, accounting for dendrites
         inp_act = tf.tensordot(tf.nn.relu(W_in), tf.nn.relu(rnn_input), [[2],[0]])
         rnn_act = tf.tensordot(W_rnn_effective, h_post, [[2],[0]])
-        total_act = par['alpha_neuron']*inp_act + rnn_act
+        total_act = par['alpha_neuron']*(inp_act + rnn_act)
         total_act_eff = tf.reduce_sum(self.dendrite_td*total_act, axis=1)
 
         # Hidden state update
@@ -207,13 +208,13 @@ class Model:
             #    tf.square(previous_weights_mu_minus_1[var.op.name] - var)))
             reset_prev_vars_ops.append( tf.assign(previous_weights_mu_minus_1[var.op.name], var ) )
 
-        """
+
         perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
                      for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
+        """
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
@@ -229,7 +230,7 @@ class Model:
                 self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_in_pos'], dtype=tf.float32))
             elif 'W_rnn' in var.op.name:
                 self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_rnn_pos'], dtype=tf.float32))
-            elif 'W_rnn' in var.op.name:
+            elif 'W_out' in var.op.name:
                 self.wiring_loss += tf.reduce_sum(tf.nn.relu(var) * tf.constant(par['w_out_pos'], dtype=tf.float32))
 
         self.wiring_loss *= par['wiring_cost']
@@ -250,25 +251,30 @@ class Model:
             self.td_loss = 0.0
 
         # OPTION 1
-        self.train_op = adam_optimizer.compute_gradients(self.loss + self.aux_loss + self.td_loss, self.gate_learning)
-
-        # OPTION 2
         """
+        self.train_op = adam_optimizer.compute_gradients(self.loss + self.aux_loss + self.td_loss, self.gate_learning)
+        """
+        # OPTION 2
+
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
         capped_gvs = []
         for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0":
+            if var.name == "rnn_cell/W_in:0":
+                grad *= par['w_in_mask']
+                print('Applied weight mask to w_in.')
+            elif var.name == "rnn_cell/W_rnn:0":
                 grad *= par['w_rnn_mask']
                 print('Applied weight mask to w_rnn.')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
+            print(type(grad))
             if not str(type(grad)) == "<class 'NoneType'>":
                 capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
 
         self.train_op = opt.apply_gradients(capped_gvs)
-        """
+
 
         if par['stabilization'] == 'pathint':
             # Zenke method
@@ -453,7 +459,7 @@ def main(gpu_id, save_fn):
                         td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
                     # This is potentially important, especially for RNNs
-                    # Perf loss can be very large during first several iterations, leading to very lareg omega_c values
+                    # Perf loss can be very large during first several iterations, leading to very large omega_c values
                     if perf_loss < 2:
                         sess.run(model.update_small_omega)
 

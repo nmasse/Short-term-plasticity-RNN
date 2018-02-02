@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 import os
 from itertools import product
 
@@ -30,7 +31,6 @@ par = {
     'num_rule_tuned'        : 0,
     'n_hidden'              : 200,
     'n_dendrites'           : 5,
-    #'n_output'             : 36,
 
     # Euclidean shape
     'num_sublayers'         : 3,
@@ -112,7 +112,7 @@ par = {
     'dendrite_gate_pct'     : 0.0,
     'dynamic_topdown'       : False,
     'num_tasks'             : 12,
-    'td_cost'               : 0.1,
+    'td_cost'               : 0.0,
 
     # Fisher information parameters
     'EWC_fisher_calc_batch' : 8, # batch size when calculating EWC
@@ -427,7 +427,6 @@ def update_dependencies():
     for i in range(par['num_sublayers'] - 1):
         par['w_out0'][:, sublayers[i]] = 0
         par['w_out_mask'][:, sublayers[i]] = 0
-
 
     """
     Setting up synaptic parameters
