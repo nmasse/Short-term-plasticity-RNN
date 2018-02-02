@@ -30,18 +30,18 @@ par = {
     'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
     'n_hidden'              : 200,
-    'n_dendrites'           : 5,
+    'n_dendrites'           : 1,
 
     # Euclidean shape
     'num_sublayers'         : 3,
     'neuron_dx'             : 1.0,
     'neuron_dy'             : 1.0,
     'neuron_dz'             : 10.0,
-    'wiring_cost'           : 2e-6, #1e-3,
+    'wiring_cost'           : 1e-6,
 
     # Timings and rates
-    'dt'                    : 10,
-    'learning_rate'         : 5e-3,
+    'dt'                    : 20,
+    'learning_rate'         : 7e-3,
     'membrane_time_constant': 50,
     'connection_prob'       : 1.0,         # Usually 1
 
@@ -53,7 +53,7 @@ par = {
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 4.0,        # magnitutde scaling factor for von Mises
+    'tuning_height'         : 4.0,        # magnitude scaling factor for von Mises
     'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
@@ -67,11 +67,11 @@ par = {
 
     # Training specs
     'batch_train_size'      : 512,
-    'num_iterations'        : 400,
-    'iters_between_outputs' : 20,
+    'num_iterations'        : 500,
+    'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'twelvestim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim
+    'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim
     'multistim_trial_length': 4000,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 200,

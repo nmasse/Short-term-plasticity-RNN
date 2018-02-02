@@ -13,6 +13,7 @@ from parameters import *
 import pickle
 import multistim
 import matplotlib.pyplot as plt
+import os, sys
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -204,6 +205,10 @@ class Model:
             #self.big_omega_terms[var.op.name] = tf.Variable(tf.zeros(var.get_shape()), trainable=False)
             self.aux_loss += par['omega_c']*tf.reduce_sum(tf.multiply(self.big_omega_var[var.op.name], \
                 tf.square(previous_weights_mu_minus_1[var.op.name] - var) ))
+
+            if var.op.name == 'rnn_cell/W_rnn':
+                self.rnn_omega = tf.multiply(self.big_omega_var[var.op.name], tf.square(previous_weights_mu_minus_1[var.op.name] - var))
+
             #self.big_omega_term_op.append(tf.assign(self.big_omega_terms[var.op.name], \
             #    tf.square(previous_weights_mu_minus_1[var.op.name] - var)))
             reset_prev_vars_ops.append( tf.assign(previous_weights_mu_minus_1[var.op.name], var ) )
@@ -216,7 +221,7 @@ class Model:
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
         """
 
-        # L2 penalty term on hidden state activity to encourage low spike rate solutions
+        # L2 penalty term on hidden state activity to encourage low spike rate j]solutions
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.matmul(tf.nn.relu(self.W_ei), h)) for h in self.hidden_state_hist]
 
@@ -265,11 +270,11 @@ class Model:
                 print('Applied weight mask to w_in.')
             elif var.name == "rnn_cell/W_rnn:0":
                 grad *= par['w_rnn_mask']
+                self.rnn_grad = grad
                 print('Applied weight mask to w_rnn.')
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
-            print(type(grad))
             if not str(type(grad)) == "<class 'NoneType'>":
                 capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
 
@@ -454,7 +459,7 @@ def main(gpu_id, save_fn):
                     gl = 1.0
 
                 if par['stabilization'] == 'pathint':
-                    _, _, acc, aux_loss, perf_loss, wiring_loss, h, neuron_td_gating, dendrite_td_gating = sess.run([model.train_op, model.update_grads,model.accuracy, \
+                    _, _, rnn_grad, rnn_omega, acc, aux_loss, perf_loss, wiring_loss, h, neuron_td_gating, dendrite_td_gating = sess.run([model.train_op, model.update_grads, model.rnn_grad, model.rnn_omega, model.accuracy, \
                         model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.neuron_td, model.dendrite_td], feed_dict = {x: trial_info['neural_input'], \
                         td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
@@ -462,6 +467,17 @@ def main(gpu_id, save_fn):
                     # Perf loss can be very large during first several iterations, leading to very large omega_c values
                     if perf_loss < 2:
                         sess.run(model.update_small_omega)
+
+                    print('Mean RNN grad:', np.mean(rnn_grad))
+
+                    
+
+                    if i == 0 and j != 0:
+                        f, ax = plt.subplots(2)
+                        ax[0].imshow(rnn_grad[:,0,:])
+                        ax[1].imshow(rnn_omega[:,0,:])
+                        plt.show()
+
 
 
                 elif par['stabilization'] == 'EWC':
@@ -471,7 +487,7 @@ def main(gpu_id, save_fn):
                         td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
 
-                if (i-1)//par['iters_between_outputs'] == (i-1)/par['iters_between_outputs']:
+                if i//par['iters_between_outputs'] == i/par['iters_between_outputs'] and i != 0:
                     print('Iter ', i, 'Accuracy ', acc , ' AuxLoss ', aux_loss , 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), \
                         ' TD ', np.mean(neuron_td_gating), np.mean(dendrite_td_gating), ' WL ', wiring_loss)
                     #bo_var = [np.sum(b) for b in bo.values()]
@@ -490,7 +506,8 @@ def main(gpu_id, save_fn):
                 for n in range(par['EWC_fisher_num_batches']):
                     _, trial_info = stim.generate_trial(j)
                     big_omegas = sess.run([model.update_big_omega,model.big_omega_var], feed_dict = {x:trial_info['neural_input'], \
-                    td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'],mask:trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
+                    td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], \
+                    y: trial_info['desired_output'],mask:trial_info['train_mask'], td_input: td_input_signal, gate_learning:gl})
 
             sess.run(model.reset_adam_op)
             sess.run(model.reset_prev_vars)
@@ -502,7 +519,7 @@ def main(gpu_id, save_fn):
                 # generate batch of batch_train_size
                 _, trial_info = stim.generate_trial(j)
                 acc, h, syn_x, syn_u = sess.run([model.accuracy, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
-                    feed_dict = {x: trial_info['neural_input'], td: np.float32(par['topdown'][k]), \
+                    feed_dict = {x: trial_info['neural_input'], td_neur: par['neuron_topdown'][k], td_dend: par['dendrite_topdown'][k], \
                     y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal})
                 print('ACC ',j,k,acc)
                 model_performance['accuracy'][j,k] = acc
@@ -606,4 +623,4 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
 
 
-main('0', 'testing')
+main(str(sys.argv[1]), 'testing')
