@@ -17,7 +17,7 @@ par = {
     'save_dir'              : './savedir_2000batches/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'analyze_model'         : True,
+    'analyze_model'         : False,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
@@ -28,7 +28,7 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 20,
+    'n_hidden'              : 100,
     'n_output'              : 3,
 
     # Timings and rates
@@ -58,9 +58,9 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 100,
-    'num_iterations'        : 20,
-    'iters_between_outputs' : 100,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 2000,
+    'iters_between_outputs' : 10,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS

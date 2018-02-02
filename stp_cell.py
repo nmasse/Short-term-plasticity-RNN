@@ -65,10 +65,6 @@ class STPCell(RNNCell):
         State vector contains all the synaptic paramaters (if short-term plasticity is being applied),
         and the hiddent activity
         """            
-        print("inputs")
-        print(inputs)
-        print("state")
-        print(state)
         # inputs = [batch_size, max_time, ...] if time_major == False
         # state = [cell.output_size, batch_size]
 
@@ -78,8 +74,8 @@ class STPCell(RNNCell):
             syn_u = state.syn_u_hist
 
             # implement synaptic short term facilitation, but no depression
-            syn_u += self.alpha_stf*(self.U-syn_u) + self.dt*self.U*(1-syn_u)*hidden_state/1000 
-            syn_u = tf.minimum(np.float32(1), tf.maximum(np.float32(0), syn_u))
+            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*hidden_state
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             state_post = syn_u*hidden_state
             
         elif par['synapse_config'] == 'std':
@@ -88,8 +84,8 @@ class STPCell(RNNCell):
             syn_x = state.syn_x
 
             # implement synaptic short term derpression, but no facilitation
-            syn_x += self.alpha_std*(1-syn_x) - self.dt*syn_x*hidden_state/1000 
-            syn_x = tf.minimum(np.float32(1), tf.maximum(np.float32(0), syn_x))
+            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*hidden_state
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             state_post = syn_x*hidden_state
             
         elif par['synapse_config'] == 'std_stf': 
@@ -99,10 +95,10 @@ class STPCell(RNNCell):
             syn_u = state.syn_u
 
             # implement both synaptic short term facilitation and depression  
-            # syn_u += self.alpha_stf*(self.U-syn_u) + self.dt*self.U*(1-syn_u)*hidden_state/1000 
-            # syn_x += self.alpha_std*(1-syn_x) - self.dt*syn_x*hidden_state/1000 
-            syn_u = tf.minimum(np.float32(1), tf.maximum(np.float32(0), syn_u))
-            syn_x = tf.minimum(np.float32(1), tf.maximum(np.float32(0), syn_x))
+            syn_x += np.transpose(par['alpha_std'])*(1-syn_x) - par['dt_sec']*syn_u*syn_x*hidden_state
+            syn_u += np.transpose(par['alpha_stf'])*(np.transpose(par['U'])-syn_u) + par['dt_sec']*np.transpose(par['U'])*(1-syn_u)*hidden_state 
+            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             state_post = syn_u*syn_x*hidden_state     
         else:
             hidden_state = state
@@ -114,17 +110,37 @@ class STPCell(RNNCell):
         If self.EI is True, then excitatory and inhibiotry neurons are desired, and will we ensure that recurrent enurons 
         are of only one type, and that W_in weights are non-negative 
         """
+        # print("BEFORE EI")
+        # if par['EI']:
+        #     print(tf.nn.relu(self.W_rnn))
+        #     print(self.W_ei)
+        #     W_rnn_effective = tf.matmul(tf.nn.relu(self.W_rrn), par['EI_matrix'])
+        # else:
+        #     W_rnn_effective = self.W_rnn
+
+        # print("AFTER EI")
+        # print(tf.nn.relu(self.W_in))
+        # print(tf.nn.relu(rnn_input))
+        # new_state = tf.nn.relu(state*(1-par['alpha_neuron'])
+        #                + par['alpha_neuron']*(tf.matmul(tf.nn.relu(self.W_in), tf.nn.relu(rnn_input))
+        #                + tf.matmul(W_rnn_effective, h_post) + b_rnn)
+        #                + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
+
+
         if self.W_ei:
             # new_state = tf.nn.relu(hidden_state*(1-par['alpha_neuron'])
                        # + par['alpha_neuron']*(tf.matmul(tf.nn.relu(self.W_in), tf.nn.relu(tf.transpose(inputs)))
                        # + tf.matmul(tf.matmul(tf.nn.relu(self.W_rnn), par['EI_matrix']), state_post) + self.b_rnn)
                        # + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
-            print("noise")
-            print(tf.shape(hidden_state))
-            print(self.noise_rnn)
-            new_state = tf.nn.relu((1-self.alpha_neuron)*hidden_state + self.alpha_neuron*(tf.matmul(tf.nn.relu(inputs), tf.nn.relu(tf.transpose(self.W_in))) + tf.matmul(state_post, tf.matmul(tf.nn.relu(self.W_rnn), par['EI_matrix'])) + tf.transpose(self.b_rnn)) + tf.random_normal(tf.shape(hidden_state), 0, self.noise_rnn, dtype=tf.float32))
+            new_state = tf.nn.relu((1-par['alpha_neuron'])*hidden_state 
+                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(inputs), tf.nn.relu(tf.transpose(self.W_in))) 
+                        + tf.matmul(state_post, tf.matmul(tf.nn.relu(self.W_rnn), par['EI_matrix'])) + tf.transpose(self.b_rnn)) 
+                        + tf.random_normal(tf.shape(hidden_state), 0, self.noise_rnn, dtype=tf.float32))
         else:                                 
-            new_state = tf.nn.relu((1-par['alpha_neuron'])*hidden_state + par['alpha_neuron']*(tf.matmul(self.W_in, inputs) + tf.matmul(self.W_rnn, state_post) + self.b_rnn) + tf.random_normal(tf.shape(hidden_state), 0, par['noise_rnn'], dtype=tf.float32))   
+            new_state = tf.nn.relu((1-par['alpha_neuron'])*hidden_state 
+                        + par['alpha_neuron']*(tf.matmul(self.W_in, inputs) 
+                        + tf.matmul(self.W_rnn, state_post) + self.b_rnn) 
+                        + tf.random_normal(tf.shape(hidden_state), 0, par['noise_rnn'], dtype=tf.float32))
             
         
         # load final output to state tuple
@@ -137,7 +153,4 @@ class STPCell(RNNCell):
         else:
             state = new_state
 
-        print("updated state")
-        print(state)
-        print(tf.transpose(state))
         return state, state

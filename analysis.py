@@ -8,7 +8,7 @@ from sklearn import svm
 import time
 import pickle
 
-def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, simulation = True, \
+def analyze_model(trial_info, y_hat, h_stacked, syn_x_stacked, syn_u_stacked, model_performance, weights, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
 
     """
@@ -16,9 +16,9 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Creating new variable since h, syn_x, and syn_u are class members of model.py,
     and will get mofiied by functions within analysis.py
     """
-    syn_x_stacked = np.stack(syn_x, axis=1)
-    syn_u_stacked = np.stack(syn_u, axis=1)
-    h_stacked = np.stack(h, axis=1)
+    # syn_x_stacked = np.stack(syn_x, axis=1)
+    # syn_u_stacked = np.stack(syn_u, axis=1)
+    # h_stacked = np.stack(h, axis=1)
     trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
 
     save_fn = par['save_dir'] + par['save_fn']
@@ -394,7 +394,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
         'accuracy_syn_shuffled'     : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_suppression'      : np.zeros((par['num_rules'], len(suppression_time_range), 7, 3))}
 
-
+    print(h.shape)
     _, trial_length, batch_train_size = h.shape
 
 
@@ -806,12 +806,12 @@ def get_perf(y, y_hat, mask):
     y is the desired output
     y_hat is the actual output
     """
-    y_hat = np.stack(y_hat, axis=1)
-    mask *= y[0,:,:]==0
-    mask_non_match = mask*(y[1,:,:]==1)
-    mask_match = mask*(y[2,:,:]==1)
-    y = np.argmax(y, axis = 0)
-    y_hat = np.argmax(y_hat, axis = 0)
+    y = np.transpose(y, axes=[1,2,0])
+    mask *= y[:,:,0]==0
+    mask_non_match = mask*(y[:,:,1]==1)
+    mask_match = mask*(y[:,:,2]==1)
+    y = np.argmax(y, axis = 2)
+    y_hat = np.argmax(y_hat, axis = 2)
     accuracy = np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
     accuracy_non_match = np.sum(np.float32(y == y_hat)*np.squeeze(mask_non_match))/np.sum(mask_non_match)

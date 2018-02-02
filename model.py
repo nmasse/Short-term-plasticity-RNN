@@ -81,18 +81,22 @@ class Model:
         # hidden_state, output = [max_time, batch_size, cell.output_size], [batch_size, cell_state_size]
         self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
 
-        # MIGHT NEED TO MIGRATE INTO THE CALL FUNCTION
         # saving data to hist
         if par['synapse_config'] == 'stf': 
-            self.syn_u_hist.append(self.output.syn_u)
+            # self.syn_u_hist.append(self.output.syn_u)
+            self.syn_u_hist = self.output.syn_u
         elif par['synapse_config'] == 'std':
-            self.syn_x_hist.append(self.output.syn_x)
+            # self.syn_x_hist.append(self.output.syn_x)
+            self.syn_x_hist = self.output.syn_x
         elif par['synapse_config'] == 'std_stf': 
-            self.syn_x_hist.append(self.output.syn_x)
-            self.syn_u_hist.append(self.output.syn_u)
+            # self.syn_x_hist.append(self.output.syn_x)
+            # self.syn_u_hist.append(self.output.syn_u)
+            self.syn_x_hist = self.output.syn_x
+            self.syn_u_hist = self.output.syn_u
         else:
             pass
-        self.hidden_state_hist.append(self.output.hidden)
+        # self.hidden_state_hist.append(self.output.hidden)
+        self.hidden_state_hist = self.output.hidden
 
 
         with tf.variable_scope('output'):
@@ -103,8 +107,9 @@ class Model:
         Network output
         Only use excitatory projections from the RNN to the output layer
         """
-        # self.y_hat = tf.matmul(tf.reshape(self.hidden_state, (-1, self.n_hidden)), W_out)+b_out
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
+        self.y_hat = tf.tensordot(self.hidden_state, W_out, axes=[[2],[1]]) #+ tf.transpose(tf.expand_dims(b_out, -1))
+        # self.y_hat = tf.matmul(tf.reshape(self.hidden_state, (-1, par['n_hidden'])), tf.transpose(W_out))+b_out
+        # self.y_hat = [tf.matmul(tf.nn.relu(W_out),tf.transpose(h))+b_out for h in self.hidden_state_hist]
 
 
     def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
@@ -201,16 +206,23 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
+            labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
+        # perf_loss = tf.transpose(self.mask)*tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=0)
+        # perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+                # for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        # spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist] # NEED FIX
+        spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state_hist), axis=0)
 
 
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+
+        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        self.perf_loss = tf.reduce_mean(perf_loss)
+        self.spike_loss = tf.reduce_mean(spike_loss)
 
         self.loss = self.perf_loss + self.spike_loss
 
