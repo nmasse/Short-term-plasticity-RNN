@@ -165,6 +165,11 @@ class Model:
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
+        with tf.variable_scope('rnn_cell', reuse = True):
+            W_in = tf.get_variable('W_in')
+            W_rnn = tf.get_variable('W_rnn')
+        with tf.variable_scope('output', reuse = True):
+            W_out = tf.get_variable('W_out')
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
@@ -259,7 +264,8 @@ def main(gpu_id):
             accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
             iteration_time = time.time() - t_start
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N, iteration_time)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, \
+                spike_loss, (i+1)*N, iteration_time)
 
             """
             Save the network model and output model performance to screen
@@ -275,7 +281,8 @@ def main(gpu_id):
         if par['analyze_model']:
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = True, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+                simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+
 
             # Generate another batch of trials with decoding_test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
@@ -286,9 +293,9 @@ def main(gpu_id):
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
+                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
 
-            if par['trial_type'] == 'dualDMS':
+            if False and par['trial_type'] == 'dualDMS':
                 # run an additional session with probe stimuli
                 save_fn = 'probe_' + par['save_fn']
                 update = {'probe_trial_pct': 1, 'save_fn': save_fn}
@@ -338,4 +345,5 @@ def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_lo
 
     print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
       ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
-      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
+      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) +
+      ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))

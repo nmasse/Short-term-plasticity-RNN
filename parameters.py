@@ -86,11 +86,12 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : True,
+    'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : True,
     'analyze_tuning'        : True,
+
 
     'ABBA_delay'            : 0
 }
@@ -130,7 +131,7 @@ def update_parameters(updates):
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
-        print(key, val)
+        print('Updating ', key)
 
     update_trial_params()
     update_dependencies()
@@ -170,6 +171,12 @@ def update_trial_params():
         par['test_time'] = 500
         par['delay_time'] = 1000
         par['analyze_rule'] = True
+        par['num_motion_tuned'] = 36
+        par['noise_in_sd']  = 0.1
+        par['noise_rnn_sd'] = 0.5
+        par['num_iterations'] = 4000
+
+        par['dualDMS_single_test'] = False
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
@@ -253,7 +260,7 @@ def update_dependencies():
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
-    if par['trial_type'] == 'dualDMS':
+    if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
@@ -285,7 +292,7 @@ def update_dependencies():
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
-        par['w_rnn0'] = np.eye(par['n_hidden'])
+        par['w_rnn0'] = 0.54*np.eye(par['n_hidden'])
         par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)

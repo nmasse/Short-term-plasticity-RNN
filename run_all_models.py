@@ -3,15 +3,19 @@ from parameters import *
 import model
 import sys
 
-task_list = ['ABBA']
+task_list = ['DMRS90ccw']
 
 
-for task in task_list:
-    for j in range(25):
+
+for j in range(0,20,1):
+    for task in task_list:
         print('Training network on ', task,' task, network model number ', j)
-        save_fn = task + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
+
+        save_fn = task + '_' + str(j) + '.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn, \
+            'save_dir':'/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_2000batches/'}
         update_parameters(updates)
+
 
         # Keep the try-except clauses to ensure proper GPU memory release
         try:
