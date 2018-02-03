@@ -206,9 +206,6 @@ class Model:
             self.aux_loss += par['omega_c']*tf.reduce_sum(tf.multiply(self.big_omega_var[var.op.name], \
                 tf.square(previous_weights_mu_minus_1[var.op.name] - var) ))
 
-            if var.op.name == 'rnn_cell/W_rnn':
-                self.rnn_omega = tf.multiply(self.big_omega_var[var.op.name], tf.square(previous_weights_mu_minus_1[var.op.name] - var))
-
             #self.big_omega_term_op.append(tf.assign(self.big_omega_terms[var.op.name], \
             #    tf.square(previous_weights_mu_minus_1[var.op.name] - var)))
             reset_prev_vars_ops.append( tf.assign(previous_weights_mu_minus_1[var.op.name], var ) )
@@ -267,6 +264,7 @@ class Model:
         for grad, var in grads_and_vars:
             if var.name == "rnn_cell/W_in:0":
                 grad *= par['w_in_mask']
+                self.inp_grad = grad
                 print('Applied weight mask to w_in.')
             elif var.name == "rnn_cell/W_rnn:0":
                 grad *= par['w_rnn_mask']
@@ -459,24 +457,32 @@ def main(gpu_id, save_fn):
                     gl = 1.0
 
                 if par['stabilization'] == 'pathint':
-                    _, _, rnn_grad, rnn_omega, acc, aux_loss, perf_loss, wiring_loss, h, neuron_td_gating, dendrite_td_gating = sess.run([model.train_op, model.update_grads, model.rnn_grad, model.rnn_omega, model.accuracy, \
-                        model.aux_loss, model.perf_loss, model.wiring_loss, model.hidden_state_hist, model.neuron_td, model.dendrite_td], feed_dict = {x: trial_info['neural_input'], \
-                        td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
+                    _, _, acc, aux_loss, perf_loss, wiring_loss, h, neuron_td_gating, dendrite_td_gating, big_omegas, gradients = \
+                        sess.run([model.train_op, model.update_grads, model.accuracy, model.aux_loss, model.perf_loss, model.wiring_loss, \
+                        model.hidden_state_hist, model.neuron_td, model.dendrite_td, model.big_omega_var, model.gradients], \
+                        feed_dict = {x: trial_info['neural_input'], td_neur: par['neuron_topdown'][j], td_dend: par['dendrite_topdown'][j], \
+                        y: trial_info['desired_output'], mask: trial_info['train_mask'], td_input: td_input_signal, gate_learning: gl})
 
                     # This is potentially important, especially for RNNs
                     # Perf loss can be very large during first several iterations, leading to very large omega_c values
                     if perf_loss < 2:
                         sess.run(model.update_small_omega)
 
-                    print('Mean RNN grad: ', np.mean(rnn_grad))
-                    print('Mean RNN omega:', np.mean(rnn_omega))
+                    #print('Mean RNN grad: ', np.mean(rnn_grad))
+                    #print('Mean RNN omega:', np.mean(rnn_omega))
 
 
-                    if i == 0 and j != 0:
+                    if i == 0:
                         f, ax = plt.subplots(2)
-                        ax[0].imshow(rnn_grad[:,0,:])
-                        ax[1].imshow(rnn_omega[:,0,:])
-                        plt.show()
+                        print(type(big_omegas))
+                        for (k0,v0), (k1,v1) in zip(big_omegas.items(), gradients):
+                            print(k0,v0.shape)
+                            print(v1.shape)
+                            ax[0].imshow(v0[:,0,:])
+                            ax[1].imshow(v1[:,0,:])
+                            #ax[1,0].imshow(rnn_omega[:,0,:])
+                            #ax[1,1].imshow(inp_omega[:,0,:])
+                            plt.show()
 
 
 
