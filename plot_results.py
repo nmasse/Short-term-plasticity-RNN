@@ -19,14 +19,16 @@ def plot_all_figures():
         'models_per_task'       : 20,
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
-    #plot_SF4(fig_params)
+
+    plot_SF2_v2(fig_params)
     #plot_SF3(fig_params)
     #plot_SF2_v2(fig_params)
     #plot_F3(fig_params)
     #plot_F4(fig_params)
-    plot_summary_figure(fig_params)
+    #plot_summary_figure(fig_params)
     #plot_F5(fig_params)
     #plot_F6_v2(fig_params)
+    #plot_S_learning(fig_params)
 
 
 
@@ -362,18 +364,20 @@ def plot_SF2_v2(fig_params):
     diff_max_s = np.zeros((N,100,5))
     diff_max_s_late = np.zeros((N,100,5))
 
-    acc_shuffled = np.zeros((20,5))
-    delay_decoding = np.zeros((20))
+    acc_shuffled = np.zeros((N,5))
+    delay_decoding = np.zeros((N))
 
     for i in range(N):
-        x = pickle.load(open(fig_params['data_dir'] + 'DMRS90_grp_shuffle_' + str(i) + '.pkl','rb'))
+        x = pickle.load(open('/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_2000batches/' + 'DMRS90ccw_' + str(i) + '.pkl','rb'))
         pred_resp = np.matmul(x['weights']['w_in'], stim.motion_tuning)
         acc_shuffled[i,1:] = np.mean(x['accuracy_syn_shuffled_grp'],axis=3)
         acc_shuffled[i,0] = np.mean(x['accuracy'])
         delay_decoding[i] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
         print('Accuracy = ', np.mean(x['accuracy']))
+        x['neuronal_sample_tuning'] = np.squeeze(x['neuronal_sample_tuning'])
+        x['synaptic_sample_tuning'] = np.squeeze(x['synaptic_sample_tuning'])
         for k in range(100):
-            s = np.mean(x['neuronal_sample_tuning'][k,0,:,75:125],axis=1)
+            s = np.mean(x['neuronal_sample_tuning'][k,:,75:125],axis=1)
             a2 = np.argmin(s)
             a1 = np.argmax(s)
             #s = x['neuronal_sample_tuning'][k,0,:,125]
@@ -390,13 +394,13 @@ def plot_SF2_v2(fig_params):
                 diff_min_t[i,k,j] = pred_resp[k,(a1-j+4)%8]-pred_resp[k,(a1+j+4)%8]
                 diff_max_t[i,k,j] = pred_resp[k,(a2-j+4)%8]-pred_resp[k,(a2+j+4)%8]
 
-            s = x['neuronal_sample_tuning'][k,0,:,225]
+            s = x['neuronal_sample_tuning'][k,:,225]
             for j in range(9):
                 n_min_late[i,k,j] = s[(a1+j+4)%8]
                 n_max_late[i,k,j] = s[(a2+j+4)%8]
 
 
-            s = x['synaptic_sample_tuning'][k,0,:,125]
+            s = x['synaptic_sample_tuning'][k,:,125]
             for j in range(9):
                 s_min[i,k,j] = s[(a1+j+4)%8]
                 s_max[i,k,j] = s[(a2+j+4)%8]
@@ -405,7 +409,7 @@ def plot_SF2_v2(fig_params):
                 diff_min_s[i,k,j] = s[(a1-j+4)%8]-s[(a1+j+4)%8]
                 diff_max_s[i,k,j] = s[(a2-j+4)%8]-s[(a2+j+4)%8]
 
-            s = x['synaptic_sample_tuning'][k,0,:,225]
+            s = x['synaptic_sample_tuning'][k,:,225]
             for j in range(9):
                 s_min_late[i,k,j] = s[(a1+j+4)%8]
                 s_max_late[i,k,j] = s[(a2+j+4)%8]
@@ -417,10 +421,10 @@ def plot_SF2_v2(fig_params):
 
     col = [[0,0,1], [1,0,0],[0,1,0], [1,165/255,0]]
 
-    f = plt.figure(figsize=(4.5,8))
+    f = plt.figure(figsize=(8,4))
     for i in range(4):
         #ax = f.add_subplot(4, 5, i+1)
-        ax = f.add_subplot(4, 2, 1)
+        ax = f.add_subplot(2, 4, 1)
         m = np.mean(np.nanmean(n_min[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(n_min[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -433,7 +437,7 @@ def plot_SF2_v2(fig_params):
         ax.set_xlim([-180,180])
         ax.set_xticks([-180,-90,0,90,180])
 
-        ax = f.add_subplot(4, 2, 2)
+        ax = f.add_subplot(2, 4, 2)
         m = np.mean(np.nanmean(n_min_late[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(n_min_late[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -447,7 +451,7 @@ def plot_SF2_v2(fig_params):
         ax.set_xticks([-180,-90,0,90,180])
 
         #ax = f.add_subplot(4, 5, i+6)
-        ax = f.add_subplot(4, 2, 3)
+        ax = f.add_subplot(2, 4, 3)
         m = np.mean(np.nanmean(s_min[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(s_min[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -461,7 +465,7 @@ def plot_SF2_v2(fig_params):
         ax.set_xticks([-180,-90,0,90,180])
 
         #ax = f.add_subplot(4, 5, i+11)
-        ax = f.add_subplot(4, 2, 4)
+        ax = f.add_subplot(2, 4, 4)
         m = np.mean(np.nanmean(s_min_late[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(s_min_late[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -517,7 +521,7 @@ def plot_SF2_v2(fig_params):
         ax.set_xticks([0,45,90,135,180])
     """
     #ax = f.add_subplot(4, 5, 16)
-    ax = f.add_subplot(4, 2, 5)
+    ax = f.add_subplot(2, 4, 5)
     m = np.mean(acc_shuffled[:,1:],axis=0)
     sd = np.std(acc_shuffled[:,1:],axis=0)/np.sqrt(20)
     ax.bar([0,1,2,3], m,  yerr = sd)
@@ -548,7 +552,7 @@ def plot_SF2_v2(fig_params):
 
 
     #ax = f.add_subplot(4, 5, 17)
-    ax = f.add_subplot(4, 2, 6)
+    ax = f.add_subplot(2, 4, 6)
     plt.plot(delay_decoding, acc_shuffled[:,-1],'k.')
     ax.set_ylim([0.5, 1])
     ax.set_xlim([0.2, 1])
@@ -564,9 +568,10 @@ def plot_SF2_v2(fig_params):
     t_low = t_min[ind[:5], :, :]
     t_high = t_min[ind[15:], :, :]
 
+
     for i in range(4):
         #ax = f.add_subplot(4, 5, i+1)
-        ax = f.add_subplot(4, 2, 7)
+        ax = f.add_subplot(2, 4, 7)
         m = np.mean(np.nanmean(t_high[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(t_high[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -579,7 +584,7 @@ def plot_SF2_v2(fig_params):
         ax.set_xlim([-180,180])
         ax.set_xticks([-180,-90,0,90,180])
 
-        ax = f.add_subplot(4, 2, 8)
+        ax = f.add_subplot(2, 4, 8)
         m = np.mean(np.nanmean(t_low[:,neuron_ind[i],:],axis=1),axis=0)
         sd = np.std(np.nanmean(t_low[:,neuron_ind[i],:],axis=1),axis=0)/np.sqrt(N)
         ax.plot(phases,m,color=col[i])
@@ -620,7 +625,7 @@ def plot_SF3(fig_params):
     cat_ind.append([[2,3,4,5],[6,7,0,1]])
     cat_ind.append([[3,4,5,6],[7,0,1,2]])
 
-    f = plt.figure(figsize=(4,4))
+    f = plt.figure(figsize=(6,2))
 
     neuronal_CTI = np.zeros((7,100,275))
     synaptic_CTI = np.zeros((7,100,275))
@@ -644,21 +649,23 @@ def plot_SF3(fig_params):
 
             if count == 1:
 
-                ax = f.add_subplot(2, 2, 1)
+                ax = f.add_subplot(1, 4, 1)
+                ax.plot([3.5,3.5],[0, 7],'k--')
                 ax.plot(x['neuronal_sample_tuning'][inh_ind[11],0,:,early_sample])
                 ax.plot(x['neuronal_sample_tuning'][inh_ind[11],0,:,late_sample],'r')
-                ax.plot([3.5,3.5],[0, 7],'k--')
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
                 ax.xaxis.set_ticks_position('bottom')
                 ax.yaxis.set_ticks_position('left')
                 ax.set_xticks([0,2,4,6])
+
+                ax = f.add_subplot(1, 4, 2)
+                ax.plot([3.5,3.5],[0, 0.5],'k--')
                 ax.set_xticks([0,2,4,6])
-                ax = f.add_subplot(2, 2, 2)
                 ax.plot(x['synaptic_sample_tuning'][inh_ind[11],0,:,early_sample])
                 ax.plot(x['synaptic_sample_tuning'][inh_ind[11],0,:,late_sample],'r')
-                ax.plot([3.5,3.5],[0, 0.45],'k--')
-                ax.set_ylim([0.25,0.45])
+
+                ax.set_ylim([0.25,0.48])
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
                 ax.xaxis.set_ticks_position('bottom')
@@ -666,7 +673,7 @@ def plot_SF3(fig_params):
 
     t1 = range(-740,2010,10)
     exc_ind = range(0,100)
-    ax = f.add_subplot(2, 2, 3)
+    ax = f.add_subplot(1, 4, 3)
     s0 = np.reshape(neuronal_CTI[:,exc_ind,:],(7*len(exc_ind), 275),'F')
     s1 = np.reshape(synaptic_CTI[:,exc_ind,:],(7*len(exc_ind), 275),'F')
     exc_p_val = np.zeros((275))
@@ -678,6 +685,8 @@ def plot_SF3(fig_params):
     sd1 = np.std(s1,axis=0)/np.sqrt(7*len(exc_ind))
     ax.plot(t1,u0,color=[0,1,0])
     ax.fill_between(t1, u0-sd0, u0+sd0, color=[0,1,0,0.5])
+    ax.plot([-200,400],[0,0],'k--')
+    ax.plot([-0,0],[-1,1],'k--')
     ax.plot(t1,u1,color=[1,0,1])
     ax.fill_between(t1, u1-sd1, u1+sd1, color=[1,0,1,0.5])
     for t in range(50,150):
@@ -685,6 +694,7 @@ def plot_SF3(fig_params):
             ax.plot([t1[t]-5, t1[t]+5], [0.28, 0.28],'k-')
     ax.set_xlim([-100, 300])
     ax.set_ylim([-0.05, 0.3])
+    ax.set_xticks([-100, 0, 100, 200, 300])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
@@ -695,13 +705,18 @@ def plot_SF3(fig_params):
     print('exc_p_val', exc_p_val[70:80])
     print('tuning mean')
     print(np.mean(tuning_CTI))
-    ax = f.add_subplot(2, 2, 4)
+    ax = f.add_subplot(1, 4, 4)
 
     s0 = np.reshape(tuning_CTI[:,:80],(80*7))
     s1 = np.reshape(tuning_CTI[:,80:],(20*7))
     u = [np.mean(s0), np.mean(s1)]
     sd = [np.std(s0)/np.sqrt(80*7), np.std(s1)/np.sqrt(20*7)]
     ax.bar([1,2],u,yerr = sd)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
     _,p0 = scipy.stats.ttest_1samp(s0,0)
     _,p1 = scipy.stats.ttest_1samp(s1,0)
     print('Tuning CTI p vals ', p0, p1)
@@ -1119,8 +1134,11 @@ def plot_S_learning(fig_params):
     acc0 = np.stack(acc0)
     acc1 = np.stack(acc1)
     ax = f.add_subplot(1,2,1)
-    ax.plot(np.transpose(acc0))
-    ax.set_xlim([0,2000])
+    t = np.arange(0,1991*1024,1024)
+    t = np.transpose(np.tile(t, (20,1)))
+    print(np.transpose(acc0).shape)
+    ax.plot(t,np.transpose(acc0))
+    ax.set_xlim([0,2000*1024])
     ax.set_ylim([0,1])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -1130,15 +1148,15 @@ def plot_S_learning(fig_params):
     ax.set_xlabel('Training batch number')
 
     ax = f.add_subplot(1,2,2)
-    ax.plot(np.transpose(acc1))
-    ax.set_xlim([0,2000])
+    ax.plot(t,np.transpose(acc1))
+    ax.set_xlim([0,2000*1024])
     ax.set_ylim([0,1])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
     ax.set_ylabel('Task accuracy')
-    ax.set_xlabel('Training batch number')
+    ax.set_xlabel('Trial number')
 
     plt.tight_layout()
     plt.savefig('FigS_learning.pdf', format='pdf')
@@ -1769,15 +1787,15 @@ def plot_F5(fig_params):
                         print('acc ', np.mean(x['accuracy_syn_shuffled_grp'][0,1,j,:]))
                         """
 
-                for t1 in range(len(t)):
+                for t1 in range(75+81,len(t)):
                     tuning_sim[good_model_count,t1] = np.real(np.sum(syn_sample_tuning[:,t1]*\
-                        np.conj(syn_test_tuning[:,t1])))/(0.1+np.sum(np.abs(syn_sample_tuning[:,t1])\
+                        np.conj(syn_test_tuning[:,t1])))/(0.001+np.sum(np.abs(syn_sample_tuning[:,t1])\
                         *np.abs(syn_test_tuning[:,t1])))
 
                     if n == 1:
                         for j in range(4):
                             tuning_sim_shuffled[j,good_model_count,t1] = np.real(np.sum(syn_test_tuning_shuffled[j,:,t1]*\
-                                np.conj(syn_sample_tuning[:,t1])))/(0.1+np.sum(np.abs(syn_sample_tuning[:,t1])\
+                                np.conj(syn_sample_tuning[:,t1])))/(0.001+np.sum(np.abs(syn_sample_tuning[:,t1])\
                                 *np.abs(syn_test_tuning_shuffled[j,:,t1])))
 
                 good_model_count +=1
@@ -1820,35 +1838,38 @@ def plot_F5(fig_params):
             np.mean(accuracy_syn_shuffled,axis=1))
 
 
-        ax = f.add_subplot(5,2,n+1)
+        ax = f.add_subplot(4,2,n+1)
+        add_ABBA_subplot_details(ax, 'decode')
         for j in range(fig_params['models_per_task']):
             ax.plot(t,np.mean(neuronal_decoding[j,:,:],axis=0),'g')
             ax.plot(t,np.mean(synaptic_decoding[j,:,:],axis=0),'m')
-        add_ABBA_subplot_details(ax, 'decode')
 
-        ax = f.add_subplot(5,2,n+3)
+
+        ax = f.add_subplot(4,2,n+3)
+        add_ABBA_subplot_details(ax, 'decode')
         for j in range(fig_params['models_per_task']):
             ax.plot(t,np.mean(neuronal_test_decoding[j,:,:],axis=0),'g')
             ax.plot(t,np.mean(synaptic_test_decoding[j,:,:],axis=0),'m')
-        add_ABBA_subplot_details(ax, 'decode')
 
-        ax = f.add_subplot(5,2,n+5)
-        ax.plot(delay_accuracy, np.mean(accuracy,axis=1),'b.')
-        ax.plot(delay_accuracy, np.mean(accuracy_neural_shuffled,axis=1),'r.')
-        ax.plot(delay_accuracy, np.mean(accuracy_syn_shuffled,axis=1),'c.')
+
+        #ax = f.add_subplot(4,2,n+5)
+        #ax.plot(delay_accuracy, np.mean(accuracy,axis=1),'b.')
+        #ax.plot(delay_accuracy, np.mean(accuracy_neural_shuffled,axis=1),'r.')
+        #ax.plot(delay_accuracy, np.mean(accuracy_syn_shuffled,axis=1),'c.')
         #print('Scatter')
         #print(delay_accuracy,np.mean(accuracy,axis=1))
         #print(delay_accuracy,np.mean(accuracy_neural_shuffled,axis=1))
         #print(delay_accuracy,np.mean(accuracy_syn_shuffled,axis=1))
-        add_ABBA_subplot_details(ax, 'shuffle')
+        #add_ABBA_subplot_details(ax, 'shuffle')
 
-        ax = f.add_subplot(5,2,n+7)
+        ax = f.add_subplot(4,2,n+5)
         u = np.mean(tuning_sim[:good_model_count,:],axis=0)
+        add_ABBA_subplot_details(ax, 'tuning')
         sd = np.std(tuning_sim[:good_model_count,:],axis=0)/np.sqrt(good_model_count)
         ax.plot(t, u,'k')
         ax.fill_between(t, u-sd, u+sd, color=[0,0,0,0.5])
 
-        add_ABBA_subplot_details(ax, 'tuning')
+
 
         if n == 0:
             test2_time = range(25+50+40*4, 25+50+40*5)
@@ -1861,9 +1882,10 @@ def plot_F5(fig_params):
 
 
         if n == 1:
-            ax = f.add_subplot(5,2,9)
+            ax = f.add_subplot(4,2,7)
             u = np.mean(tuning_sim[:good_model_count,:],axis=0)
             sd = np.std(tuning_sim[:good_model_count,:],axis=0)/np.sqrt(good_model_count)
+            add_ABBA_subplot_details(ax, 'tuning')
             ax.plot(t, u,'k')
             ax.fill_between(t, u-sd, u+sd, color=[0,0,0,0.5])
             col = [[0,0,1],[1,0,0],[0,1,0],[0,1,1]]
@@ -1873,7 +1895,7 @@ def plot_F5(fig_params):
                 ax.plot(t, u, color=col[j])
                 ax.fill_between(t, u-sd, u+sd, color=col[j]+[0.5])
 
-            add_ABBA_subplot_details(ax, 'tuning')
+
 
             acc = np.zeros((5))
             acc_se = np.zeros((5))
@@ -1881,7 +1903,7 @@ def plot_F5(fig_params):
             acc[1:] = np.mean(accuracy_test2_shuffled[:good_model_count, :],axis=0)
             acc_se[0] = np.std(accuracy_test2[:good_model_count])/np.sqrt(good_model_count)
             acc_se[1:] = np.std(accuracy_test2_shuffled[:good_model_count, :],axis=0)/np.sqrt(good_model_count)
-            ax = f.add_subplot(5,2,10)
+            ax = f.add_subplot(4,2,8)
             p0, p1, p2, p3, p4 = ax.bar([0,1,2,3,4], acc, yerr=acc_se)
             p0.set_facecolor('k')
             p1.set_facecolor('b')
@@ -1973,13 +1995,13 @@ def add_ABBA_subplot_details(ax, plot_type):
         ax.set_ylim([0,1.02])
         ax.set_xlim([-500,2800])
         ax.plot([-900,2800],[chance_level,chance_level],'k--')
-        ax.plot([0,0],[0,1],'k--')
-        ax.plot([400,400],[0,1],'k--')
-        ax.plot([800,800],[0,1],'k--')
-        ax.plot([1200,1200],[0,1],'k--')
-        ax.plot([1600,1600],[0,1],'k--')
-        ax.plot([2000,2000],[0,1],'k--')
-        ax.plot([2400,2400],[0,1],'k--')
+        ax.plot([0,0],[-1,1],'k--')
+        ax.plot([400,400],[-1,1],'k--')
+        ax.plot([800,800],[-1,1],'k--')
+        ax.plot([1200,1200],[-1,1],'k--')
+        ax.plot([1600,1600],[-1,1],'k--')
+        ax.plot([2000,2000],[-1,1],'k--')
+        ax.plot([2400,2400],[-1,1],'k--')
         ax.set_ylabel('Decoding accuracy')
         ax.set_xlabel('Time relative to sample onset (ms)')
 
@@ -1995,14 +2017,15 @@ def add_ABBA_subplot_details(ax, plot_type):
 
     elif plot_type == 'tuning':
         ax.set_xticks([0,400,800,1200,1600,2000,2400])
-        ax.set_ylim([-0.3,1.02])
+        ax.set_ylim([-0.15,1.02])
         ax.set_xlim([-500,2800])
-        ax.plot([0,0],[0,1],'k--')
-        ax.plot([400,400],[0,1],'k--')
-        ax.plot([800,800],[0,1],'k--')
-        ax.plot([1200,1200],[0,1],'k--')
-        ax.plot([1600,1600],[0,1],'k--')
-        ax.plot([2000,2000],[0,1],'k--')
-        ax.plot([2400,2400],[0,1],'k--')
+        ax.plot([0,0],[-1,1],'k--')
+        ax.plot([400,400],[-1,1],'k--')
+        ax.plot([800,800],[-1,1],'k--')
+        ax.plot([1200,1200],[-1,1],'k--')
+        ax.plot([1600,1600],[-1,1],'k--')
+        ax.plot([2000,2000],[-1,1],'k--')
+        ax.plot([2400,2400],[-1,1],'k--')
+        ax.plot([-1000, 3000],[0,0],'k--')
         ax.set_ylabel('Tuning similarity')
         ax.set_xlabel('Time relative to sample onset (ms)')
