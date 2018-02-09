@@ -14,6 +14,7 @@ Independent parameters
 par = {
     # Setup parameters
     'save_dir'              : './savedir/CL4/',
+    'save_analysis'         : False,
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : False,
@@ -41,7 +42,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 7e-3,
+    'learning_rate'         : 5e-3,
     'membrane_time_constant': 50,
     'connection_prob'       : 1.0,         # Usually 1
 
@@ -67,11 +68,12 @@ par = {
 
     # Training specs
     'batch_train_size'      : 512,
-    'num_iterations'        : 500,
+    'num_iterations'        : 300,
     'iters_between_outputs' : 50,
 
     # Task specs
     'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim
+    'num_tasks'             : 19,
     'multistim_trial_length': 4000,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 200,
@@ -80,7 +82,7 @@ par = {
     'delay_time'            : 200,
     'test_time'             : 400,
     'variable_delay_max'    : 400,
-    'mask_duration'         : 200,  # duration of traing mask after test onset
+    'mask_duration'         : 100,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -102,8 +104,8 @@ par = {
     'analyze_tuning'        : True,
 
     # Omega parameters
-    'omega_c'               : 0.1,
-    'omega_xi'              : 0.001,
+    'omega_c'               : 0.0,
+    'omega_xi'              : 0.01,
     'last_layer_mult'       : 2,
     'scale_factor'          : 1,
 
@@ -151,7 +153,7 @@ def update_parameters(updates):
     Takes a list of strings and values for updating parameters in the parameter dictionary
     Example: updates = [(key, val), (key, val)]
     """
-    print('Updating parameters...')
+    #print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
         print(key, val)
@@ -248,7 +250,8 @@ def update_trial_params():
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] in ['multistim', 'twelvestim']:
-        print('Multistim params update placeholder.')
+        #print('Multistim params update placeholder.')
+        pass
 
     else:
         print(par['trial_type'], 'not a recognized trial type')
@@ -303,7 +306,8 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
-    print('noise ',par['noise_rnn'], par['noise_in'])
+    #print('noise ',par['noise_rnn'], par['noise_in'])
+
     # General event profile info
     #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
     # List of events that occur for the network
@@ -427,6 +431,20 @@ def update_dependencies():
     for i in range(par['num_sublayers'] - 1):
         par['w_out0'][:, sublayers[i]] = 0
         par['w_out_mask'][:, sublayers[i]] = 0
+
+    # KLUDGE!
+    # Specifying that fixation tuned neurons can only connect to first 8 RNN units
+    par['fix_connections_in'] = np.ones_like(par['w_in0'])
+    par['fix_connections_in'][:,:,:par['num_motion_tuned']] = 0
+    par['fix_connections_rnn'] = np.ones_like(par['w_rnn0'])
+    par['fix_connections_rnn'][:,:,8:] = 0
+    par['fix_connections_out'] = np.ones_like(par['w_out0'])
+    par['fix_connections_out'][:,8:] = 0
+    for i in range(par['num_motion_tuned'], par['num_motion_tuned']+par['num_fix_tuned']):
+        for j in range(8, par['n_hidden']):
+            par['w_in0'][j,:,i] = 0
+            par['w_in_mask'][j,:,i] = 0
+            par['fix_connections_in'][j,:,i] = 0
 
     """
     Setting up synaptic parameters

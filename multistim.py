@@ -128,12 +128,14 @@ class MultiStimulus:
         else:
             raise Exception('Bad task variant.')
 
+        # Need dead time
+        self.trial_info['train_mask'][:par['mask_duration']//par['dt'], :] = 0
+
         fix_resp = np.tile(par['tuning_height'], (par['num_fix_tuned'],1))
         for b in range(par['batch_train_size']):
 
             # Input neurons index above par['num_motion_tuned'] encode fixation
             self.trial_info['neural_input'][par['num_motion_tuned']:,:fixation_end[b], b] += np.reshape(fix_resp,(-1,1))
-            self.trial_info['desired_output'][-1,:fixation_end[b], b] = 1
 
             modality   = np.random.randint(2)
             neuron_ind = range(self.modality_size*modality, self.modality_size*(1+modality))
@@ -142,7 +144,9 @@ class MultiStimulus:
 
             self.trial_info['neural_input'][neuron_ind, stim_onset[b]:stim_off, b] += np.reshape(self.circ_tuning(stim_dir),(-1,1))
             self.trial_info['desired_output'][target_ind, resp_onset[b]:, b] = 1
+            self.trial_info['desired_output'][-1,:resp_onset[b], b] = 1
             self.trial_info['train_mask'][resp_onset[b]:resp_onset[b]+par['mask_duration']//par['dt'], b] = 0
+
 
         return self.trial_info
 

@@ -22,15 +22,21 @@ task_list = ['DMC', 'DMC1', 'DMC2','DMC3', 'OneIntCat','OneIntCat1','OneIntCat2'
 #task_list = ['Color_OneIntCat1','Color_OneIntCat2']
 
 task_list_order = [np.random.permutation(len(task_list)) for i in range(5)]
-update_parameters({'num_iterations': 200, 'synapse_config': None})
-update_parameters({'omega_c': 0.1})
-update_parameters({'gate_pct': 0.5})
+update_parameters({'num_iterations': 200, 'synapse_config': None, 'wiring_cost': 0})
+update_parameters({'omega_c': 0.0})
+update_parameters({'gate_pct': 0.75})
 update_parameters({'stabilization': 'pathint'})
-update_parameters({'n_hidden': 100})
+update_parameters({'n_hidden': 200})
 update_parameters({'omega_xi': 0.01})
 save_fn = 'test.pkl'
-print('testing')
-model.train_and_analyze(str(sys.argv[1]), save_fn)
+print('Proceeding to testing...')
+gpu_id = str(sys.argv[1])
+
+#update_parameters({'neuron_gate_pct': 0.0})
+#model.train_and_analyze(save_fn, gpu_id)
+
+model.train_and_analyze(save_fn, gpu_id)
+quit()
 
 #c_vals = [0.0, 0.01, 0.02, 0.05, 0.075, 0.1, 0.15, 0.2, 0.35, 0.5]
 c_vals = [0.2]

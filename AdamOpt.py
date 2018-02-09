@@ -48,7 +48,7 @@ class AdamOpt:
         return tf.group(*reset_op)
 
 
-    def compute_gradients(self, loss, gate_learning, apply = True):
+    def compute_gradients(self, loss, apply = True):
 
         self.gradients = self.grad_descent.compute_gradients(loss, var_list = self.variables)
 
@@ -58,14 +58,10 @@ class AdamOpt:
 
         for (grads, vv), var in zip(self.gradients, self.variables):
 
-            print(var.op.name)
-            print(grads)
-            print(vv)
-            print(var)
-
-            if not var.op.name == "rnn_cell/W_td":
-                grads *= gate_learning
-                print('gating ', var.op.name)
+            #print(var.op.name)
+            #print(grads)
+            #print(vv)
+            #print(var)
 
             if var.op.name == "rnn_cell/W_rnn":
                 print('Applying mask to w_rnn gradient')
@@ -73,7 +69,7 @@ class AdamOpt:
             elif var.op.name == "output/W_out":
                 print('Applying mask to w_out gradient')
                 grads *= par['w_out_mask']
-            elif var.op.name == "output/W_in":
+            elif var.op.name == "rnn_cell/W_in":
                 print('Applying mask to w_in gradient')
                 grads *= par['w_in_mask']
 
