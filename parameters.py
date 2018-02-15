@@ -49,7 +49,8 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 1e-7,
+    'wiring_cost'           : 1e-7,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -60,17 +61,17 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 2000,
-    'iters_between_outputs' : 100,
+    'iters_between_outputs' : 50,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
-    'fix_time'              : 500,
-    'sample_time'           : 500,
-    'delay_time'            : 1000,
-    'test_time'             : 500,
-    'variable_delay_max'    : 500,
+    'fix_time'              : 400,
+    'sample_time'           : 400,
+    'delay_time'            : 800,
+    'test_time'             : 400,
+    'variable_delay_max'    : 600,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
@@ -84,13 +85,13 @@ par = {
 
     # Analysis
     'svm_normalize'         : True,
-    'decoding_reps'         : 100,
-    'simulation_reps'       : 100,
+    'decoding_reps'         : 0,
+    'simulation_reps'       : 0,
     'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
-    'suppress_analysis'     : True,
-    'analyze_tuning'        : True,
+    'suppress_analysis'     : False,
+    'analyze_tuning'        : False,
 
 
     'ABBA_delay'            : 0
@@ -209,6 +210,13 @@ def update_trial_params():
         par['num_rule_tuned'] = 12
         par['rotation_match'] = [0, 0]
         par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+
+    elif par['trial_type'] == 'DMS+DMRS+DMC':
+        par['num_rules'] = 3
+        par['num_rule_tuned'] = 18
+        par['rotation_match'] = [0, 90, 0]
+        par['rule_onset_time'] = par['dead_time']
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     else:

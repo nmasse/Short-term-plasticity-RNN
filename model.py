@@ -165,16 +165,19 @@ class Model:
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
 
+
         with tf.variable_scope('rnn_cell', reuse = True):
             W_in = tf.get_variable('W_in')
             W_rnn = tf.get_variable('W_rnn')
         with tf.variable_scope('output', reuse = True):
             W_out = tf.get_variable('W_out')
+        self.wiring_loss = tf.reduce_sum(tf.nn.relu(W_in)) + tf.reduce_sum(tf.nn.relu(W_rnn)) + tf.reduce_sum(tf.nn.relu(W_out))
+        self.wiring_loss *= par['wiring_cost']
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss
+        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
@@ -252,6 +255,7 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
+            #print('catch pct ', np.mean(trial_info['catch']))
 
             """
             Run the model
@@ -280,20 +284,20 @@ def main(gpu_id):
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+            #analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
+            #    simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
             # Generate another batch of trials with decoding_test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
-            update = {'decoding_test_mode': True}
+            update = {'decoding_test_mode': True, 'learning_rate': 0}
             update_parameters(update)
             trial_info = stim.generate_trial()
             y_hat, state_hist, syn_x_hist, syn_u_hist = \
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
+                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = False, load_previous_file = False, save_raw_data = True)
 
             if False and par['trial_type'] == 'dualDMS':
                 # run an additional session with probe stimuli
