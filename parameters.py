@@ -34,16 +34,15 @@ par = {
     'n_dendrites'           : 1,
 
     # Euclidean shape
-    'num_sublayers'         : 3,
+    'num_sublayers'         : 1,
     'neuron_dx'             : 1.0,
     'neuron_dy'             : 1.0,
     'neuron_dz'             : 10.0,
-    'wiring_cost'           : 1e-6,
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 5e-3,
-    'membrane_time_constant': 50,
+    'learning_rate'         : 1e-3,
+    'membrane_time_constant': 100,
     'connection_prob'       : 1.0,         # Usually 1
 
     # Variance values
@@ -59,6 +58,7 @@ par = {
 
     # Cost parameters
     'spike_cost'            : 1e-3,
+    'wiring_cost'           : 0, #1e-6,
 
     # Synaptic plasticity specs
     'tau_fast'              : 100,
@@ -67,14 +67,15 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 512,
-    'num_iterations'        : 300,
-    'iters_between_outputs' : 50,
+    'batch_train_size'      : 128,
+    'num_iterations'        : 20,
+    'iters_between_outputs' : 1,
 
     # Task specs
-    'trial_type'            : 'multistim', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim
-    'num_tasks'             : 19,
+    'trial_type'            : 'limDMS',      # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC
+    'num_tasks'             : 19,               # DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim, limDMS
     'multistim_trial_length': 4000,
+    'limDMS_trial_length'   : 1000,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 200,
     'fix_time'              : 200,
@@ -105,7 +106,7 @@ par = {
 
     # Omega parameters
     'omega_c'               : 0.0,
-    'omega_xi'              : 0.01,
+    'omega_xi'              : 0.1,
     'last_layer_mult'       : 2,
     'scale_factor'          : 1,
 
@@ -249,7 +250,7 @@ def update_trial_params():
         par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
-    elif par['trial_type'] in ['multistim', 'twelvestim']:
+    elif par['trial_type'] in ['multistim', 'twelvestim', 'limDMS']:
         #print('Multistim params update placeholder.')
         pass
 
@@ -319,6 +320,8 @@ def update_dependencies():
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] in ['multistim', 'twelvestim']:
         par['trial_length'] = par['multistim_trial_length']
+    elif par['trial_type'] in ['limDMS']:
+        par['trial_length'] = par['limDMS_trial_length']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
     # Length of each trial in time steps
