@@ -14,7 +14,7 @@ class Stimulus:
     def generate_trial(self):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC']:
+        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC']:
             trial_info = self.generate_motion_working_memory_trial()
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial()
@@ -255,7 +255,7 @@ class Stimulus:
             if par['decoding_test_mode']:
                 test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
-            if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1):
+            if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1) or (par['trial_type'] == 'DMS+DMRS+DMC' and rule == 2):
                 # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
                 current_trial_DMC = True
             else:
@@ -277,8 +277,8 @@ class Stimulus:
             The total trial length is kept constant, so a shorter delay implies a longer test stimulus
             """
             if par['var_delay']:
-                s = int(np.random.exponential(scale=par['variable_delay_max']/par['dt']))
-                if s <= par['variable_delay_max']:
+                s = int(np.random.exponential(scale=par['variable_delay_max']/par['dt']/2))
+                if s <= par['variable_delay_max']/par['dt']:
                     eod_current = eod - var_delay_max + s
                 else:
                     eod_current = eod
