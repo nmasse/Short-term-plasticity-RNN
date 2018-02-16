@@ -5,7 +5,7 @@ Contributions from Gregory Grant, Catherine Lee
 
 import tensorflow as tf
 import numpy as np
-import stimulus, stimulus2, multistim
+import stimulus, stimulus3, multistim
 import analysis
 import AdamOpt
 from parameters import *
@@ -48,18 +48,18 @@ class AutoModel:
     def initialize_variables(self):
         for lid in self.lids:
             with tf.variable_scope('layer'+str(lid)):
-                tf.get_variable('W_err1', shape=[par['n_hidden'],par['n_dendrites'],par['n_output']],
-                                initializer=tf.random_uniform_initializer(-1/np.sqrt(par['n_output']), 1/np.sqrt(par['n_output'])),
+                tf.get_variable('W_err1', shape=[par['n_hidden'],par['n_dendrites'],par['n_input']],
+                                initializer=tf.random_uniform_initializer(-1/np.sqrt(par['n_input']), 1/np.sqrt(par['n_input'])),
                                 trainable=True)
-                tf.get_variable('W_err2', shape=[par['n_hidden'],par['n_dendrites'],par['n_output']],
-                                initializer=tf.random_uniform_initializer(-1/np.sqrt(par['n_output']), 1/np.sqrt(par['n_output'])),
+                tf.get_variable('W_err2', shape=[par['n_hidden'],par['n_dendrites'],par['n_input']],
+                                initializer=tf.random_uniform_initializer(-1/np.sqrt(par['n_input']), 1/np.sqrt(par['n_input'])),
                                 trainable=True)
-                tf.get_variable('W_pred', shape=[par['n_output'],par['n_hidden']],
+                tf.get_variable('W_pred', shape=[par['n_input'],par['n_hidden']],
                                 initializer=tf.random_uniform_initializer(-1/np.sqrt(par['n_hidden']), 1/np.sqrt(par['n_hidden'])),
                                 trainable=True)
                 tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-                tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-                tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
+                tf.get_variable('b_rnn', initializer = np.zeros((par['n_hidden'],1), dtype = np.float32), trainable=True)
+                tf.get_variable('b_pred', initializer = np.zeros((par['n_input'],1), dtype = np.float32), trainable=True)
 
 
     def calc_error(self, target, prediction):
@@ -75,7 +75,7 @@ class AutoModel:
             W_pred = tf.get_variable('W_pred')
             W_rnn  = tf.get_variable('W_rnn')
             b_rnn  = tf.get_variable('b_rnn')
-            b_out  = tf.get_variable('b_out') # prediction bias
+            b_pred  = tf.get_variable('b_pred') # prediction bias
 
         # Masking certain weights
         W_rnn *= tf.constant(par['w_rnn_mask'], dtype=tf.float32)
@@ -96,19 +96,22 @@ class AutoModel:
         inp_act = tf.tensordot(W_err1, err_stim1, [[2],[0]]) + tf.tensordot(W_err2, err_stim2, [[2],[0]]) # Error activity
         rnn_act = tf.tensordot(W_rnn, rnn_state, [[2],[0]])       # RNN activity
         tot_act = par['alpha_neuron']*(inp_act + rnn_act)         # Modulating
-        act_eff = tf.reduce_sum(self.dendrite_td*tot_act, axis=1) # Summing dendrites
+        #act_eff = tf.reduce_sum(self.dendrite_td*tot_act, axis=1) # Summing dendrites
+        act_eff = tf.reduce_sum(tot_act, axis=1) # Summing dendrites
 
         # Updating RNN state
-        rnn_state = self.neuron_td*tf.nn.relu(rnn_state*(1-par['alpha_neuron']) + act_eff + rnn_next + b_rnn) \
-                  + tf.random_normal(rnn_state.shape, 0, par['noise_rnn'], dtype=tf.float32)
+        #rnn_state = self.neuron_td*tf.nn.relu(rnn_state*(1-par['alpha_neuron']) + act_eff + rnn_next + b_rnn \
+        #    + tf.random_normal(rnn_state.shape, 0, par['noise_rnn'], dtype=tf.float32))
+        rnn_state = self.neuron_td*tf.nn.relu(rnn_state*(1-par['alpha_neuron']) + act_eff + rnn_next + b_rnn \
+            + tf.random_normal(rnn_state.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         # Updating prediction state
-        # Maybe change to ReLu
-        pred_state = tf.nn.sigmoid(tf.matmul(W_pred, rnn_state) + b_out) # A hat
+        pred_state = tf.nn.relu(tf.matmul(W_pred, rnn_state) + b_pred) # A_hat
 
         # Plugging the RNN and prediction states back into the aggregate model
         self.rnn_states[lid]  = rnn_state
-        self.pred_states[lid] = pred_state
+        with tf.control_dependencies([err_stim1, err_stim2]):
+            self.pred_states[lid] = pred_state
 
         return err_stim1 + err_stim2, rnn_state
 
@@ -121,7 +124,7 @@ class AutoModel:
         self.prediction_history = []
 
         # Iterate through time via the input data
-        for t, target in enumerate(self.input_data):
+        for t, input_data in enumerate(self.input_data):
 
             # Start the state lists
             self.error_states = []
@@ -132,7 +135,7 @@ class AutoModel:
 
                 # If the first layer, use the actual input
                 # Instead of using desired output for layer, we'll use neuronal input
-                stim = target if lid == 0 else self.error_states[lid-1]
+                stim = input_data if lid == 0 else self.error_states[lid-1]
 
                 # Run the current layer and recover the error matrix,
                 # then save the error matrix to the NEXT state position,
@@ -144,7 +147,7 @@ class AutoModel:
             # Save the current states for later evaluation
             self.error_history.append(self.error_states)
             self.hidden_history.append(self.hidden_states)
-            self.prediction_history.append(self.pred_states)
+            self.prediction_history.append(self.pred_states[0])
             # self.prediction_history is a list of time X layers X (array of neurons and batch size)
 
     def optimize(self):
@@ -185,7 +188,8 @@ class AutoModel:
         self.error_loss = tf.constant(0.)
         for m, h in zip(self.mask, self.error_history):
             for l in h:
-                self.error_loss += tf.reduce_mean(tf.square(m[tf.newaxis,:]*l))
+                #self.error_loss += tf.reduce_mean(tf.square(m[tf.newaxis,:]*l))
+                self.error_loss += tf.reduce_mean(tf.square(l))
 
         self.spike_loss = tf.constant(0.)
         for h in self.hidden_history:
@@ -292,11 +296,11 @@ def main(save_fn, gpu_id = None):
 
     """ Create the stimulus object for trial generation """
     #stim = multistim.MultiStimulus()
-    stim = stimulus2.Stimulus()
+    stim = stimulus3.Stimulus()
 
     """ Define all placeholders """
     mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']])
+    x = tf.placeholder(tf.float32, shape=[par['n_input'], par['num_time_steps'], par['batch_train_size']])
     td_neur = tf.placeholder(tf.float32, shape=[par['n_hidden']])
     td_dend = tf.placeholder(tf.float32, shape=[par['n_hidden'], par['n_dendrites']])
 
@@ -339,20 +343,20 @@ def main(save_fn, gpu_id = None):
             for i in range(par['num_iterations']):
 
                 # make batch of training data
-                task_name, trial_info = stim.generate_trial(j)
+                trial_info = stim.generate_trial()
 
                 if par['stabilization'] == 'pathint':
 
                     _, _, perf_loss, aux_loss, wiring_loss, h, gradients, big_omegas, pred_hist = sess.run([model.train_op, \
                         model.update_small_omega, model.error_loss, model.aux_loss, model.wiring_loss, \
                         model.hidden_history, model.gradients, model.big_omega_var, model.prediction_history], \
-                        feed_dict = {x: trial_info['desired_output'], td_neur: par['neuron_topdown'][j], \
-                                     td_dend: par['dendrite_topdown'][j], mask: trial_info['train_mask']})
+                        feed_dict = {x: trial_info['neural_input'], td_neur: par['neuron_topdown'][j], \
+                                     td_dend: par['dendrite_topdown'][j], mask: np.ones_like(trial_info['train_mask'])})
 
                     #var_order = ['W_in', 'W_rnn', 'b_rnn', 'W_out', 'b_out']
                     #gradients = [gradients[i][0] for i in range(len(gradients))]
                     #omegas    = [big_omegas[k] for k in big_omegas.keys()]
-
+                    """
                     print(len(pred_hist))
                     print(type(pred_hist[0][0]))
                     print(type(pred_hist[0][0][0]))
@@ -360,7 +364,7 @@ def main(save_fn, gpu_id = None):
                     print(pred_hist[0][0].shape)
                     print(pred_hist[0].shape)
                     quit()
-
+                    """
 
                     #quit('Passed')
 
@@ -373,6 +377,30 @@ def main(save_fn, gpu_id = None):
                 if i//par['iters_between_outputs'] == i/par['iters_between_outputs']:
                     #print('Iter ', i, 'Perf Loss ', perf_loss, ' AuxLoss ', aux_loss, ' Mean sr ', np.mean(h), ' WL ', wiring_loss)
                     print('Iter ', str(i).ljust(3), 'Perf Loss ', perf_loss, ' Mean sr ', np.mean(h), ' WL ', wiring_loss)
+                    s = np.stack(pred_hist,axis=0)
+                    print(s.shape)
+                    #s = np.transpose(s,[2,1,0,3])
+                    s = np.transpose(s,[1,0,2])
+                    f = plt.figure(figsize=(12,8))
+                    ax = f.add_subplot(2, 3, 1)
+                    ax.imshow(trial_info['neural_input'][:,:,0], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    ax = f.add_subplot(2, 3, 2)
+                    ax.imshow(s[:,:,0], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    ax = f.add_subplot(2, 3, 3)
+                    ax.imshow(trial_info['neural_input'][:,:,0]-s[:,:,0], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    ax = f.add_subplot(2, 3, 4)
+                    ax.imshow(trial_info['neural_input'][:,:,1], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    ax = f.add_subplot(2, 3, 5)
+                    ax.imshow(s[:,:,1], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    ax = f.add_subplot(2, 3, 6)
+                    ax.imshow(trial_info['neural_input'][:,:,1]-s[:,:,1], interpolation='none', aspect='auto')
+                    #plt.colorbar()
+                    plt.show()
 
 
             # Update big omegaes, and reset other values before starting new task

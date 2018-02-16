@@ -27,10 +27,10 @@ par = {
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 36*2,
+    'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 200,
+    'n_hidden'              : 100,
     'n_dendrites'           : 1,
 
     # Euclidean shape
@@ -40,9 +40,9 @@ par = {
     'neuron_dz'             : 10.0,
 
     # Timings and rates
-    'dt'                    : 20,
-    'learning_rate'         : 1e-3,
-    'membrane_time_constant': 100,
+    'dt'                    : 10,
+    'learning_rate'         : 5e-3,
+    'membrane_time_constant': 50,
     'connection_prob'       : 1.0,         # Usually 1
 
     # Variance values
@@ -57,7 +57,7 @@ par = {
     'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-3,
+    'spike_cost'            : 1e-7,
     'wiring_cost'           : 0, #1e-6,
 
     # Synaptic plasticity specs
@@ -67,23 +67,23 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 128,
-    'num_iterations'        : 20,
-    'iters_between_outputs' : 1,
+    'batch_train_size'      : 512,
+    'num_iterations'        : 2000,
+    'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'limDMS',      # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC
+    'trial_type'            : 'DMS+DMRS_early_cue',      # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC
     'num_tasks'             : 19,               # DMS+DMRS, ABBA, ABCA, dualDMS, multistim, twelvestim, limDMS
     'multistim_trial_length': 4000,
     'limDMS_trial_length'   : 1000,
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 200,
     'fix_time'              : 200,
-    'sample_time'           : 400,
+    'sample_time'           : 200,
     'delay_time'            : 200,
-    'test_time'             : 400,
+    'test_time'             : 200,
     'variable_delay_max'    : 400,
-    'mask_duration'         : 100,  # duration of traing mask after test onset
+    'mask_duration'         : 0,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -234,14 +234,15 @@ def update_trial_params():
 
         par['num_rules'] = 2
         par['num_rule_tuned'] = 12
+        par['num_fix_tuned'] = 0
         if par['trial_type'] == 'DMS+DMRS':
             par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
             par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
         else:
-            par['rotation_match'] = [0, 45]
+            par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = par['dead_time']
-            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'DMS+DMC':
         par['num_rules'] = 2
@@ -272,7 +273,7 @@ def update_dependencies():
     par['n_output'] = par['num_motion_dirs'] + 1
 
     # Number of input neurons
-    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned']
+    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
