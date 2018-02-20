@@ -23,42 +23,43 @@ par = {
 
     # Network configuration
     'synapse_config'        : None, # Full is 'std_stf'
-    'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
+    'exc_inh_prop'          : 1.0,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 20,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : [120, 120],
     'n_dendrites'           : 1,
 
     # Euclidean shape
-    'num_sublayers'         : 1,
+    'num_sublayers'         : 2,
     'neuron_dx'             : 1.0,
     'neuron_dy'             : 1.0,
     'neuron_dz'             : 10.0,
 
     # Timings and rates
-    'dt'                    : 10,
-    'learning_rate'         : 5e-3,
-    'membrane_time_constant': 50,
+    'dt'                    : 20,
+    'learning_rate'         : 1e-3,
+    'membrane_time_constant': 100,
     'connection_prob'       : 1.0,         # Usually 1
 
     # Variance values
     'clip_max_grad_val'     : 0.5,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
+    'noise_in_sd'           : 0.2,
     'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 4.0,        # magnitude scaling factor for von Mises
+    'tuning_height'         : 4.,        # magnitude scaling factor for von Mises
     'kappa'                 : 2.0,        # concentration scaling factor for von Mises
 
     # Cost parameters
     'spike_cost'            : 1e-7,
-    'wiring_cost'           : 0, #1e-6,
+    'wiring_cost'           : 1e-3, #1e-6,
+    'latent_cost'           : 1e-4,
 
     # Synaptic plasticity specs
     'tau_fast'              : 100,
@@ -67,9 +68,9 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 512,
-    'num_iterations'        : 2000,
-    'iters_between_outputs' : 50,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 25000,
+    'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS+DMRS_early_cue',      # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC
@@ -80,7 +81,7 @@ par = {
     'dead_time'             : 200,
     'fix_time'              : 200,
     'sample_time'           : 200,
-    'delay_time'            : 200,
+    'delay_time'            : 300,
     'test_time'             : 200,
     'variable_delay_max'    : 400,
     'mask_duration'         : 0,  # duration of traing mask after test onset
@@ -274,16 +275,15 @@ def update_dependencies():
 
     # Number of input neurons
     par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
-    # General network shape
-    par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
     # Create TD
+    """
     par['neuron_topdown'] = []
     par['dendrite_topdown'] = []
     for _ in range(par['num_tasks']):
         par['neuron_topdown'].append(np.float32(np.random.choice([0,1], par['n_hidden'], p= [par['neuron_gate_pct'], 1-par['neuron_gate_pct']])))
         par['dendrite_topdown'].append(np.float32(np.random.choice([0,1], [par['n_hidden'], par['n_dendrites']], p= [par['dendrite_gate_pct'], 1-par['dendrite_gate_pct']])))
-
+    """
 
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
@@ -293,27 +293,26 @@ def update_dependencies():
     else:
         par['EI']  = False
 
-    par['num_exc_units'] = int(np.round(par['n_hidden']*par['exc_inh_prop']))
-    par['num_inh_units'] = par['n_hidden'] - par['num_exc_units']
-    par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32)
-    par['EI_list'][::par['n_hidden']//par['num_inh_units']] = -1.
+    par['num_exc_units'] = [int(np.round(par['n_hidden'][n]*par['exc_inh_prop'])) for n in range(len(par['n_hidden']))]
+    par['num_inh_units'] = [par['n_hidden'][n] - par['num_exc_units'][n] for n in range(len(par['n_hidden']))]
+    par['EI_list'] = [np.ones(par['n_hidden'][n], dtype=np.float32) for n in range(len(par['n_hidden']))]
+    if par['EI']:
+        for n in range(len(par['n_hidden'])):
+            par['EI_list'][n][-par['num_inh_units'][n]:] = -1.
 
-    par['EI_matrix'] = np.diag(par['EI_list'])
+    par['EI_matrix'] = [np.diag(par['EI_list'][n]) for n in range(len(par['n_hidden']))]
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
+    #par['alpha_neuron'] = 1
+    #print('Setting alpha_neuron to 1')
     # The standard deviation of the Gaussian noise added to each RNN neuron
     # at each time step
     par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
-    #print('noise ',par['noise_rnn'], par['noise_in'])
 
-    # General event profile info
-    #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
-    # List of events that occur for the network
-    #par['events'] = get_events(par['profile_path'])
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
@@ -333,8 +332,8 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
-
+    par['h_init'] = [0.1*np.ones((par['n_hidden'][n], par['batch_train_size']), dtype=np.float32)  for n in range(len(par['n_hidden']))]
+    """
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_dendrites'], par['n_hidden']]
     par['hidden_to_output_dims'] = [par['n_output'], par['n_hidden']]
@@ -379,16 +378,8 @@ def update_dependencies():
         par['w_out_mask'][:, par['ind_inh']] = 0
 
     # Defining sublayers for the hidden layer
-    n_per_sub = par['n_hidden']//par['num_sublayers']
-    sublayers = []
-    sublayer_sizes = []
-    for i in range(par['num_sublayers']):
-        if i == par['num_sublayers'] - 1:
-            app = par['n_hidden']%par['num_sublayers']
-        else:
-            app = 0
-        sublayers.append(range(i*n_per_sub,(i+1)*n_per_sub+app))
-        sublayer_sizes.append(n_per_sub+app)
+    sublayers = [range(i,par['n_hidden'],par['num_sublayers']) for i in range(par['num_sublayers'])]
+    sublayer_sizes = [len(sublayers[i]) for i in  range(par['num_sublayers'])]
 
     # Determine physical sublayer positions
     input_pos = np.zeros([par['n_input'], 3])
@@ -435,9 +426,11 @@ def update_dependencies():
     for i in range(par['num_sublayers'] - 1):
         par['w_out0'][:, sublayers[i]] = 0
         par['w_out_mask'][:, sublayers[i]] = 0
+    """
 
     # KLUDGE!
     # Specifying that fixation tuned neurons can only connect to first 8 RNN units
+    """
     par['fix_connections_in'] = np.ones_like(par['w_in0'])
     par['fix_connections_in'][:,:,:par['num_motion_tuned']] = 0
     par['fix_connections_rnn'] = np.ones_like(par['w_rnn0'])
@@ -449,12 +442,15 @@ def update_dependencies():
             par['w_in0'][j,:,i] = 0
             par['w_in_mask'][j,:,i] = 0
             par['fix_connections_in'][j,:,i] = 0
+    """
 
     """
     Setting up synaptic parameters
     0 = static
     1 = facilitating
     2 = depressing
+    """
+
     """
     par['synapse_type'] = np.zeros(par['n_hidden'], dtype=np.int8)
 
@@ -494,6 +490,7 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+    """
 
 
 def initialize(dims, connection_prob):
