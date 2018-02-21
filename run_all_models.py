@@ -4,17 +4,17 @@ import model
 import sys
 
 task_list = ['DMS+DMRS+DMC']
+task_list = ['DMS']
 
 
-
-for j in range(1,40,3):
+for j in range(1,6):
     for task in task_list:
         print('Training network on ', task,' task, network model number ', j)
 
         save_fn = task + '_' + str(j) + '.pkl'
         updates = {'trial_type': task, 'save_fn': save_fn, \
             'save_dir':'/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_motifs/', \
-            'var_delay': True,'learning_rate':5e-3, 'decoding_test_mode':False,'n_hidden':200,'synapse_config':None,'num_iterations':30}
+            'var_delay': True,'learning_rate':2e-2, 'decoding_test_mode':False,'n_hidden':100,'synapse_config':'std_stf','num_iterations':2000}
         update_parameters(updates)
 
 

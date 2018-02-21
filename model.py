@@ -284,8 +284,8 @@ def main(gpu_id):
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
-            #analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-            #    simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
+                simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
             # Generate another batch of trials with decoding_test_mode = True (sample and test stimuli
@@ -297,7 +297,7 @@ def main(gpu_id):
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = False, load_previous_file = False, save_raw_data = True)
+                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
 
             if False and par['trial_type'] == 'dualDMS':
                 # run an additional session with probe stimuli
