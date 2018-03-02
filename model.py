@@ -28,16 +28,16 @@ class Model:
 
         # Load the input activity, the target data, and the training mask for this batch of trials
         # self.input_data = tf.reshape(input_data, [par['num_time_steps'], par['batch_train_size'], par['n_input']])
-        self.input_data = tf.transpose(input_data, perm=[1,2,0])
+        self.input_data = input_data
         self.target_data = target_data
         self.mask = mask
 
         # Load the initial hidden state activity to be used at the start of each trial
-        self.hidden_init = tf.transpose(tf.constant(par['h_init']))
+        self.hidden_init = tf.constant(par['h_init'])
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
-        self.synapse_x_init = tf.transpose(tf.constant(par['syn_x_init']))
-        self.synapse_u_init = tf.transpose(tf.constant(par['syn_u_init']))
+        self.synapse_x_init = tf.constant(par['syn_x_init'])
+        self.synapse_u_init = tf.constant(par['syn_u_init'])
 
         # Build the TensorFlow graph
         self.run_model()
@@ -123,20 +123,20 @@ class Model:
         cross_entropy
         """
         # perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.reshape(self.target_data, [par['num_time_steps'],par['batch_train_size'],par['n_output']])), axis=2)
-        perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.transpose(self.target_data, [1,2,0])), axis=2)
+        perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-self.target_data), axis=2)
         # perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
             # labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state), axis=2)
 
-        self.perf_loss = tf.reduce_mean(perf_loss)
-        self.spike_loss = tf.reduce_mean(spike_loss)
-        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        # self.perf_loss = tf.reduce_mean(perf_loss)
+        # self.spike_loss = tf.reduce_mean(spike_loss)
+        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
 
-        self.loss = self.perf_loss #+ self.spike_loss
+        self.loss = self.perf_loss + self.spike_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
@@ -186,9 +186,9 @@ def main(gpu_id):
     """
     Define all placeholder
     """
-    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
+    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'],par['batch_train_size']])
+    x = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], n_input])  # input data
+    y = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], n_output]) # target data
 
     if par['gpu']:
         config = tf.ConfigProto()
@@ -223,6 +223,8 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
+            trial_info['neural_input'] = np.transpose(trial_info['neural_input'], (1,2,0))
+            trial_info['desired_output'] = np.transpose(trial_info['desired_output'], (1,2,0))
 
             """
             Run the model

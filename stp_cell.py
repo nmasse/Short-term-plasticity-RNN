@@ -57,8 +57,8 @@ class STPCell(RNNCell):
             syn_u = state.syn_u
 
             # implement both synaptic short term facilitation and depression  
-            syn_x += np.transpose(par['alpha_std'])*(1-syn_x) - par['dt_sec']*syn_u*syn_x*hidden_state
-            syn_u += np.transpose(par['alpha_stf'])*(np.transpose(par['U'])-syn_u) + par['dt_sec']*np.transpose(par['U'])*(1-syn_u)*hidden_state 
+            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*hidden_state
+            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*hidden_state 
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             state_post = syn_u*syn_x*hidden_state
@@ -94,7 +94,7 @@ class STPCell(RNNCell):
         are of only one type, and that W_in weights are non-negative 
         """
         new_state = tf.nn.relu(hidden_state*(1-par['alpha_neuron'])
-                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(inputs), tf.nn.relu(tf.transpose(self.W_in)))
+                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(inputs), tf.nn.relu(self.W_in))
                         + tf.matmul(state_post, W_rnn_effective) + tf.transpose(self.b_rnn))
                         + tf.random_normal([par['batch_train_size'], par['n_hidden']], 0, par['noise_rnn'], dtype=tf.float32))
             

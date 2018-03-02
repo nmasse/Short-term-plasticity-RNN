@@ -806,14 +806,11 @@ def get_perf(y, y_hat, mask):
     y is the desired output
     y_hat is the actual output
     """
-    y = np.transpose(y, axes=[1,2,0])
-    mask *= y[:,:,0]==0
+    mask *= (y[:,:,0]==0)
     mask_non_match = mask*(y[:,:,1]==1)
     mask_match = mask*(y[:,:,2]==1)
     y = np.argmax(y, axis = 2)
     y_hat = np.argmax(y_hat, axis = 2)
-    # y_hat = np.transpose(y_hat)
-    # y_hat = y_hat.reshape(par['num_time_steps'], par['batch_train_size'])
     accuracy = np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
     accuracy_non_match = np.sum(np.float32(y == y_hat)*np.squeeze(mask_non_match))/np.sum(mask_non_match)
