@@ -27,8 +27,8 @@ class Model:
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        # self.input_data = input_data
-        self.input_data = tf.reshape(input_data, [par['num_time_steps'], par['batch_train_size'], par['n_input']])
+        # self.input_data = tf.reshape(input_data, [par['num_time_steps'], par['batch_train_size'], par['n_input']])
+        self.input_data = tf.transpose(input_data, perm=[1,2,0])
         self.target_data = target_data
         self.mask = mask
 
@@ -122,19 +122,21 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
-            labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
+        # perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.reshape(self.target_data, [par['num_time_steps'],par['batch_train_size'],par['n_output']])), axis=2)
+        perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.transpose(self.target_data, [1,2,0])), axis=2)
+        # perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
+            # labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state), axis=2)
 
-        # self.perf_loss = tf.reduce_mean(perf_loss)
-        # self.spike_loss = tf.reduce_mean(spike_loss)
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        self.perf_loss = tf.reduce_mean(perf_loss)
+        self.spike_loss = tf.reduce_mean(spike_loss)
+        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
 
-        self.loss = self.perf_loss + self.spike_loss #+ self.wiring_loss
+        self.loss = self.perf_loss #+ self.spike_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
