@@ -95,104 +95,20 @@ class Model:
             self.syn_u_hist = self.output.syn_u
         else:
             pass
-        # self.hidden_state_hist.append(self.output.hidden)
-        self.hidden_state_hist = self.output.hidden
+        # self.hidden_state_hist = self.output.hidden
+        self.hidden_state_hist = self.hidden_state
 
 
         with tf.variable_scope('output'):
             W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
             b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
 
+
         """
         Network output
         Only use excitatory projections from the RNN to the output layer
         """
-        self.y_hat = tf.tensordot(self.hidden_state, W_out, axes=[[2],[1]]) #+ tf.transpose(tf.expand_dims(b_out, -1))
-        # self.y_hat = tf.matmul(tf.reshape(self.hidden_state, (-1, par['n_hidden'])), tf.transpose(W_out))+b_out
-        # self.y_hat = [tf.matmul(tf.nn.relu(W_out),tf.transpose(h))+b_out for h in self.hidden_state_hist]
-
-
-    def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
-
-        """
-        Initialize weights and biases
-        """
-        with tf.variable_scope('rnn_cell'):
-            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-        self.W_ei = tf.constant(par['EI_matrix'])
-
-        
-
-        """
-        Loop through the neural inputs to the RNN, indexed in time
-        """
-        for rnn_input in x_unstacked:
-            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
-            self.hidden_state_hist.append(h)
-            self.syn_x_hist.append(syn_x)
-            self.syn_u_hist.append(syn_u)
-
-
-    def rnn_cell(self, rnn_input, h, syn_x, syn_u):
-
-        """
-        Main computation of the recurrent network
-        """
-        with tf.variable_scope('rnn_cell', reuse=True):
-            W_in = tf.get_variable('W_in')
-            W_rnn = tf.get_variable('W_rnn')
-            b_rnn = tf.get_variable('b_rnn')
-
-        if par['EI']:
-            # ensure excitatory neurons only have postive outgoing weights,
-            # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
-        else:
-            W_rnn_effective = W_rnn
-
-        """
-        Update the synaptic plasticity paramaters
-        """
-        if par['synapse_config'] == 'std_stf':
-            # implement both synaptic short term facilitation and depression
-            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_u*syn_x*h
-
-        elif par['synapse_config'] == 'std':
-            # implement synaptic short term derpression, but no facilitation
-            # we assume that syn_u remains constant at 1
-            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h
-            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_x*h
-
-        elif par['synapse_config'] == 'stf':
-            # implement synaptic short term facilitation, but no depression
-            # we assume that syn_x remains constant at 1
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_u*h
-
-        else:
-            # no synaptic plasticity
-            h_post = h
-
-        """
-        Update the hidden state
-        Only use excitatory projections from input layer to RNN
-        All input and RNN activity will be non-negative
-        """
-        h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
-
-        return h, syn_x, syn_u
+        self.y_hat = tf.tensordot(self.hidden_state, tf.nn.relu(W_out), axes=[[2],[1]]) + tf.transpose(tf.expand_dims(b_out, -1))
 
 
     def optimize(self):
@@ -208,23 +124,17 @@ class Model:
         """
         perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
             labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
-        # perf_loss = tf.transpose(self.mask)*tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=0)
-        # perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                # for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        # spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist] # NEED FIX
-        spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state_hist), axis=0)
+        spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state), axis=2)
+
+        # self.perf_loss = tf.reduce_mean(perf_loss)
+        # self.spike_loss = tf.reduce_mean(spike_loss)
+        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
 
-
-        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-        self.perf_loss = tf.reduce_mean(perf_loss)
-        self.spike_loss = tf.reduce_mean(spike_loss)
-
-        self.loss = self.perf_loss + self.spike_loss
+        self.loss = self.perf_loss + self.spike_loss #+ self.wiring_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)

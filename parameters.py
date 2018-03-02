@@ -32,7 +32,7 @@ par = {
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 30,
+    'dt'                    : 10,
     'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
