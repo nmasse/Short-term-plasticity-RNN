@@ -11,6 +11,7 @@ import analysis
 from stp_cell import STPCell
 from collections import namedtuple
 from parameters import *
+import matplotlib.pyplot as plt
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -81,6 +82,7 @@ class Model:
         # hidden_state, output = [max_time, batch_size, cell.output_size], [batch_size, cell_state_size]
         self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
 
+
         # saving data to hist
         if par['synapse_config'] == 'stf': 
             # self.syn_u_hist.append(self.output.syn_u)
@@ -123,17 +125,18 @@ class Model:
         cross_entropy
         """
         # perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.reshape(self.target_data, [par['num_time_steps'],par['batch_train_size'],par['n_output']])), axis=2)
-        perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-self.target_data), axis=2)
-        # perf_loss = self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
-            # labels=tf.transpose(self.target_data, perm=[1,2,0]), dim=2)
+        #perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-self.target_data), axis=2)
+        print(self.y_hat)
+        print(self.target_data)
+        print(self.mask)
+        self.perf_loss = tf.reduce_mean((self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
+            labels=self.target_data, dim=2)))/tf.reduce_mean(self.mask)
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state), axis=2)
+        self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state))
 
-        # self.perf_loss = tf.reduce_mean(perf_loss)
-        # self.spike_loss = tf.reduce_mean(spike_loss)
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
 
         self.loss = self.perf_loss + self.spike_loss
@@ -225,6 +228,12 @@ def main(gpu_id):
             trial_info = stim.generate_trial()
             trial_info['neural_input'] = np.transpose(trial_info['neural_input'], (1,2,0))
             trial_info['desired_output'] = np.transpose(trial_info['desired_output'], (1,2,0))
+
+            #plt.imshow(trial_info['neural_input'][:,0,:])
+            #plt.show()
+            #plt.imshow(trial_info['desired_output'][:,0,:])
+            #plt.show()
+            #1/0
 
             """
             Run the model
