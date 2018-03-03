@@ -25,8 +25,8 @@ class Model:
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
+        self.input_data = tf.unstack(input_data, axis=0)
+        self.target_data = tf.unstack(target_data, axis=0)
         self.mask = tf.unstack(mask, axis=0)
 
         # Load the initial hidden state activity to be used at the start of each trial
@@ -220,8 +220,8 @@ def main(gpu_id):
     Define all placeholder
     """
     mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
+    x = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], n_input])  # input data
+    y = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], n_output]) # target data
 
     if par['gpu']:
         config = tf.ConfigProto()
@@ -256,6 +256,8 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
+            trial_info['neural_input'] = np.transpose(trial_info['neural_input'], (1,2,0))
+            trial_info['desired_output'] = np.transpose(trial_info['desired_output'], (1,2,0))
 
             """
             Run the model

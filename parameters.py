@@ -17,7 +17,7 @@ par = {
     'save_dir'              : './savedir_2000batches/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'analyze_model'         : True,
+    'analyze_model'         : False,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
@@ -28,11 +28,11 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 20,
+    'n_hidden'              : 100,
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 30,
+    'dt'                    : 10,
     'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -58,9 +58,9 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 100,
-    'num_iterations'        : 20,
-    'iters_between_outputs' : 100,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 4000,
+    'iters_between_outputs' : 20,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -263,9 +263,9 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['h_init'] = np.transpose(0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32))
 
-    par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
+    par['input_to_hidden_dims'] = [par['n_input'], par['n_hidden']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
 
@@ -326,28 +326,28 @@ def update_dependencies():
         par['ind'] = range(1,par['n_hidden'],2)
         par['synapse_type'][par['ind']] = 2
 
-    par['alpha_stf'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
-    par['alpha_std'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
-    par['U'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
+    par['alpha_stf'] = np.ones((1, par['n_hidden']), dtype=np.float32)
+    par['alpha_std'] = np.ones((1, par['n_hidden']), dtype=np.float32)
+    par['U'] = np.ones((1, par['n_hidden']), dtype=np.float32)
 
     # initial synaptic values
-    par['syn_x_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
-    par['syn_u_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['syn_x_init'] = np.zeros((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
+    par['syn_u_init'] = np.zeros((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
 
     for i in range(par['n_hidden']):
         if par['synapse_type'][i] == 1:
-            par['alpha_stf'][i,0] = par['dt']/par['tau_slow']
-            par['alpha_std'][i,0] = par['dt']/par['tau_fast']
-            par['U'][i,0] = 0.15
-            par['syn_x_init'][i,:] = 1
-            par['syn_u_init'][i,:] = par['U'][i,0]
+            par['alpha_stf'][0,i] = par['dt']/par['tau_slow']
+            par['alpha_std'][0,i] = par['dt']/par['tau_fast']
+            par['U'][0,i] = 0.15
+            par['syn_x_init'][:,i] = 1
+            par['syn_u_init'][:,i] = par['U'][0,i]
 
         elif par['synapse_type'][i] == 2:
-            par['alpha_stf'][i,0] = par['dt']/par['tau_fast']
-            par['alpha_std'][i,0] = par['dt']/par['tau_slow']
-            par['U'][i,0] = 0.45
-            par['syn_x_init'][i,:] = 1
-            par['syn_u_init'][i,:] = par['U'][i,0]
+            par['alpha_stf'][0,i] = par['dt']/par['tau_fast']
+            par['alpha_std'][0,i] = par['dt']/par['tau_slow']
+            par['U'][0,i] = 0.45
+            par['syn_x_init'][:,i] = 1
+            par['syn_u_init'][:,i] = par['U'][0,i]
 
 def initialize(dims, connection_prob):
     w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
