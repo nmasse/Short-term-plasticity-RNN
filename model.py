@@ -59,7 +59,7 @@ class Model:
         Network output
         Only use excitatory projections from the RNN to the output layer
         """
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
+        self.y_hat = [tf.matmul(h,tf.nn.relu(tf.transpose(W_out)))+tf.transpose(b_out) for h in self.hidden_state_hist]
 
 
     def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
@@ -140,9 +140,9 @@ class Model:
         All input and RNN activity will be non-negative
         """
         h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
+                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(rnn_input), tf.nn.relu(W_in))
+                       + tf.matmul(h_post, W_rnn_effective) + tf.transpose(b_rnn))
+                       + tf.random_normal([par['batch_train_size'], par['n_hidden']], 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u
 
@@ -158,12 +158,12 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=1) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=1) for h in self.hidden_state_hist]
 
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
