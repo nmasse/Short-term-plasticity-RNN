@@ -20,7 +20,7 @@ par = {
     'analyze_model'         : True,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
@@ -28,28 +28,32 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 12,
-    'n_hidden'              : 100,
+    'n_hidden'              : 200,
     'n_output'              : 3,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 1e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
+
+    # Dropout setup
+    'keep_prob'             : 0.0,
+    'dropout_dist'          : 'uniform',
 
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_in_sd'           : 0.05,
+    'noise_rnn_sd'          : 0.05,
 
     # Tuning function data
-    'num_motion_dirs'       : 36,
+    'num_motion_dirs'       : 8,
     'tuning_height'         : 4,        # magnitutde scaling factor for von Mises
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 1e-12,
     'wiring_cost'           : 0e-7,
 
     # Synaptic plasticity specs
@@ -60,18 +64,18 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 2000,
+    'num_iterations'        : 3000,
     'iters_between_outputs' : 50,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
-    'fix_time'              : 500,
+    'fix_time'              : 300,
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
-    'variable_delay_max'    : 500,
+    'variable_delay_max'    : 300,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
@@ -251,6 +255,11 @@ def update_dependencies():
     par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32)
     par['EI_list'][-par['num_inh_units']:] = -1.
 
+    par['drop_mask'] = np.ones((par['n_hidden'],par['n_hidden']), dtype=np.float32)
+    ind_inh = np.where(par['EI_list']==-1)[0]
+    par['drop_mask'][:, ind_inh] = 0.
+    par['drop_mask'][ind_inh, :] = 0.
+
     par['EI_matrix'] = np.diag(par['EI_list'])
 
     # Membrane time constant of RNN neurons
@@ -310,7 +319,7 @@ def update_dependencies():
 
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
-        print('SR ',spectral_radius(par['w_rnn0']))
+        #print('SR ',spectral_radius(par['w_rnn0']))
         #par['w_rnn0'] *= 0.3
         #print('SR ',spectral_radius(par['w_rnn0']))
         #par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])

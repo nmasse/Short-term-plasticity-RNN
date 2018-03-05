@@ -9,6 +9,7 @@ import stimulus
 import time
 import analysis
 from parameters import *
+import os, sys
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -28,6 +29,7 @@ class Model:
         self.input_data = tf.unstack(input_data, axis=1)
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
+        self.drop_mask = tf.constant(par['drop_mask'])
 
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
@@ -97,12 +99,24 @@ class Model:
             W_rnn = tf.get_variable('W_rnn')
             b_rnn = tf.get_variable('b_rnn')
 
+        #W_in_drop  = custom_dropout(W_in, keep_prob=par['keep_prob'])
+        #W_rnn_drop = custom_dropout(W_rnn, keep_prob=par['keep_prob'])
+
+        uniform_dis = tf.cast(tf.random_uniform(W_rnn.shape, 0, 2, tf.int32), tf.float32)
+        #W_rnn_drop = W_rnn*uniform_dis
+        W_rnn_drop = W_rnn*uniform_dis*self.drop_mask + (1.-self.drop_mask)*W_rnn
+
+        uniform_dis = tf.cast(tf.random_uniform(W_in.shape, 0, 2, tf.int32), tf.float32)
+        W_in_drop = W_in*uniform_dis
+
+        self.drop_mask
+
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
+            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn_drop), self.W_ei)
         else:
-            W_rnn_effective = W_rnn
+            W_rnn_effective = W_rnn_drop
 
         """
         Update the synaptic plasticity paramaters
@@ -140,7 +154,7 @@ class Model:
         All input and RNN activity will be non-negative
         """
         h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
+                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in_drop), tf.nn.relu(rnn_input))
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
                        + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
 
@@ -274,7 +288,7 @@ def main(gpu_id):
             """
             Save the network model and output model performance to screen
             """
-            if (i+1)%par['iters_between_outputs']==0 or i+1==par['num_iterations']:
+            if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
 
 
@@ -347,7 +361,26 @@ def eval_weights():
 
 def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
 
-    print('Trial {:7d}'.format((iter_num+1)*trials_per_iter) + ' | Time {:0.2f} s'.format(iteration_time) +
+    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)) +
       ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
-      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)) +
-      ' | Accuracy {:0.4f}'.format(np.mean(accuracy)))
+      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+
+
+def custom_dropout(x, keep_prob=0.75, characteristic=0.25):
+
+    def distribution(s, mu, sigma):
+        return tf.exp(-0.5*(s-mu)**2/sigma**2)/(2*np.pi*sigma**2)**0.5
+
+    sampleA = tf.random_uniform(x.shape, 0, 1, tf.float32)
+    sampleB = tf.random_uniform(x.shape, 0, 1, tf.float32)
+
+    if par['dropout_dist'] == 'uniform':
+        dist = sampleA
+    elif par['dropout_dist'] == 'normal':
+        dist = distribution(sampleA, 1, characteristic)
+
+    return tf.where(sampleB < keep_prob, x, x*dist)
+
+
+if __name__ == '__main__':
+    main(str(sys.argv[1]))

@@ -7,14 +7,17 @@ task_list = ['DMS+DMRS+DMC']
 task_list = ['DMS']
 
 
-for j in range(1,6):
+for j in range(0,20):
     for task in task_list:
         print('Training network on ', task,' task, network model number ', j)
 
-        save_fn = task + '_' + str(j) + '.pkl'
+        save_fn = task + '_' + str(j) + '_testing.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn}
+        """
         updates = {'trial_type': task, 'save_fn': save_fn, \
             'save_dir':'/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_motifs/', \
             'var_delay': True,'learning_rate':2e-2, 'decoding_test_mode':False,'n_hidden':100,'synapse_config':'std_stf','num_iterations':2000}
+        """
         update_parameters(updates)
 
 
