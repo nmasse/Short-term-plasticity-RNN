@@ -85,6 +85,9 @@ class Model:
         elif (par['cell_type'] == 'LSTM'):
             cell = tf.contrib.rnn.BasicLSTMCell(par['n_hidden'])
             state = cell.zero_state(par['batch_train_size'], dtype=tf.float32)
+        elif (par['cell_type'] == 'GRU'):
+            cell = tf.contrib.rnn.GRUcell(par['n_hidden'])
+            state = cell.zero_state(par['batch_train_size'], dtype=tf.float32)
         else:
             print("Network type error")
 

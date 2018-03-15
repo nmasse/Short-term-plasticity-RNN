@@ -20,8 +20,8 @@ par = {
     'analyze_model'         : False,
 
     # Network configuration
-    'cell_type'             : 'LSTM',
-    'synapse_config'        : '', # Full is 'std_stf'
+    'cell_type'             : 'STP',     # 'STP' or 'LSTM'
+    'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
