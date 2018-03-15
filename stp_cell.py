@@ -84,8 +84,8 @@ class STPCell(RNNCell):
             state_post = syn_u*hidden_state
             
         else:
-            hidden_state = state
-            state_post = state
+            hidden_state = state.hidden
+            state_post = hidden_state
 
             
         """
@@ -107,6 +107,6 @@ class STPCell(RNNCell):
         elif par['synapse_config'] == 'std_stf': 
             state = state._replace(hidden=new_state, syn_x=syn_x, syn_u=syn_u)
         else:
-            state = new_state
+            state = state._replace(hidden=new_state)
 
         return state, state

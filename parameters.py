@@ -20,7 +20,8 @@ par = {
     'analyze_model'         : False,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'cell_type'             : 'LSTM',
+    'synapse_config'        : '', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
@@ -66,11 +67,11 @@ par = {
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
-    'fix_time'              : 500,
-    'sample_time'           : 500,
-    'delay_time'            : 1000,
-    'test_time'             : 500,
-    'variable_delay_max'    : 500,
+    'fix_time'              : 300,
+    'sample_time'           : 300,
+    'delay_time'            : 300,
+    'test_time'             : 300,
+    'variable_delay_max'    : 300,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,

@@ -65,7 +65,9 @@ class Model:
             State_tuple = namedtuple('State', ['hidden', 'syn_x', 'syn_u'])
             state = State_tuple(self.hidden_init, self.synapse_x_init, self.synapse_u_init)
         else:
-            state = self.hidden_init
+            State_tuple = namedtuple('State', ['hidden'])
+            state = State_tuple(self.hidden_init)
+            # state = self.hidden_init
 
 
         # EI matrix
@@ -77,7 +79,14 @@ class Model:
         self.syn_u_hist = []
 
         # Create cell from STPCell class in network.py
-        cell = STPCell()
+        cell = None
+        if (par['cell_type'] == 'STP'):
+            cell = STPCell()
+        elif (par['cell_type'] == 'LSTM'):
+            cell = tf.contrib.rnn.BasicLSTMCell(par['n_hidden'])
+            state = cell.zero_state(par['batch_train_size'], dtype=tf.float32)
+        else:
+            print("Network type error")
 
         # hidden_state, output = [max_time, batch_size, cell.output_size], [batch_size, cell_state_size]
         self.hidden_state, self.output = tf.nn.dynamic_rnn(cell, self.input_data, initial_state=state, time_major=True)
@@ -95,9 +104,7 @@ class Model:
             # self.syn_u_hist.append(self.output.syn_u)
             self.syn_x_hist = self.output.syn_x
             self.syn_u_hist = self.output.syn_u
-        else:
-            pass
-        # self.hidden_state_hist = self.output.hidden
+
         self.hidden_state_hist = self.hidden_state
 
 
@@ -124,20 +131,11 @@ class Model:
         """
         cross_entropy
         """
-        # perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-tf.reshape(self.target_data, [par['num_time_steps'],par['batch_train_size'],par['n_output']])), axis=2)
-        #perf_loss = self.mask * tf.reduce_mean(tf.square(self.y_hat-self.target_data), axis=2)
-        print(self.y_hat)
-        print(self.target_data)
-        print(self.mask)
         self.perf_loss = tf.reduce_mean((self.mask * tf.nn.softmax_cross_entropy_with_logits(logits=self.y_hat, \
             labels=self.target_data, dim=2)))/tf.reduce_mean(self.mask)
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.square(self.hidden_state))
-
-        # self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        # self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
-
 
         self.loss = self.perf_loss + self.spike_loss
 
