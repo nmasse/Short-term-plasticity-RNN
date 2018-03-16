@@ -63,7 +63,7 @@ par = {
     'iters_between_outputs' : 20,
 
     # Task specs
-    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'DMC', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
     'fix_time'              : 300,

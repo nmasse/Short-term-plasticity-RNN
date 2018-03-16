@@ -3,7 +3,7 @@ from parameters import *
 import model
 import sys
 
-task_list = ['DMS']
+task_list = ['DMC']
 
 
 for task in task_list:
