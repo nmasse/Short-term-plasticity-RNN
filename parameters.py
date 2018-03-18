@@ -59,18 +59,18 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 4000,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 20,
 
     # Task specs
-    'trial_type'            : 'DMC', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'ABBA', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
     'fix_time'              : 300,
     'sample_time'           : 300,
-    'delay_time'            : 300,
+    'delay_time'            : 600,
     'test_time'             : 300,
-    'variable_delay_max'    : 300,
+    'variable_delay_max'    : 500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,

@@ -3,14 +3,15 @@ from parameters import *
 import model
 import sys
 
-task_list = ['DMC']
+task_list = ['DMC','ABBA','DMS','DMRS45']
 
 
 for task in task_list:
     for j in range(1):
+        output = task+'_STP_static_result.txt'
         print('Training network on ', task,' task, network model number ', j)
         save_fn = task + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
+        updates = {'trial_type': task, 'file':output, 'save_fn': save_fn}
         update_parameters(updates)
 
         # Keep the try-except clauses to ensure proper GPU memory release
@@ -28,6 +29,9 @@ for task in task_list:
             except KeyboardInterrupt:
                 quit('Quit by KeyboardInterrupt')
         else:
+            f = open(output,'a+')
+            f.write('Task: '+task+'\nType: STP_static\n')
+            f.close()
             model.train_and_analyze(0)
 
 
