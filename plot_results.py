@@ -20,8 +20,8 @@ def plot_all_figures():
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
 
-    plot_SF2_v2(fig_params)
-    #plot_SF3(fig_params)
+    #plot_SF2_v2(fig_params)
+    plot_S_learning(fig_params)
     #plot_SF2_v2(fig_params)
     #plot_F3(fig_params)
     #plot_F4(fig_params)
@@ -1120,25 +1120,62 @@ def plot_F3(fig_params):
 def plot_S_learning(fig_params):
 
     N = 20
-    v = np.ones((10))/10
+    m = 5
+    v = np.ones((m))/m
     acc0 = []
     acc1 = []
-    f = plt.figure(figsize=(6,2.5))
+    loss0 = []
+    loss1 = []
+    f = plt.figure(figsize=(6,5))
     for i in range(N):
         x = pickle.load(open(fig_params['data_dir']+'DMS_' + str(i) + '.pkl','rb'))
         s1 = np.convolve(x['model_performance']['accuracy'],v,'valid')
         acc0.append(s1)
+        s1 = np.convolve(x['model_performance']['perf_loss'],v,'valid')
+        loss0.append(s1)
         x = pickle.load(open(fig_params['data_dir']+'DMS_no_stp_' + str(i) + '.pkl','rb'))
         s1 = np.convolve(x['model_performance']['accuracy'],v,'valid')
         acc1.append(s1)
+        s1 = np.convolve(x['model_performance']['perf_loss'],v,'valid')
+        loss1.append(s1)
     acc0 = np.stack(acc0)
     acc1 = np.stack(acc1)
-    ax = f.add_subplot(1,2,1)
-    t = np.arange(0,1991*1024,1024)
+    loss0 = np.stack(loss0)
+    loss1 = np.stack(loss1)
+
+
+    ax = f.add_subplot(2,2,1)
+    t = np.arange(0,(2000+1-m)*1024,1024)/1000
     t = np.transpose(np.tile(t, (20,1)))
-    print(np.transpose(acc0).shape)
+    #print(np.transpose(acc0).shape)
+    ax.plot(t,np.transpose(np.log10(loss0)))
+    ax.set_xlim([0,2000*1024])
+    ax.set_xlim([0,2000])
+    ax.set_ylim([-2.5,1])
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.set_ylabel('Loss')
+    ax.set_xlabel('Training batch number')
+
+    ax = f.add_subplot(2,2,2)
+    ax.plot(t,np.transpose(np.log10(loss1)))
+    ax.set_xlim([0,2000*1024])
+    ax.set_xlim([0,2000])
+    ax.set_ylim([-2.5,1])
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.set_ylabel('Loss')
+    ax.set_xlabel('Trial number')
+
+    ax = f.add_subplot(2,2,3)
+    #print(np.transpose(acc0).shape)
     ax.plot(t,np.transpose(acc0))
     ax.set_xlim([0,2000*1024])
+    ax.set_xlim([0,2000])
     ax.set_ylim([0,1])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -1147,9 +1184,10 @@ def plot_S_learning(fig_params):
     ax.set_ylabel('Task accuracy')
     ax.set_xlabel('Training batch number')
 
-    ax = f.add_subplot(1,2,2)
+    ax = f.add_subplot(2,2,4)
     ax.plot(t,np.transpose(acc1))
     ax.set_xlim([0,2000*1024])
+    ax.set_xlim([0,2000])
     ax.set_ylim([0,1])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
