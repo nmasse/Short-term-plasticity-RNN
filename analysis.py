@@ -7,7 +7,32 @@ from parameters import *
 from sklearn import svm
 import time
 import pickle
+import stimulus
 import matplotlib.pyplot as plt
+
+def analyze_model_from_file(filename, savefile = None):
+
+    x = pickle.load(open(filename, 'rb'))
+    if savefile is None:
+        x['parameters']['save_fn'] = 'test.pkl'
+    else:
+        x['parameters']['save_fn'] = savefile
+    update_parameters(x['parameters'])
+    stim = stimulus.Stimulus()
+    trial_info = stim.generate_trial()
+    input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+    print('input_data', len(input_data), input_data[0].shape)
+
+    y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
+        x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+
+    h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
+    syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
+    syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
+
+    analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, \
+            lesion = False, tuning = True, decoding = False, load_previous_file = False, save_raw_data = False)
+
 
 def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
@@ -17,10 +42,13 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Creating new variable since h, syn_x, and syn_u are class members of model.py,
     and will get mofiied by functions within analysis.py
     """
+    print('h', len(h), h[0].shape)
     syn_x_stacked = np.stack(syn_x, axis=1)
     syn_u_stacked = np.stack(syn_u, axis=1)
     h_stacked = np.stack(h, axis=1)
+    print('h_stacked', h_stacked.shape)
     trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+    mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
 
     save_fn = par['save_dir'] + par['save_fn']
     if load_previous_file:
@@ -30,7 +58,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
             'model_performance': model_performance,
             'parameters': par,
             'weights': weights,
-            'trial_time': trial_time}
+            'trial_time': trial_time,
+            'mean_h': mean_h}
 
     pickle.dump(results, open(save_fn, 'wb') )
     print('Analysis results saved in ', save_fn)
@@ -409,6 +438,11 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
             test_length = trial_length - test_onset[t]
             trial_ind = np.where(trial_info['rule']==r)[0]
             train_mask = mask[test_onset[t]:,trial_ind]
+            print('h', h.shape)
+            print('trial_length',trial_length)
+            print('test_length',test_length)
+            print('test_onset',test_onset)
+            print('trial_info', trial_info['neural_input'].shape)
             x = np.split(trial_info['neural_input'][:,test_onset[t]:,trial_ind],test_length,axis=1)
             y = trial_info['desired_output'][:,test_onset[t]:,trial_ind]
 
