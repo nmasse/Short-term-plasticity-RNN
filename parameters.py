@@ -34,12 +34,9 @@ par = {
     # Timings and rates
     'dt'                    : 10,
     'learning_rate'         : 2e-2,
-    'membrane_time_constant': 100,
+    'membrane_time_constant': 20,
     'connection_prob'       : 1,         # Usually 1
 
-    # Dropout setup
-    'keep_prob'             : 0.0,
-    'dropout_dist'          : 'uniform',
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -53,7 +50,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 2e-4,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -64,7 +61,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 3000,
+    'num_iterations'        : 2000,
     'iters_between_outputs' : 100,
 
     # Task specs
@@ -285,6 +282,9 @@ def update_dependencies():
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 
+    par['gate'] = np.ones((par['n_hidden'], par['num_time_steps'], par['batch_train_size']), dtype = np.float32)
+    for i in range(0, par['num_time_steps'], 3):
+        par['gate'][:, i, :] = 0
 
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###

@@ -30,6 +30,9 @@ class Model:
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
 
+        self.gate = tf.constant(par['gate'])
+        self.gate = tf.unstack(self.gate, axis=1)
+
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
 
@@ -81,14 +84,15 @@ class Model:
         """
         Loop through the neural inputs to the RNN, indexed in time
         """
-        for rnn_input in x_unstacked:
-            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
+        #for rnn_input in x_unstacked:
+        for rnn_input, g in zip(x_unstacked, self.gate):
+            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u, g)
             self.hidden_state_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
 
 
-    def rnn_cell(self, rnn_input, h, syn_x, syn_u):
+    def rnn_cell(self, rnn_input, h, syn_x, syn_u, gate):
 
         """
         Main computation of the recurrent network
@@ -144,6 +148,8 @@ class Model:
                        + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
                        + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
+        h *= gate
+
 
         return h, syn_x, syn_u
 
@@ -231,6 +237,7 @@ def main(gpu_id):
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
+
     config = tf.ConfigProto()
     config.gpu_options.allow_growth=True
 
@@ -256,8 +263,9 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
-            #print('catch pct ', np.mean(trial_info['catch']))
-
+            for k in range(0, par['num_time_steps'], 3):
+                trial_info['train_mask'][k,:] = 0
+                trial_info['train_mask'][k+1,:] = 0
             """
             Run the model
             """
