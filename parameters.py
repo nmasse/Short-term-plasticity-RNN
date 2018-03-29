@@ -20,7 +20,7 @@ par = {
     'analyze_model'         : True,
 
     # Network configuration
-    'synapse_config'        : None, # Full is 'std_stf'
+    'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
@@ -28,12 +28,12 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 12,
-    'n_hidden'              : 200,
+    'n_hidden'              : 100,
     'n_output'              : 3,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 1e-2,
+    'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -44,8 +44,8 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.05,
-    'noise_rnn_sd'          : 0.05,
+    'noise_in_sd'           : 0.1,
+    'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -53,8 +53,8 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-12,
-    'wiring_cost'           : 0e-7,
+    'spike_cost'            : 2e-2,
+    'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -65,13 +65,13 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 3000,
-    'iters_between_outputs' : 50,
+    'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
-    'fix_time'              : 300,
+    'fix_time'              : 500,
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
@@ -89,8 +89,8 @@ par = {
 
     # Analysis
     'svm_normalize'         : True,
-    'decoding_reps'         : 20,
-    'simulation_reps'       : 0,
+    'decoding_reps'         : 100,
+    'simulation_reps'       : 5,
     'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
@@ -120,7 +120,8 @@ Parameters to be used after running analysis
 revert_analysis_par = {
     'analyze_model'         : True,
     'load_previous_model'   : False,
-    'decoding_test_mode'    : False
+    'decoding_test_mode'    : False,
+    'learning_rate'         : par['learning_rate']
 }
 
 
@@ -136,7 +137,7 @@ def update_parameters(updates):
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
-        print('Updating ', key)
+        #print('Updating ', key)
 
     update_trial_params()
     update_dependencies()
