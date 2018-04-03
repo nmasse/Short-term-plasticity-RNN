@@ -20,9 +20,8 @@ def plot_all_figures():
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
 
-    #plot_SF2_v2(fig_params)
-    plot_S_learning(fig_params)
-    #plot_SF2_v2(fig_params)
+    #plot_S_learning(fig_params)
+    plot_SF4(fig_params)
     #plot_F3(fig_params)
     #plot_F4(fig_params)
     #plot_summary_figure(fig_params)
@@ -1926,7 +1925,8 @@ def plot_F5(fig_params):
             add_ABBA_subplot_details(ax, 'tuning')
             ax.plot(t, u,'k')
             ax.fill_between(t, u-sd, u+sd, color=[0,0,0,0.5])
-            col = [[0,0,1],[1,0,0],[0,1,0],[0,1,1]]
+            #col = [[0,0,1],[1,0,0],[0,1,0],[0,1,1]]
+            col = [[0,0,1], [1,0,0],[0,1,0], [1,165/255,0]]
             for j in range(4):
                 u = np.mean(tuning_sim_shuffled[j,:good_model_count,:],axis=0)
                 sd = np.std(tuning_sim_shuffled[j,:good_model_count,:],axis=0)/np.sqrt(good_model_count)
@@ -1944,10 +1944,10 @@ def plot_F5(fig_params):
             ax = f.add_subplot(4,2,8)
             p0, p1, p2, p3, p4 = ax.bar([0,1,2,3,4], acc, yerr=acc_se)
             p0.set_facecolor('k')
-            p1.set_facecolor('b')
-            p2.set_facecolor('r')
-            p3.set_facecolor('g')
-            p4.set_facecolor('c')
+            p1.set_facecolor(col[0])
+            p2.set_facecolor(col[1])
+            p3.set_facecolor(col[2])
+            p4.set_facecolor(col[3])
             ax.set_ylabel('Behavioral accuracy')
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
