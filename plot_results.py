@@ -206,7 +206,7 @@ def plot_SF4(fig_params):
                 continue
             count += 1
             #print(tasks[n], count, np.mean(x['accuracy']))
-            if np.mean(x['accuracy']) >  0.85:
+            if np.mean(x['accuracy']) >  0.9:
                 print(n, np.mean(x['accuracy']))
                 delay_accuracy[good_model_count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
                 neuronal_decoding[good_model_count,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
