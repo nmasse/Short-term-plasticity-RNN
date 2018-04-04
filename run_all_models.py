@@ -7,12 +7,12 @@ import sys
 task_list = ['DMS']
 
 
-for j in range(3,40, 4):
+for j in range(1, 80, 2):
     for task in task_list:
         print('Training network on ', task,' task, network model number ', j)
 
-        save_fn = task + '_delay3000_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn, 'delay_time': 3000, 'num_iterations': 2000}
+        save_fn = task + '_delay2500_' + str(j) + '.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn, 'delay_time': 2500, 'num_iterations': 2000}
         """
         updates = {'trial_type': task, 'save_fn': save_fn, \
             'save_dir':'/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_motifs/', \
