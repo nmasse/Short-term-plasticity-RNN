@@ -118,7 +118,7 @@ def plot_SF4(fig_params):
     tasks = ['DMS', 'DMS_stp_fast']
     num_tasks = len(tasks)
     model_signficance = np.zeros((num_tasks))
-    f = plt.figure(figsize=(8,5))
+    f = plt.figure(figsize=(8,6))
     p_val = 0.025
 
     for n in range(num_tasks):
@@ -167,7 +167,7 @@ def plot_SF4(fig_params):
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
         #ax.set_xticks([0,500,2000+n*500])
-        ax.set_xticks([0,500,2000])
+        ax.set_xticks([0,500,1500])
         ax.set_ylim([0,1.02])
         #ax.set_xlim([-500,2000+n*500])
         ax.set_xlim([-500,2000])
@@ -186,7 +186,7 @@ def plot_SF4(fig_params):
 
     for n in range(num_tasks):
 
-        delay_epoch = range((2150+(n+1)*500)//fig_params['dt'],(2250)//fig_params['dt'])
+        delay_epoch = range((2150+(n+1)*500)//fig_params['dt'],(2250+(n+1)*500)//fig_params['dt'])
         t = range(-750,2000+500*(n+1),fig_params['dt'])
         # load following results from each task
         delay_accuracy = np.zeros((fig_params['models_per_task']), dtype=np.float32)
@@ -195,7 +195,7 @@ def plot_SF4(fig_params):
 
         good_model_count = 0
         count = 0
-        while good_model_count < fig_params['models_per_task'] and count < 50:
+        while good_model_count < fig_params['models_per_task'] and count < 90:
             task_name = tasks[n] + '_' + str(count)
             try:
                 x = pickle.load(open(fig_params['data_dir'] + task_name + '.pkl', 'rb'))
@@ -230,7 +230,7 @@ def plot_SF4(fig_params):
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
-        ax.set_xticks([0,500,2000+(n+1)*500])
+        ax.set_xticks([0,500,1500+(n+1)*500])
         #ax.set_xticks([0,500,2000])
         ax.set_ylim([0,1.02])
         ax.set_xlim([-500,2000+(n+1)*500])
