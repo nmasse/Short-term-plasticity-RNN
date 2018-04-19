@@ -4,14 +4,6 @@ import os
 
 print("--> Loading parameters...")
 
-global par, analysis_par
-
-"""
-Independent parameters
-"""
-
-rnd_save_suffix = np.random.randint(10000)
-
 par = {
     # Setup parameters
     'save_dir'              : './savedir_2000batches/',
@@ -20,32 +12,29 @@ par = {
     'analyze_model'         : True,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
+    'var_delay'             : True,
 
     # Network shape
-    'num_motion_tuned'      : 36,
+    'num_motion_tuned'      : 16,
     'num_fix_tuned'         : 0,
-    'num_rule_tuned'        : 12,
-    'n_hidden'              : 100,
+    'num_rule_tuned'        : 0,
+    'n_hidden'              : 40,
     'n_output'              : 3,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 4e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
-    # Dropout setup
-    'keep_prob'             : 0.0,
-    'dropout_dist'          : 'uniform',
 
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
     'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_rnn_sd'          : 0.2,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -53,7 +42,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 1e-4,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -63,20 +52,20 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
-    'num_iterations'        : 3000,
-    'iters_between_outputs' : 100,
+    'batch_train_size'      : 64,
+    'num_iterations'        : 20000,
+    'iters_between_outputs' : 5,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 250,
-    'fix_time'              : 500,
-    'sample_time'           : 500,
-    'delay_time'            : 1000,
-    'test_time'             : 500,
-    'variable_delay_max'    : 300,
-    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'dead_time'             : 100,
+    'fix_time'              : 100,
+    'sample_time'           : 200,
+    'delay_time'            : 400,
+    'test_time'             : 100,
+    'variable_delay_max'    : 200,
+    'mask_duration'         : 30,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -84,8 +73,6 @@ par = {
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
-    'ckpt_save_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
-    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
 
     # Analysis
     'svm_normalize'         : True,
@@ -239,6 +226,7 @@ def update_dependencies():
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
+
     # Possible rules based on rule type values
     #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
 
@@ -380,6 +368,93 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+
+    """
+    params for learning to learn model
+    """
+    par['target_transforms'] = []
+
+    rnn_targets = np.zeros((par['n_hidden'], par['n_hidden']), dtype = np.uint16)
+    inp_targets = np.zeros((par['n_hidden'], par['n_input']), dtype = np.uint16)
+    for i in range(par['n_hidden']):
+        rnn_targets[i,:] = i
+        inp_targets[i,:] = i
+
+    # input --> EXC
+    ind = np.reshape(inp_targets[:par['num_exc_units'], :], (-1))
+    print(ind.shape)
+    print(40*36)
+    print(ind.shape, len(ind))
+    t_inp_exc = np.zeros((par['num_exc_units']*par['n_input'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_inp_exc[j, ind[j]] = 1
+
+    # input --> INH
+    ind = np.reshape(inp_targets[par['num_exc_units']:, :], (-1))
+    t_inp_inh = np.zeros((par['num_inh_units']*par['n_input'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_inp_inh[j, ind[j]] = 1
+
+    # EXC --> EXC
+    ind = np.reshape(rnn_targets[:par['num_exc_units'], :par['num_exc_units']], (-1))
+    t_exc_exc = np.zeros((par['num_exc_units']*par['num_exc_units'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_exc_exc[j, ind[j]] = 1
+
+    # EXC --> INH
+    ind = rnn_targets[par['num_exc_units']:, :]
+    ind = np.reshape(ind[:, :par['num_exc_units']], (-1))
+    t_exc_inh = np.zeros((par['num_inh_units']*par['num_exc_units'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_exc_inh[j, ind[j]] = 1
+
+    # INH --> EXC
+    ind = rnn_targets[:par['num_exc_units'], :]
+    ind = np.reshape(ind[:, par['num_exc_units']:], (-1))
+    t_inh_exc = np.zeros((par['num_inh_units']*par['num_exc_units'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_inh_exc[j, ind[j]] = 1
+
+    # INH --> INH
+    ind = np.reshape(rnn_targets[par['num_exc_units']:, par['num_exc_units']:], (-1))
+    t_inh_inh = np.zeros((par['num_inh_units']*par['num_inh_units'], par['n_hidden']), dtype = np.float32)
+    for j in range(len(ind)):
+        t_inh_inh[j, ind[j]] = 1
+
+    par['target_transforms'].append(t_inp_exc)
+    par['target_transforms'].append(t_inp_inh)
+    par['target_transforms'].append(t_exc_exc)
+    par['target_transforms'].append(t_exc_inh)
+    par['target_transforms'].append(t_inh_exc)
+    par['target_transforms'].append(t_inh_inh)
+
+    par['synaptic_current_sizes'] = []
+    par['synaptic_current_sizes'].append([par['n_input']*par['num_exc_units'], par['batch_train_size']])
+    par['synaptic_current_sizes'].append([par['n_input']*par['num_inh_units'], par['batch_train_size']])
+    par['synaptic_current_sizes'].append([par['num_exc_units']*par['num_exc_units'], par['batch_train_size']])
+    par['synaptic_current_sizes'].append([par['num_exc_units']*par['num_inh_units'], par['batch_train_size']])
+    par['synaptic_current_sizes'].append([par['num_exc_units']*par['num_inh_units'], par['batch_train_size']])
+    par['synaptic_current_sizes'].append([par['num_inh_units']*par['num_inh_units'], par['batch_train_size']])
+
+
+
+
+
+
+    T_inp_exc = np.zeros((par['n_hidden'], par['n_hidden']))
+
+
+    par['input_to_hidden_associations'] = np.zeros((par['n_hidden'], par['n_input']))
+    par['hidden_to_hidden_associations'] = np.zeros((par['n_hidden'], par['n_hidden']))
+    for i in range(par['n_hidden']):
+        par['input_to_hidden_associations'][i,:] = i
+        par['hidden_to_hidden_associations'][i,:] = i
+
+
+
+
+
 
 def initialize(dims, connection_prob):
     w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
