@@ -6,7 +6,6 @@ Contributions from Gregory Grant, Catherine Lee
 import tensorflow as tf
 import numpy as np
 import stimulus
-import time
 import analysis
 from parameters import *
 import os, sys
@@ -238,10 +237,9 @@ def main(gpu_id = None):
                 model = Model(x, y, mask)
         init = tf.global_variables_initializer()
         sess.run(init)
-        t_start = time.time()
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
+        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
 
         for i in range(par['num_iterations']):
 
@@ -258,16 +256,13 @@ def main(gpu_id = None):
 
             accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
-            iteration_time = time.time() - t_start
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, \
-                spike_loss, (i+1)*N, iteration_time)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N)
 
             """
             Save the network model and output model performance to screen
             """
             if i%par['iters_between_outputs']==0 and i > 0:
-                print_results(i, N, iteration_time, perf_loss, spike_loss, state_hist, accuracy)
-
+                print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
 
         """
         Save model, analyze the network model and save the results
@@ -289,14 +284,13 @@ def main(gpu_id = None):
 
 
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
+def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num):
 
     model_performance['accuracy'].append(accuracy)
     model_performance['loss'].append(loss)
     model_performance['perf_loss'].append(perf_loss)
     model_performance['spike_loss'].append(spike_loss)
     model_performance['trial'].append(trial_num)
-    model_performance['time'].append(iteration_time)
 
     return model_performance
 
@@ -321,7 +315,7 @@ def eval_weights():
 
     return weights
 
-def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
+def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, state_hist, accuracy):
 
     print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
       ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
