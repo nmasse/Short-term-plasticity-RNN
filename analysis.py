@@ -21,7 +21,6 @@ def analyze_model_from_file(filename, savefile = None):
     stim = stimulus.Stimulus()
     trial_info = stim.generate_trial()
     input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
-    print('input_data', len(input_data), input_data[0].shape)
 
     y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
         x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
@@ -42,7 +41,6 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     Creating new variable since h, syn_x, and syn_u are class members of model.py,
     and will get mofiied by functions within analysis.py
     """
-    print('h', len(h), h[0].shape)
     syn_x_stacked = np.stack(syn_x, axis=1)
     syn_u_stacked = np.stack(syn_u, axis=1)
     h_stacked = np.stack(h, axis=1)
