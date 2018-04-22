@@ -33,9 +33,6 @@ par = {
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
-    # Dropout setup
-    'keep_prob'             : 0.0,
-    'dropout_dist'          : 'uniform',
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -76,7 +73,6 @@ par = {
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
-    'decoding_test_mode'    : False,
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
@@ -91,29 +87,6 @@ par = {
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
 
-}
-
-"""
-Parameters to be used before running analysis
-"""
-analysis_par = {
-    'analyze_model'         : True,
-    'load_previous_model'   : True,
-    'num_iterations'        : 1,
-    'batch_train_size'      : 1024,
-    'var_delay'             : False,
-    'learning_rate'         : 0,
-    'catch_trial_pct'       : 0.0,
-}
-
-"""
-Parameters to be used after running analysis
-"""
-revert_analysis_par = {
-    'analyze_model'         : True,
-    'load_previous_model'   : False,
-    'decoding_test_mode'    : False,
-    'learning_rate'         : par['learning_rate']
 }
 
 
