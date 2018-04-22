@@ -200,16 +200,10 @@ class Model:
         self.train_op = opt.apply_gradients(capped_gvs)
 
 
-def train_and_analyze(gpu_id):
+def main(gpu_id = None):
 
-    tf.reset_default_graph()
-    main(gpu_id)
-    update_parameters(revert_analysis_par)
-
-
-def main(gpu_id):
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+    if gpu_id is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
 
     """
     Reset TensorFlow before running anything
@@ -232,22 +226,19 @@ def main(gpu_id):
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
     config = tf.ConfigProto()
-    config.gpu_options.allow_growth=True
+    #config.gpu_options.allow_growth=True
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session(config=config) as sess:
 
-        with tf.device("/gpu:0"):
+        if gpu_id is not None:
             model = Model(x, y, mask)
-            init = tf.global_variables_initializer()
+        else:
+            with tf.device("/gpu:0"):
+                model = Model(x, y, mask)
+        init = tf.global_variables_initializer()
         sess.run(init)
         t_start = time.time()
-
-        saver = tf.train.Saver()
-        # Restore variables from previous model if desired
-        if par['load_previous_model']:
-            saver.restore(sess, par['save_dir'] + par['ckpt_load_fn'])
-            print('Model ' +  par['ckpt_load_fn'] + ' restored.')
 
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': [], 'time': []}
@@ -256,7 +247,6 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
-            #print('catch pct ', np.mean(trial_info['catch']))
 
             """
             Run the model
@@ -289,29 +279,16 @@ def main(gpu_id):
                 simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
-            # Generate another batch of trials with decoding_test_mode = True (sample and test stimuli
+            # Generate another batch of trials with test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
-            update = {'decoding_test_mode': True, 'learning_rate': 0}
             update_parameters(update)
-            trial_info = stim.generate_trial()
+            trial_info = stim.generate_trial(test_mode = True)
             y_hat, state_hist, syn_x_hist, syn_u_hist = \
                 sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
 
-            if False and par['trial_type'] == 'dualDMS':
-                # run an additional session with probe stimuli
-                save_fn = 'probe_' + par['save_fn']
-                update = {'probe_trial_pct': 1, 'save_fn': save_fn}
-                update_parameters(update)
-                trial_info = stim.generate_trial()
-                y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                    sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
-                    {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
-                analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, \
-                    syn_u_hist, model_performance, weights, simulation = False, tuning = False, decoding = True, \
-                    load_previous_file = False, save_raw_data = False)
 
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num, iteration_time):
@@ -348,6 +325,6 @@ def eval_weights():
 
 def print_results(iter_num, trials_per_iter, iteration_time, perf_loss, spike_loss, state_hist, accuracy):
 
-    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(np.mean(accuracy)) +
-      ' | Perf loss {:0.4f}'.format(np.mean(perf_loss)) + ' | Spike loss {:0.4f}'.format(np.mean(spike_loss)) +
+    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
+      ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))

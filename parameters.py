@@ -4,17 +4,13 @@ import os
 
 print("--> Loading parameters...")
 
-global par, analysis_par
-
 """
 Independent parameters
 """
 
-rnd_save_suffix = np.random.randint(10000)
-
 par = {
     # Setup parameters
-    'save_dir'              : './savedir_2000batches/',
+    'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -64,8 +60,8 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 3000,
-    'iters_between_outputs' : 100,
+    'num_iterations'        : 2000,
+    'iters_between_outputs' : 50,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -84,21 +80,17 @@ par = {
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
-    'ckpt_save_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
-    'ckpt_load_fn'          : 'model' + str(rnd_save_suffix) + '.ckpt',
 
     # Analysis
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
-    'simulation_reps'       : 5,
+    'simulation_reps'       : 100,
     'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
 
-
-    'ABBA_delay'            : 0
 }
 
 """
@@ -150,6 +142,7 @@ def update_trial_params():
 
     par['num_rules'] = 1
     par['num_rule_tuned'] = 0
+    par['ABBA_delay' ] = 0
 
     if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         par['rotation_match'] = 0
@@ -190,7 +183,6 @@ def update_trial_params():
         par['max_num_tests'] = 3
         par['sample_time'] = 400
         par['delay_time'] = 2400
-        #par['spike_cost'] = 1e-2
         par['ABBA_delay'] = par['delay_time']//par['max_num_tests']//2
         par['repeat_pct'] = 0
         par['analyze_test'] = True
@@ -271,10 +263,6 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
-    # General event profile info
-    #par['name_of_stimulus'], par['date_stimulus_created'], par['author_of_stimulus_profile'] = get_profile(par['profile_path'])
-    # List of events that occur for the network
-    #par['events'] = get_events(par['profile_path'])
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
@@ -297,21 +285,21 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in0'] = initialize(par['input_to_hidden_dims'], par['connection_prob'])
+    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob'])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
+        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
-        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32) - np.eye(par['n_hidden'])
+        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
         par['w_rnn0'] = 0.54*np.eye(par['n_hidden'])
-        par['w_rnn_mask'] = np.ones((par['hidden_to_hidden_dims']), dtype=np.float32)
+        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
 
     par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
 
@@ -320,10 +308,6 @@ def update_dependencies():
 
     if par['synapse_config'] == None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
-        #print('SR ',spectral_radius(par['w_rnn0']))
-        #par['w_rnn0'] *= 0.3
-        #print('SR ',spectral_radius(par['w_rnn0']))
-        #par['w_rnn0'][:, par['num_exc_units']:] *= par['exc_inh_prop']/(1-par['exc_inh_prop'])
 
 
     # Initialize output weights and biases

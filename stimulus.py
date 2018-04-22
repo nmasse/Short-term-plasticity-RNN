@@ -11,19 +11,19 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self):
+    def generate_trial(self, test_mode = False):
 
 
         if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC']:
-            trial_info = self.generate_motion_working_memory_trial()
+            trial_info = self.generate_basic_trial(test_mode)
         elif par['trial_type'] in ['ABBA','ABCA']:
-            trial_info = self.generate_ABBA_trial()
+            trial_info = self.generate_ABBA_trial(test_mode)
         elif par['trial_type'] == 'dualDMS':
-            trial_info = self.generate_dualDMS_trial()
+            trial_info = self.generate_dualDMS_trial(test_mode)
 
         return trial_info
 
-    def generate_dualDMS_trial(self):
+    def generate_dualDMS_trial(self, test_mode):
 
         """
         Generate a trial based on "Reactivation of latent working memories with transcranial magnetic stimulation"
@@ -112,7 +112,7 @@ class Stimulus:
             # determine test stimulu based on sample and match status
             for i in range(2):
 
-                if par['decoding_test_mode']:
+                if test_mode:
                     trial_info['test'][t,i,0] = np.random.randint(par['num_motion_dirs'])
                     trial_info['test'][t,i,1] = np.random.randint(par['num_motion_dirs'])
                 else:
@@ -198,7 +198,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_motion_working_memory_trial(self):
+    def generate_basic_trial(self, test_mode):
 
         """
         Generate a delayed matching task
@@ -252,7 +252,7 @@ class Stimulus:
             Generate trial paramaters
             """
             sample_dir = np.random.randint(par['num_motion_dirs'])
-            if par['decoding_test_mode']:
+            if test_mode:
                 test_dir = np.random.randint(par['num_motion_dirs'])
             rule = np.random.randint(par['num_rules'])
             if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1) or (par['trial_type'] == 'DMS+DMRS+DMC' and rule == 2):
@@ -293,7 +293,7 @@ class Stimulus:
             Generate the sample and test stimuli based on the rule
             """
             # DMC
-            if not par['decoding_test_mode']:
+            if not test_mode:
                 if current_trial_DMC: # categorize between two equal size, contiguous zones
                     sample_cat = np.floor(sample_dir/(par['num_motion_dirs']/2))
                     if match == 1: # match trial
@@ -312,12 +312,6 @@ class Stimulus:
                     if match == 1: # match trial
                         test_dir = matching_dir
                     else:
-                        """
-                        if limit_test_directions:
-                            possible_dirs = [(matching_dir+1)%par['num_motion_dirs'], (matching_dir-1)%par['num_motion_dirs'], \
-                                (matching_dir+2)%par['num_motion_dirs'], (matching_dir-2)%par['num_motion_dirs']]
-                        else:
-                        """
                         possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
 
@@ -346,7 +340,7 @@ class Stimulus:
             """
             trial_info['desired_output'][0, eodead:eod_current, t] = 1
             if not catch:
-                trial_info['train_mask'][ eod_current:, t] = 8/5
+                trial_info['train_mask'][ eod_current:, t] = 1 # can use a greater weight for test period if needed
                 if match == 0:
                     trial_info['desired_output'][1, eod_current:, t] = 1
                 else:
@@ -364,17 +358,10 @@ class Stimulus:
             trial_info['catch'][t] = catch
             trial_info['match'][t] = match
 
-
-        # debugging: plot the neural input activity
-
-        #self.plot_neural_input(trial_info)
-        #quit
-
         return trial_info
 
 
-
-    def generate_ABBA_trial(self):
+    def generate_ABBA_trial(self, test_mode):
 
         """
         Generate ABBA trials
@@ -431,7 +418,7 @@ class Stimulus:
             stim_dirs = [sample_dir]
             test_stim_code = 0
 
-            if par['decoding_test_mode']:
+            if test_mode:
                 # used to analyze how sample and test neuronal and synaptic tuning relate
                 # not used to evaluate task accuracy
                 while len(stim_dirs) <= par['max_num_tests']:
@@ -441,7 +428,6 @@ class Stimulus:
                 while len(stim_dirs) <= par['max_num_tests']:
                     if np.random.rand() < par['match_test_prob']:
                         stim_dirs.append(sample_dir)
-                        #break
                     else:
                         if len(stim_dirs) > 1  and np.random.rand() < par['repeat_pct']:
                             #repeat last stimulus
@@ -471,14 +457,12 @@ class Stimulus:
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_rng, t] = 1
                     trial_info['match'][t,i] = 1
-                    #trial_info['train_mask'][eos+(2*i+2)*ABBA_delay:, t] = 0
                 else:
                     trial_info['desired_output'][1, test_rng, t] = 1
 
             trial_info['sample'][t] = sample_dir
 
         return trial_info
-
 
 
     def create_tuning_functions(self):
@@ -541,14 +525,3 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
-
-        """
-        f = plt.figure(figsize=(9,4))
-        ax = f.add_subplot(1, 3, 1)
-        ax.imshow(trial_info['sample_dir'],interpolation='none',aspect='auto')
-        ax = f.add_subplot(1, 3, 2)
-        ax.imshow(trial_info['test_dir'],interpolation='none',aspect='auto')
-        ax = f.add_subplot(1, 3, 3)
-        ax.imshow(trial_info['match'],interpolation='none',aspect='auto')
-        plt.show()
-        """

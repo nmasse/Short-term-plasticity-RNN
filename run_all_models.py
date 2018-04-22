@@ -7,34 +7,28 @@ import sys
 task_list = ['DMS']
 
 
-for j in range(1, 80, 2):
+def try_model(gpu_id):
+
+    try:
+        # Run model
+        model.main(gpu_id)
+    except KeyboardInterrupt:
+        quit('Quit by KeyboardInterrupt')
+
+# Second argument will select the GPU to use
+# Don't enter a second argument if you want TensorFlow to select the GPU/CPU
+try:
+    gpu_id = sys.argv[1]
+    print('Selecting GPU ', gpu_id)
+except:
+    gpu_id = None
+
+
+for j in range(20):
     for task in task_list:
         print('Training network on ', task,' task, network model number ', j)
 
-        save_fn = task + '_delay2500_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn, 'delay_time': 2500, 'num_iterations': 2000}
-        """
-        updates = {'trial_type': task, 'save_fn': save_fn, \
-            'save_dir':'/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_motifs/', \
-            'var_delay': True,'learning_rate':2e-2, 'decoding_test_mode':False,'n_hidden':100,'synapse_config':'std_stf','num_iterations':2000}
-        """
+        save_fn = task + '_' + str(j) + '.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn}
         update_parameters(updates)
-
-
-        # Keep the try-except clauses to ensure proper GPU memory release
-        try:
-            # GPU designated by first argument (must be integer 0-3)
-            try:
-                print('Selecting GPU ',  sys.argv[1])
-                assert(int(sys.argv[1]) in [0,1,2,3])
-            except AssertionError:
-                quit('Error: Select a valid GPU number.')
-
-            # Run model
-            model.train_and_analyze(sys.argv[1])
-        except KeyboardInterrupt:
-            quit('Quit by KeyboardInterrupt')
-
-
-# Command for observing python processes:
-# ps -A | grep python
+        try_model(gpu_id)
