@@ -20,93 +20,9 @@ def plot_all_figures():
         'N'                     : 100, # bootstrap iterations
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
 
-    #plot_S_learning(fig_params)
-    plot_SF4(fig_params)
-    #plot_F3(fig_params)
-    #plot_F4(fig_params)
-    #plot_summary_figure(fig_params)
-    #plot_F5(fig_params)
-    #plot_F6_v2(fig_params)
-    #plot_S_learning(fig_params)
 
+    plot_F3(fig_params)
 
-
-
-def plot_SFX(fig_params):
-
-    task_name = 'DMRS45_51'
-    x = pickle.load(open(fig_params['data_dir'] + task_name + '.pkl', 'rb'))
-    t = range(-900,2000,fig_params['dt'])
-
-    early_sample_time = 40+50+5 # 100 ms into sample epoch
-    late_sample_time = 40+50+50 # 500 ms into sample epoch
-    test_time = 40+50+50+100+5
-
-    f = plt.figure(figsize=(7,5))
-    chance_level = 1/8
-
-    # plot neuronal decoding accuracy of the DMS and DMRs90 tasks
-    ax = f.add_subplot(2, 2, 1)
-    ax.plot(t,np.mean(x['neuronal_decoding'][0,0,:,:],axis=0),'g')
-    ax.plot(t,np.mean(x['synaptic_decoding'][0,0,:,:],axis=0),'m')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.xaxis.set_ticks_position('bottom')
-    ax.yaxis.set_ticks_position('left')
-    ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
-    ax.set_xticks([0,500,1500-10])
-    ax.set_ylim([0,1.02])
-    ax.set_xlim([-500,1500-10])
-    ax.plot([-900,2000],[chance_level,chance_level],'k--')
-    ax.plot([0,0],[0,1],'k--')
-    ax.plot([500,500],[0,1],'k--')
-    ax.set_ylabel('Decoding accuracy')
-    ax.set_xlabel('Time relative to sample onset (ms)')
-
-    # select neurons that are selective for both tasks
-    ind = np.where((x['neuronal_pev'][:,0,early_sample_time]>0.1)*(x['neuronal_pev'][:,0,early_sample_time]<1))[0]
-
-    # calculate the angular differences between the preferred directiosn measured in each tasks
-    diff_early = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,early_sample_time] \
-        -1j*x['neuronal_pref_dir'][ind,0,late_sample_time]))/np.pi*180
-    #diff_late = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind_late,0,late_sample_time] \
-    #    -1j*x['neuronal_pref_dir'][ind_late,1,late_sample_time]))/np.pi*180
-
-    diff_early_test = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,early_sample_time] \
-        -1j*x['neuronal_pref_dir_test'][ind,0,test_time]))/np.pi*180
-    diff_late_test = np.angle(np.exp(1j*x['neuronal_pref_dir'][ind,0,late_sample_time] \
-        -1j*x['neuronal_pref_dir_test'][ind,0,test_time]))/np.pi*180
-
-    bins = np.arange(-180,180,30)
-    ax = f.add_subplot(2, 2, 2)
-    ax.hist(diff_early, bins = bins)
-    ax.set_xticks([-180,-90,0,90,180])
-    ax.set_ylim([0,20])
-    ax.set_ylabel('Count')
-    ax.set_xlabel('Difference in preferred direction')
-
-    ax = f.add_subplot(2, 2, 3)
-    ax.hist(diff_early_test, bins = bins)
-    ax.set_xticks([-180,-90,0,90,180])
-    ax.set_ylim([0,20])
-    ax.set_ylabel('Count')
-
-    ax = f.add_subplot(2, 2, 4)
-    ax.hist(diff_late_test, bins = bins)
-    ax.set_xticks([-180,-90,0,90,180])
-    ax.set_ylim([0,20])
-    ax.set_ylabel('Count')
-    ax.set_xlabel('Difference in preferred direction')
-
-    #x = f.add_subplot(2, 3, 5)
-    #ax.hist(diff_late_test, bins = bins)
-    #ax.set_xticks([-180,-90,0,90,180])
-    #ax.set_ylim([0,20])
-    #ax.set_ylabel('Count')
-
-    plt.tight_layout()
-    plt.savefig('FigS2.pdf', format='pdf')
-    plt.show()
 
 
 def plot_SF4(fig_params):
@@ -482,43 +398,7 @@ def plot_SF2_v2(fig_params):
         p = scipy.stats.ttest_1samp(m,0)[1]
         print(' p = ', p)
 
-    """
-    #ax = f.add_subplot(4, 5, 5)
-    ax = f.add_subplot(4, 2, 2)
-    for i in range(4):
-        m = np.mean(np.mean(diff_min_n[:,neuron_ind[i],:],axis=1),axis=0)
-        ax.plot(phases2,m,color = col[i])
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.set_xlim([-0,180])
-        ax.set_xticks([0,45,90,135,180])
 
-    #ax = f.add_subplot(4, 5, 10)
-    ax = f.add_subplot(4, 2, 4)
-    for i in range(4):
-        m = np.mean(np.mean(diff_min_s[:,neuron_ind[i],:],axis=1),axis=0)
-        ax.plot(phases2,m,color = col[i])
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.set_xlim([-0,180])
-        ax.set_xticks([0,45,90,135,180])
-
-    #ax = f.add_subplot(4, 5, 15)
-    ax = f.add_subplot(4, 2, 6)
-    for i in range(4):
-        m = np.mean(np.mean(diff_min_s_late[:,neuron_ind[i],:],axis=1),axis=0)
-        ax.plot(phases2,m,color = col[i])
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.set_xlim([-0,180])
-        ax.set_xticks([0,45,90,135,180])
-    """
     #ax = f.add_subplot(4, 5, 16)
     ax = f.add_subplot(2, 4, 5)
     m = np.mean(acc_shuffled[:,1:],axis=0)
@@ -1061,25 +941,7 @@ def plot_F3(fig_params):
             ax.set_ylabel('Behavioral accuracy')
             ax.set_xlabel('Delay neuronal decoding')
 
-        """
 
-
-        ax = f.add_subplot(num_tasks, 2, 2*n+2)
-        ax.plot(np.mean(accuracy_neural_shuffled[n,:,:],axis=1), accuracy_suppression[n,:,1],'k.')
-        #ax.plot([chance_level,chance_level],[0,1],'k--')
-        ax.set_aspect(1.02/0.62)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.set_yticks([0,0.5,0.6,0.7,0.8,0.9,1])
-        ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
-        ax.set_ylim([0.4,1.02])
-        ax.set_xlim([0,1.02])
-        if n == num_tasks-1:
-            ax.set_ylabel('Behavioral accuracy')
-            ax.set_xlabel('Behavioral accuracy - neuronal activity shuffled')
-        """
 
     plt.tight_layout()
     plt.savefig('FigSx.pdf', format='pdf')
@@ -1099,14 +961,6 @@ def plot_F3(fig_params):
     print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling),axis=1))
     print('Number of models for which shuffling neuronal and synaptic activity decreases accuracy')
     print(np.sum((p_decrease_neuronal_shuffling)*(p_decrease_synaptic_shuffling),axis=1))
-
-    print(p_neuronal_delay.shape, accuracy_suppression.shape)
-    print('XXXX 0.9')
-    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.9),axis=1))
-    print('XXXX 0.925')
-    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.925),axis=1))
-    print('XXXX 0.95')
-    print(np.sum((1-p_neuronal_delay)*(1-p_decrease_neuronal_shuffling)*(1-p_synaptic_shuffling)*(accuracy_suppression[:,:,1]>0.95),axis=1))
 
     print('Correlations...')
     print(corr_decoding_neuronal_shuf)
@@ -1359,8 +1213,6 @@ def plot_F6_v2(fig_params):
     #ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
     ax.set_ylim([0,1])
     ax.set_xlim([0,1])
-    print('above 0.4 ', np.sum(n_mean_post[ind_uattended,2]>0.4))
-    print('above 0.25 ', np.sum(n_mean_post[ind_uattended,2]>0.25))
 
 
     n_mean = np.mean(np.mean(neuronal_rule_decoding[:,:,:,:],axis=2),axis=0)
@@ -1383,19 +1235,6 @@ def plot_F6_v2(fig_params):
     ax.fill_between(t, s_mean[1,:]-s_sd[1,:], s_mean[1,:]+s_sd[1,:], color=[1,0,1,0.5])
     add_dualDMS_subplot_details(ax, chance_level)
     ax.set_xlim([-500,3500])
-
-
-    """
-    ax = f.add_subplot(3, 2, 5)
-    ax.plot(t,n_probe_mean[2,:],color=[0,0,1])
-    ax.fill_between(t, n_probe_mean[2,:]-n_probe_sd[2,:], n_probe_mean[2,:]+n_probe_sd[0,:], color=[0,0,1,0.5])
-    ax.plot(t,n_probe_mean[3,:],color=[1,0,0])
-    ax.fill_between(t, n_probe_mean[3,:]-n_sd[3,:], n_probe_mean[3,:]+n_probe_sd[1,:], color=[1,0,0,0.5])
-    add_dualDMS_subplot_details(ax, chance_level)
-    ax.set_xlim([2000,3500])
-    """
-
-
 
 
     plt.tight_layout()
@@ -1446,7 +1285,7 @@ def plot_F6(fig_params):
             print('not found: ',  fig_params['data_dir'] + task + '_' + str(count) + '.pkl')
             continue
 
-        if np.mean(x['accuracy']) >  0.8:
+        if np.mean(x['accuracy']) >  0.9:
 
             if good_model_count == example_ind:
                 for j in range(4):
