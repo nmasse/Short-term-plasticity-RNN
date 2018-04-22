@@ -30,11 +30,9 @@ class Model:
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
 
-        self.gate = tf.constant(par['gate'])
-        self.gate = tf.unstack(self.gate, axis=1)
-
         # Load the initial hidden state activity to be used at the start of each trial
         self.hidden_init = tf.constant(par['h_init'])
+        self.membrane_init = tf.constant(par['membrane_init'])
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
@@ -53,20 +51,12 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """
-        self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
-
-        with tf.variable_scope('output'):
-            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
-            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
-
-        """
-        Network output
-        Only use excitatory projections from the RNN to the output layer
-        """
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
+        err_init = tf.constant(np.zeros((3, 1), dtype = np.float32))
+        self.rnn_cell_loop(self.hidden_init, self.membrane_init, self.synapse_x_init, \
+            self.synapse_u_init, err_init)
 
 
-    def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
+    def rnn_cell_loop(self, h, membrane, syn_x, syn_u, output_error):
 
         """
         Initialize weights and biases
@@ -76,23 +66,39 @@ class Model:
             W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
             b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
+        self.W_td_pos = tf.constant(par['w_td_pos0'])
+        self.W_td_neg = tf.constant(par['w_td_neg0'])
+        self.W_td_mse = tf.constant(par['w_td_mse0'])
+        with tf.variable_scope('output'):
+            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
+            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
 
         self.hidden_state_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
+        self.y_hat  = []
+        self.membrane_hist = []
+        self.exc_input_hist = []
+        self.inh_input_hist = []
+
 
         """
         Loop through the neural inputs to the RNN, indexed in time
         """
         #for rnn_input in x_unstacked:
-        for rnn_input, g in zip(x_unstacked, self.gate):
-            h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u, g)
+        for rnn_input, target in zip(self.input_data, self.target_data):
+            h, membrane, syn_x, syn_u, y_hat, output_error, exc_input, inh_input = \
+                self.rnn_cell(rnn_input, h, membrane, syn_x, syn_u, target, output_error)
             self.hidden_state_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
+            self.y_hat.append(y_hat)
+            self.membrane_hist.append(membrane)
+            self.exc_input_hist.append(exc_input)
+            self.inh_input_hist.append(inh_input)
 
 
-    def rnn_cell(self, rnn_input, h, syn_x, syn_u, gate):
+    def rnn_cell(self, rnn_input, h, membrane, syn_x, syn_u, target, prev_err):
 
         """
         Main computation of the recurrent network
@@ -101,6 +107,10 @@ class Model:
             W_in = tf.get_variable('W_in')
             W_rnn = tf.get_variable('W_rnn')
             b_rnn = tf.get_variable('b_rnn')
+        with tf.variable_scope('output', reuse=True):
+            W_out = tf.get_variable('W_out')
+            b_out = tf.get_variable('b_out')
+
 
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
@@ -144,14 +154,30 @@ class Model:
         Only use excitatory projections from input layer to RNN
         All input and RNN activity will be non-negative
         """
-        h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
-        h *= gate
+        h_exc = tf.matmul(par['EI_pos'], h_post)
+        h_inh = tf.matmul(par['EI_neg'], h_post)
+        """
+        exc_input = tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input)) + tf.matmul(W_rnn_effective, h_exc) + \
+            tf.matmul(self.W_td_pos, tf.nn.relu(prev_err)) + tf.matmul(self.W_td_neg, tf.nn.relu(-prev_err))
+        """
+
+        exc_input = tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input)) + tf.matmul(W_rnn_effective, h_exc) + \
+            tf.matmul(self.W_td_mse, tf.reduce_sum(tf.square(prev_err), axis = 0, keep_dims = True))
+
+        inh_input = tf.matmul(W_rnn_effective, h_inh)
+
+        membrane = membrane*(1-par['alpha_neuron']) + par['alpha_neuron']*(exc_input + inh_input + b_rnn) \
+            + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32)
+
+        h = tf.nn.relu(membrane)
+
+        y_hat = tf.matmul(tf.nn.relu(W_out), h)+b_out
+        y_hat_softmax = tf.nn.softmax(y_hat, dim = 0)
+        current_error = target - y_hat_softmax
 
 
-        return h, syn_x, syn_u
+
+        return h, membrane, syn_x, syn_u, y_hat, current_error, exc_input, inh_input
 
 
     def optimize(self):
@@ -164,9 +190,19 @@ class Model:
         """
         """
         cross_entropy
-        """
+
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        """
+
+        perf_loss_input = tf.stack([mask*tf.square(exc_input - par['exc_input_target']) \
+                for (exc_input, mask) in zip(self.exc_input_hist, self.mask)])
+
+        perf_loss_membrane = tf.stack([mask*tf.square(memb) \
+                for (memb, mask) in zip(self.membrane_hist, self.mask)])
+
+        perf_loss = 1.*perf_loss_input + 1.*perf_loss_membrane
+
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
@@ -181,7 +217,7 @@ class Model:
         self.wiring_loss = tf.reduce_sum(tf.nn.relu(W_in)) + tf.reduce_sum(tf.nn.relu(W_rnn)) + tf.reduce_sum(tf.nn.relu(W_out))
         self.wiring_loss *= par['wiring_cost']
 
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
+        self.perf_loss = tf.reduce_mean(perf_loss)
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
         self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
@@ -263,9 +299,8 @@ def main(gpu_id):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial()
-            for k in range(0, par['num_time_steps'], 3):
-                trial_info['train_mask'][k,:] = 0
-                trial_info['train_mask'][k+1,:] = 0
+
+
             """
             Run the model
             """

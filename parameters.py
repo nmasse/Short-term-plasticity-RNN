@@ -20,9 +20,9 @@ par = {
     'analyze_model'         : True,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : None, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
+    'var_delay'             : True,
 
     # Network shape
     'num_motion_tuned'      : 36,
@@ -33,8 +33,8 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
-    'membrane_time_constant': 20,
+    'learning_rate'         : 1e-2,
+    'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
 
@@ -50,7 +50,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-4,
+    'spike_cost'            : 1e-3,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -62,17 +62,17 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 2000,
-    'iters_between_outputs' : 100,
+    'iters_between_outputs' : 25,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 250,
-    'fix_time'              : 500,
-    'sample_time'           : 500,
-    'delay_time'            : 1000,
-    'test_time'             : 500,
-    'variable_delay_max'    : 300,
+    'dead_time'             : 150,
+    'fix_time'              : 150,
+    'sample_time'           : 250,
+    'delay_time'            : 900,
+    'test_time'             : 250,
+    'variable_delay_max'    : 200,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
@@ -250,6 +250,9 @@ def update_dependencies():
     par['num_exc_units'] = int(np.round(par['n_hidden']*par['exc_inh_prop']))
     par['num_inh_units'] = par['n_hidden'] - par['num_exc_units']
 
+    par['exc_input_target'] = 2*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['exc_input_target'][par['num_exc_units']:] = 8
+
     par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32)
     par['EI_list'][-par['num_inh_units']:] = -1.
 
@@ -259,6 +262,10 @@ def update_dependencies():
     par['drop_mask'][ind_inh, :] = 0.
 
     par['EI_matrix'] = np.diag(par['EI_list'])
+    par['EI_pos'] =  np.diag(np.ones(par['n_hidden'], dtype=np.float32))
+    par['EI_neg'] = np.diag(np.ones(par['n_hidden'], dtype=np.float32))
+    par['EI_pos'][:,par['num_exc_units']:] = 0
+    par['EI_neg'][:,:par['num_exc_units']] = 0
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
@@ -294,6 +301,8 @@ def update_dependencies():
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
+    par['td_dims'] = [par['n_hidden'], par['n_output']]
+    par['td_mse_dims'] = [par['n_hidden'], 1]
 
 
     # Initialize input weights
@@ -305,6 +314,11 @@ def update_dependencies():
     # If not, initializes with a diagonal matrix
     if par['EI']:
         par['w_rnn0'] = initialize(par['hidden_to_hidden_dims'], par['connection_prob'])
+        par['w_td_pos0'] = 3*initialize(par['td_dims'], par['connection_prob'])
+        par['w_td_neg0'] = 3*initialize(par['td_dims'], par['connection_prob'])
+        par['w_td_mse0'] = 8*initialize(par['td_mse_dims'], par['connection_prob'])
+        #par['w_td_pos0'][20:, :] = 0
+        #par['w_td_neg0'][20:, :] = 0
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
@@ -365,6 +379,7 @@ def update_dependencies():
     # initial synaptic values
     par['syn_x_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
     par['syn_u_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['membrane_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
 
     for i in range(par['n_hidden']):
         if par['synapse_type'][i] == 1:
