@@ -49,6 +49,9 @@ class Model:
         Run the reccurent network
         History of hidden state activity stored in self.hidden_state_hist
         """
+
+
+
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
@@ -230,11 +233,10 @@ def main(gpu_id = None):
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session(config=config) as sess:
 
-        if gpu_id is not None:
+        device = '/cpu:0' if gpu_id is None else '/gpu:0'
+        with tf.device(device):
             model = Model(x, y, mask)
-        else:
-            with tf.device("/gpu:0"):
-                model = Model(x, y, mask)
+
         init = tf.global_variables_initializer()
         sess.run(init)
 
