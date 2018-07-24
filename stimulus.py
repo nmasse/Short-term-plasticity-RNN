@@ -20,6 +20,8 @@ class Stimulus:
             trial_info = self.generate_ABBA_trial(test_mode)
         elif par['trial_type'] == 'dualDMS':
             trial_info = self.generate_dualDMS_trial(test_mode)
+        elif par['trial_type'] == 'chunking':
+            trial_info = self.generate_chunking_trial(par['num_pulses'])
 
         return trial_info
 
@@ -194,6 +196,92 @@ class Stimulus:
             trial_info['train_mask'][:eodead, t] = 0
             trial_info['train_mask'][eod1:eod1+mask_duration, t] = 0
             trial_info['train_mask'][eod2:eod2+mask_duration, t] = 0
+
+        return trial_info
+
+    def generate_chunking_trial(self, num_pulses):
+        """
+        Generate trials to investigate chunking
+        """
+
+        # rule signal can appear at the end of delay1_time
+        trial_length = par['num_time_steps']
+
+        # end of trial epochs
+        eodead = par['dead_time']//par['dt']
+        eof = (par['dead_time']+par['fix_time'])//par['dt']
+        eos = [(par['dead_time']+par['fix_time']+ n*par['delay_time'] + (n+1)*par['sample_time'])//par['dt'] for n in range(num_pulses)]
+        eods = (par['dead_time']+par['fix_time']+(n+1)*(par['sample_time']+par['delay_time']))//par['dt'] for n in range(num_pulses-1)]
+        eods.append(eos[-1])
+        eolongd = (par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + (num_pulses-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
+        eor = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + (num_pulses-1)*par['delay_time'] + par['long_delay_time'] + \
+            n*par['delay_time'] + (n+1)*par['sample_time'])//par['dt'] for n in range(num_pulses)]
+        eodr = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + (num_pulses-1)*par['delay_time'] + par['long_delay_time'] + \
+            (n+1)*(par['sample_time']+par['delay_time']))//par['dt'] for n in range(num_pulses-1)]
+        eodr.append(eor[-1])
+        # end of neuron indices
+        emt = par['num_motion_tuned']
+        eft = par['num_fix_tuned']+par['num_motion_tuned']
+        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_resp_cue_tuned']
+
+
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
+
+
+        # set to mask equal to zero during the dead time
+        trial_info['train_mask'][:eodead, :] = 0
+
+        # If the DMS and DMS rotate are being performed together,
+        # or if I need to make the test more challenging, this will eliminate easry test directions
+        # If so, reduce set of test stimuli so that a single strategy can't be used
+        #limit_test_directions = par['trial_type']=='DMS+DMRS'
+
+        for t in range(par['batch_train_size']):
+
+            """
+            Generate trial paramaters
+            """
+            sample_dirs = [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
+
+            """
+            Calculate neural input based on sample, tests, fixation, rule, and probe
+            """
+            # SAMPLE stimulus
+            for i in range(num_pulses):
+                trial_info['neural_input'][:emt, eof:eos[i], t] += np.reshape(self.motion_tuning[:,sample_dir[i]],(-1,1))
+
+            # FIXATION cue
+            if par['num_fix_tuned'] > 0:
+                trial_info['neural_input'][emt:eft, eodead:eolongd, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+                trial_info['neural_input'][emt:eft, eolongd:eor[0], t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+                for i in range(num_pulses):
+                    trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+                    if i >0:
+                        trial_info['neural_input'][emt:eft, eodr[i-1]:eor[i], t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+
+            # RESPONSE CUE
+            trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,1],(-1,1))
+            for i in range(1, num_pulses):
+                trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,rule],(-1,1))
+
+            """
+            Determine the desired network output response
+            """
+            trial_info['desired_output'][8, eodead:eolongd, t] = 1
+            for i in range(num_pulses):
+                trial_info['desired_output'][8, eor[i]:eodr[i], t] = 1
+
+            trial_info['desired_output'][sample_dirs[0], eolongd:eor[0], t] = 1
+            for i in range(1, num_pulses):
+                trial_info['desired_output'][sample_dirs[i], eodr[i-1]:eor[i], t] = 1
+
+            """
+            Append trial info
+            """
+            trial_info['sample'][t,:] = sample_dirs
 
         return trial_info
 
