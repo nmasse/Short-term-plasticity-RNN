@@ -22,10 +22,16 @@ par = {
 
     # Network shape
     'num_motion_tuned'      : 36,
-    'num_fix_tuned'         : 0,
-    'num_rule_tuned'        : 12,
+    'num_fix_tuned'         : 2,
+    'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
-    'n_output'              : 3,
+    'n_output'              : 9,
+
+    # Chunking trial
+    'num_pulses'            : 1,
+    'num_resp_cue_tuned'    : 2,
+    'long_delay_time'       : 1000,
+    'resp_cue_time'         : 200,
 
     # Timings and rates
     'dt'                    : 10,
@@ -56,16 +62,16 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 256,
     'num_iterations'        : 2000,
     'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'chunking', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 250,
-    'fix_time'              : 500,
-    'sample_time'           : 500,
+    'dead_time'             : 100,
+    'fix_time'              : 200,
+    'sample_time'           : 200,
     'delay_time'            : 1000,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
@@ -189,6 +195,9 @@ def update_trial_params():
         par['rule_onset_time'] = par['dead_time']
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
+    elif par['trial_type'] == 'chunking':
+        pass
+
     else:
         print(par['trial_type'], ' not a recognized trial type')
         quit()
@@ -200,7 +209,10 @@ def update_dependencies():
     """
 
     # Number of input neurons
-    par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+    if par['trial_type'] == 'chunking':
+        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
+    else:
+        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
@@ -241,8 +253,12 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
+    elif par['trial_type'] == 'chunking':
+        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
+            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
+
     # Length of each trial in time steps
     par['num_time_steps'] = par['trial_length']//par['dt']
 

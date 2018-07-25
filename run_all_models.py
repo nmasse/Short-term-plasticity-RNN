@@ -4,7 +4,7 @@ import model
 import sys
 
 #task_list = ['DMS+DMRS+DMC']
-task_list = ['DMS']
+task_list = ['chunking']
 
 
 def try_model(gpu_id):
