@@ -13,7 +13,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'analyze_model'         : True,
+    'analyze_model'         : False,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
@@ -61,18 +61,19 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
+    'trial_type'            : 'DMSvar', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 250,
     'fix_time'              : 500,
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
-    'variable_delay_max'    : 300,
+    'post_time'             : 500,
+    'variable_delay_max'    : 1500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
-    'num_rules'             : 1, # this will be two for the DMS+DMRS task
+    'num_rules'             : 3, # this will be two for the DMS+DMRS task
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
@@ -119,6 +120,17 @@ def update_trial_params():
 
     if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         par['rotation_match'] = 0
+        if par['trial_type'] == 'DMS':
+            par['num_rule_tuned'] = 12
+            par['num_rules'] = 2
+            par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
+
+    elif par['trial_type'] == 'DMSvar':
+        par['num_rules'] = 3
+        par['num_rule_tuned'] = 12
+        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
 
     elif par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45
@@ -241,10 +253,12 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
+    elif par['trial_type'] == 'DMSvar':
+        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']+par['post_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
     # Length of each trial in time steps
-    par['num_time_steps'] = par['trial_length']//par['dt']
+    par['num_time_steps'] = int(par['trial_length']//par['dt'])
 
 
     ####################################################################

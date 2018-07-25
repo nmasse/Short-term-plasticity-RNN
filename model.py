@@ -269,7 +269,7 @@ def main(gpu_id = None):
         """
         Save model, analyze the network model and save the results
         """
-        #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
+        save_path = saver.save(sess, par['save_dir'] + par['save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \

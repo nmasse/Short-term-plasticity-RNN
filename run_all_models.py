@@ -3,8 +3,8 @@ from parameters import *
 import model
 import sys
 
-#task_list = ['DMS+DMRS+DMC']
-task_list = ['DMS']
+task_list = ['DMSvar']
+rule_list = [0,1,2]
 
 
 def try_model(gpu_id):
@@ -24,11 +24,12 @@ except:
     gpu_id = None
 
 
-for j in range(20):
+for j in range(1):
     for task in task_list:
-        print('Training network on ', task,' task, network model number ', j)
+        for rule in rule_list:
+            print('Training network on ', task,' task, network model number ', j)
 
-        save_fn = task + '_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
-        update_parameters(updates)
-        try_model(gpu_id)
+            save_fn = task + '_' + str(j) + '_rule_' + str(rule) + '.pkl'
+            updates = {'trial_type':task, 'save_fn':save_fn, 'rule':rule}
+            update_parameters(updates)
+            try_model(gpu_id)

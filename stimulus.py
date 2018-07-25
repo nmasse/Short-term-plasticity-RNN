@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import skewnorm 
 from parameters import *
 
 
@@ -16,6 +17,8 @@ class Stimulus:
 
         if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC']:
             trial_info = self.generate_basic_trial(test_mode)
+        elif par['trial_type'] == 'DMSvar':
+            trial_info = self.generate_var_trial(test_mode)
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial(test_mode)
         elif par['trial_type'] == 'dualDMS':
@@ -197,6 +200,102 @@ class Stimulus:
 
         return trial_info
 
+    def generate_var_trial(self, test_mode):
+        # trial info
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'delay_period'    :  np.ones((par['batch_train_size']), dtype=np.int8)*par['delay_time'],
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
+
+        # determine trial length
+        par['num_time_steps'] = np.int(par['trial_length']//par['dt'])
+
+        # RULE == 0: fixed delay
+        # RULE == 1: all variable delay
+        # RULE == 2: half fixed / half variable delay
+        if par['rule'] == 0:
+            trial_info['rule'][:] = 0
+        elif par['rule'] == 1:
+            trial_info['rule'][:] = 1
+        else:
+            trial_info['rule'] = np.random.randint(2, size=par['batch_train_size'])
+
+        # end of trial epochs
+        eodead = par['dead_time']//par['dt']
+        eof = (par['dead_time']+par['fix_time'])//par['dt']
+        eos = (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt']
+
+        # end of neuron indices
+        emt = par['num_motion_tuned']
+        eft = par['num_fix_tuned']+par['num_motion_tuned']
+        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
+        
+        # duration of mask after test onset
+        mask_duration = par['mask_duration']//par['dt']
+
+        # set to mask equal to zero during the dead time & post time
+        trial_info['train_mask'][:eodead, :] = 0
+
+        # generate trial info for match / standard trials
+        trial_info['match'] = np.random.randint(2, size=par['batch_train_size'])
+        trial_info['sample'] = np.random.randint(par['num_motion_dirs'], size=par['batch_train_size'])
+        trial_info['test'][np.where(trial_info['match'])[0]] = trial_info['sample'][np.where(trial_info['match'])[0]]        
+
+        # generate individual trial based on three type of rule cues
+        for t in range(par['batch_train_size']):
+            # determine delay time
+            if trial_info['rule'][t]:
+                # s = skewnorm.rvs(6.5, loc=-0.75)
+                # par['delay_time'] = np.max([np.min([1000 + s*500, 2000]),500])
+                par['delay_time'] = np.random.randint(500,2000)
+                par['post_time'] = np.max([1500 - par['delay_time'],0])
+                eod = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
+                eot = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['post_time'])//par['dt'])
+            else:
+                par['delay_time'] = 1000
+                par['post_time'] = 500
+                eod = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
+                eot = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['post_time'])//par['dt'])
+
+            trial_info['train_mask'][eot:, t] = 0
+            #trial_info['train_mask'][eod:eod+mask_duration, t] = 0
+
+            # generate test stim
+            if not trial_info['match'][t]:
+                possible_dirs = np.setdiff1d(np.arange(par['num_motion_dirs']), trial_info['sample'][t])
+                trial_info['test'][t] = possible_dirs[np.random.randint(len(possible_dirs))]
+            
+            # SAMPLE stimulus
+            trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,trial_info['sample'][t]],(-1,1))
+
+            # TEST stimulus
+            trial_info['neural_input'][:emt, eod:eot, t] += np.reshape(self.motion_tuning[:,trial_info['test'][t]],(-1,1))
+
+            # FIXATION cue
+            if par['num_fix_tuned'] > 0:
+                trial_info['neural_input'][emt:eft, eodead:eod, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+                trial_info['neural_input'][emt:eft, eod:eot, t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+
+            # RULE CUE
+            if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
+                trial_info['neural_input'][eft:ert, par['rule_onset_time']//par['dt']:par['rule_offset_time']//par['dt'], t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t]],(-1,1))
+            
+            # DESIRED OUTPUT
+            trial_info['desired_output'][0, eodead:eod, t] = 1
+            trial_info['train_mask'][eod:eot, t] = 1
+            if trial_info['match'][t]:
+                trial_info['desired_output'][1, eod:eot, t] = 1
+            else:
+                trial_info['desired_output'][2, eod:eot, t] = 1
+
+        return trial_info
+
 
     def generate_basic_trial(self, test_mode):
 
@@ -359,6 +458,8 @@ class Stimulus:
             trial_info['match'][t] = match
 
         return trial_info
+
+
 
 
     def generate_ABBA_trial(self, test_mode):
