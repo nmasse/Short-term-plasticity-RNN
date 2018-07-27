@@ -143,6 +143,10 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         sample = np.floor(trial_info['sample']/(num_motion_dirs/2)*np.ones_like(trial_info['sample']))
         test = np.floor(trial_info['test']/(num_motion_dirs/2)*np.ones_like(trial_info['sample']))
         rule = trial_info['rule']
+    elif par['trial_type'] == 'DMSvar':
+        sample = trial_info['sample']
+        test = trial_info['test']
+        rule = trial_info['rule']
     elif par['trial_type'] == 'dualDMS':
         sample = trial_info['sample']
         rule = trial_info['rule'][:,0] + 2*trial_info['rule'][:,1]
@@ -157,7 +161,6 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         sample[ind_rule] = np.floor(trial_info['sample'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
         test[ind_rule] = np.floor(trial_info['test'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
         rule = trial_info['rule']
-
     else:
         sample = np.array(trial_info['sample'])
         rule = np.array(trial_info['rule'])
@@ -237,6 +240,7 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
                     u = range(c*trials_per_cond, (c+1)*trials_per_cond)
                     q = np.random.permutation(len(cond_ind[c]))
                     i = int(np.round(len(cond_ind[c])*train_pct))
+                    print(u, q, i, c)
                     train_ind = cond_ind[c][q[:i]]
                     test_ind = cond_ind[c][q[i:]]
 

@@ -4,7 +4,7 @@ import model
 import sys
 
 task_list = ['DMSvar']
-rule_list = [0,1,2]
+rule_list = [2, 1, 0]
 
 
 def try_model(gpu_id):

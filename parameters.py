@@ -13,7 +13,7 @@ par = {
     'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
-    'analyze_model'         : False,
+    'analyze_model'         : True,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
@@ -82,8 +82,8 @@ par = {
     'svm_normalize'         : True,
     'decoding_reps'         : 100,
     'simulation_reps'       : 100,
-    'decode_test'           : False,
-    'decode_rule'           : False,
+    'decode_test'           : True,
+    'decode_rule'           : True,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,

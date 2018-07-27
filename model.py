@@ -269,11 +269,11 @@ def main(gpu_id = None):
         """
         Save model, analyze the network model and save the results
         """
-        save_path = saver.save(sess, par['save_dir'] + par['save_fn'])
+        # save_path = saver.save(sess, par['save_dir'] + par['save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+                simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
 
             # Generate another batch of trials with test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
