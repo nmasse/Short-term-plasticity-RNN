@@ -6,20 +6,25 @@ from parameters import *
 class Stimulus:
 
     def __init__(self):
-
+        #pass
         # generate tuning functions
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, test_mode = False):
+    def generate_trial(self, test_mode = False, set_rule = None):
 
 
-        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC']:
-            trial_info = self.generate_basic_trial(test_mode)
+        if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC',\
+            'DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC','location_DMS']:
+            trial_info = self.generate_basic_trial(test_mode, set_rule)
         elif par['trial_type'] in ['ABBA','ABCA']:
             trial_info = self.generate_ABBA_trial(test_mode)
         elif par['trial_type'] == 'dualDMS':
             trial_info = self.generate_dualDMS_trial(test_mode)
+        elif par['trial_type'] == 'distractor':
+            trial_info = self.generate_distractor_trial()
+
+
 
         return trial_info
 
@@ -197,32 +202,10 @@ class Stimulus:
 
         return trial_info
 
+    def generate_distractor_trial(self):
 
-    def generate_basic_trial(self, test_mode):
-
-        """
-        Generate a delayed matching task
-        Goal is to determine whether the sample stimulus, possibly manipulated by a rule, is
-        identicical to a test stimulus
-        Sample and test stimuli are separated by a delay
-        """
-
-        # range of variable delay, in time steps
-        var_delay_max = par['variable_delay_max']//par['dt']
-
-        # rule signal can appear at the end of delay1_time
         trial_length = par['num_time_steps']
 
-        # end of trial epochs
-        eodead = par['dead_time']//par['dt']
-        eof = (par['dead_time']+par['fix_time'])//par['dt']
-        eos = (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt']
-        eod = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-
-        # end of neuron indices
-        emt = par['num_motion_tuned']
-        eft = par['num_fix_tuned']+par['num_motion_tuned']
-        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
 
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
@@ -237,14 +220,25 @@ class Stimulus:
                       'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
 
-
         # set to mask equal to zero during the dead time
-        trial_info['train_mask'][:eodead, :] = 0
 
-        # If the DMS and DMS rotate are being performed together,
-        # or if I need to make the test more challenging, this will eliminate easry test directions
-        # If so, reduce set of test stimuli so that a single strategy can't be used
-        #limit_test_directions = par['trial_type']=='DMS+DMRS'
+        # end of trial epochs
+        d1 = (par['delay_time']-300)//2
+        eodead = par['dead_time']//par['dt']
+        eof = (par['dead_time']+par['fix_time'])//par['dt']
+        eos = (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt']
+        eod1 = (par['dead_time']+par['fix_time']+par['sample_time']+d1)//par['dt']
+        eoddist = (par['dead_time']+par['fix_time']+par['sample_time']+d1+300)//par['dt']
+        eod = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
+
+        # end of neuron indices
+        emt = par['num_motion_tuned']
+        eft = par['num_fix_tuned']+par['num_motion_tuned']
+        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
+
+        trial_info['train_mask'][:eodead, :] = 0
+        trial_info['train_mask'][eodead:eodead+mask_duration, :] = 0
+        trial_info['neural_input'][-par['num_fix_tuned']:, :eod, :] = par['tuning_height']
 
         for t in range(par['batch_train_size']):
 
@@ -252,9 +246,75 @@ class Stimulus:
             Generate trial paramaters
             """
             sample_dir = np.random.randint(par['num_motion_dirs'])
+            distractor_dir = np.random.randint(par['num_motion_dirs'])
+
+            trial_info['neural_input'][sample_dir*4:(sample_dir+1)*4, eof:eos, t] = par['tuning_height']
+            trial_info['neural_input'][distractor_dir*4:(distractor_dir+1)*4, eod1:eoddist, t] = par['tuning_height']
+
+            #trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
+            #trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,distractor_dir],(-1,1))
+
+
+            """
+            Determine the desired network output response
+            """
+            trial_info['desired_output'][0, eodead:eod, t] = 1
+            trial_info['desired_output'][1+sample_dir, eod:, t] = 1
+
+
+            """
+            Append trial info
+            """
+            trial_info['sample'][t] = sample_dir
+            trial_info['test'][t] = 0
+            trial_info['rule'][t] = 0
+            trial_info['catch'][t] = 0
+            trial_info['match'][t] = 0
+
+        return trial_info
+
+    def generate_basic_trial(self, test_mode, set_rule = None):
+
+        """
+        Generate a delayed matching task
+        Goal is to determine whether the sample stimulus, possibly manipulated by a rule, is
+        identicical to a test stimulus
+        Sample and test stimuli are separated by a delay
+        """
+
+        # range of variable delay, in time steps
+        var_delay_max = par['variable_delay_max']//par['dt']
+
+        # duration of mask after test onset
+        mask_duration = par['mask_duration']//par['dt']
+
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
+
+
+        # set to mask equal to zero during the dead time
+        trial_info['train_mask'][par['dead_time_rng'], :] = 0
+
+        for t in range(par['batch_train_size']):
+
+
+            """
+            Generate trial paramaters
+            """
+            sample_dir = np.random.randint(par['num_motion_dirs'])
             if test_mode:
                 test_dir = np.random.randint(par['num_motion_dirs'])
-            rule = np.random.randint(par['num_rules'])
+            test_RF = np.random.choice([1,2]) if  par['trial_type'] == 'location_DMS' else 0
+
+            rule = np.random.randint(par['num_rules']) if set_rule is None else set_rule
+
             if par['trial_type'] == 'DMC' or (par['trial_type'] == 'DMS+DMC' and rule == 1) or (par['trial_type'] == 'DMS+DMRS+DMC' and rule == 2):
                 # for DMS+DMC trial type, rule 0 will be DMS, and rule 1 will be DMC
                 current_trial_DMC = True
@@ -277,17 +337,17 @@ class Stimulus:
             The total trial length is kept constant, so a shorter delay implies a longer test stimulus
             """
             if par['var_delay']:
-                s = int(np.random.exponential(scale=par['variable_delay_max']/par['dt']/2))
-                if s <= par['variable_delay_max']/par['dt']:
+                s = int(np.random.exponential(scale=par['variable_delay_max']/2))
+                if s <= par['variable_delay_max']:
                     eod_current = eod - var_delay_max + s
+                    test_onset = (par['dead_time']+par['fix_time']+par['sample_time'] + s)//par['dt']
                 else:
-                    eod_current = eod
                     catch = 1
             else:
-                eod_current = eod
+                test_onset = (par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'])//par['dt']
 
-            # set mask to zero during transition from delay to test
-            trial_info['train_mask'][eod_current:eod_current+mask_duration, t] = 0
+            test_time_rng =  range(test_onset, par['num_time_steps'])
+            trial_info['train_mask'][test_onset:test_onset+mask_duration, t] = 0
 
             """
             Generate the sample and test stimuli based on the rule
@@ -320,34 +380,32 @@ class Stimulus:
             Calculate neural input based on sample, tests, fixation, rule, and probe
             """
             # SAMPLE stimulus
-            trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
+            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:, 0, sample_dir],(-1,1))
 
             # TEST stimulus
             if not catch:
-                trial_info['neural_input'][:emt, eod_current:, t] += np.reshape(self.motion_tuning[:,test_dir],(-1,1))
+                trial_info['neural_input'][:, test_time_rng, t] += np.reshape(self.motion_tuning[:, test_RF, test_dir],(-1,1))
 
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
-                trial_info['neural_input'][emt:eft, eodead:eod_current, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
-                trial_info['neural_input'][emt:eft, eod_current:trial_length, t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+                trial_info['neural_input'][:, par['fix_time_rng'], t] += np.reshape(self.fix_tuning[:,1],(-1,1))
 
             # RULE CUE
             if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
-                trial_info['neural_input'][eft:ert, par['rule_onset_time']//par['dt']:par['rule_offset_time']//par['dt'], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
+                trial_info['neural_input'][:, par['rule_time_rng'], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
 
             """
             Determine the desired network output response
             """
-            trial_info['desired_output'][0, eodead:eod_current, t] = 1
+            trial_info['desired_output'][0, par['maintain_fix_time_rng'], t] = 1
             if not catch:
-                trial_info['train_mask'][ eod_current:, t] = 1 # can use a greater weight for test period if needed
+                trial_info['train_mask'][ test_time_rng, t] *= 1. # can use a greater weight for test period if needed
                 if match == 0:
-                    trial_info['desired_output'][1, eod_current:, t] = 1
+                    trial_info['desired_output'][1, test_time_rng, t] = 1
                 else:
-                    trial_info['desired_output'][2, eod_current:, t] = 1
+                    trial_info['desired_output'][2, test_time_rng, t] = 1
             else:
-                trial_info['desired_output'][0, eod_current:, t] = 1
-
+                trial_info['desired_output'][0, test_time_rng, t] = 1
 
             """
             Append trial info
@@ -369,25 +427,35 @@ class Stimulus:
         Goal is to to indicate when a test stimulus matches the sample
         """
 
-        trial_length = par['num_time_steps']
-        ABBA_delay = par['ABBA_delay']//par['dt']
-
-        # end of trial epochs
-        eodead = par['dead_time']//par['dt']
-        eof = (par['dead_time']+par['fix_time'])//par['dt']
-        eos = eof + ABBA_delay
-
-        # end of neuron indices
-        emt = par['num_motion_tuned']
-        eft = par['num_fix_tuned']+par['num_motion_tuned']
-        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
-        self.num_input_neurons = ert
 
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
+        # only one receptive field in this task
+        RF = 0
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+        trial_length = par['num_time_steps']
+        ABBA_delay = par['ABBA_delay']//par['dt']
+        eos = (par['dead_time']+par['fix_time']+par['ABBA_delay'])//par['dt']
+        test_time_rng = []
+        mask_time_rng = []
+        for n in range(par['max_num_tests']):
+            test_time_rng.append(range(eos+ABBA_delay*(2*n+1), eos+ABBA_delay*(2*n+2)))
+            mask_time_rng.append(range(eos+ABBA_delay*(2*n+1), eos+ABBA_delay*(2*n+1) + mask_duration))
+
+        # end of trial epochs
+        #eodead = par['dead_time']//par['dt']
+        #eof = (par['dead_time']+par['fix_time'])//par['dt']
+        #eos = eof + ABBA_delay
+
+        # end of neuron indices
+        #emt = par['num_motion_tuned']
+        #eft = par['num_fix_tuned']+par['num_motion_tuned']
+        #ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
+        #self.num_input_neurons = ert
+
+
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_train_size']),dtype=np.float32),
                       'test'            :  -1*np.ones((par['batch_train_size'],par['max_num_tests']),dtype=np.float32),
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
@@ -400,11 +468,10 @@ class Stimulus:
 
 
         # set to mask equal to zero during the dead time
-        trial_info['train_mask'][:eodead, :] = 0
+        trial_info['train_mask'][par['dead_time_rng'], :] = 0
 
         # set fixation equal to 1 for all times; will then change
         trial_info['desired_output'][0, :, :] = 1
-        rep_num = 0
 
         for t in range(par['batch_train_size']):
 
@@ -444,21 +511,21 @@ class Stimulus:
             Calculate input neural activity based on trial params
             """
             # SAMPLE stimuli
-            trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
+            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:, RF, sample_dir],(-1,1))
 
             # TEST stimuli
             # first element of stim_dirs is the original sample stimulus
             for i, stim_dir in enumerate(stim_dirs[1:]):
                 trial_info['test'][t,i] = stim_dir
-                test_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
-                trial_info['neural_input'][:emt, test_rng, t] += np.reshape(self.motion_tuning[:,stim_dir],(-1,1))
-                trial_info['train_mask'][eos+(2*i+1)*ABBA_delay:eos+(2*i+1)*ABBA_delay+mask_duration, t] = 0
-                trial_info['desired_output'][0, test_rng, t] = 0
+                #test_time_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
+                trial_info['neural_input'][:, test_time_rng[i], t] += np.reshape(self.motion_tuning[:, RF, stim_dir],(-1,1))
+                trial_info['train_mask'][mask_time_rng[i], t] = 0
+                trial_info['desired_output'][0, test_time_rng[i], t] = 0
                 if stim_dir == sample_dir:
-                    trial_info['desired_output'][2, test_rng, t] = 1
+                    trial_info['desired_output'][2, test_time_rng[i], t] = 1
                     trial_info['match'][t,i] = 1
                 else:
-                    trial_info['desired_output'][1, test_rng, t] = 1
+                    trial_info['desired_output'][1, test_time_rng[i], t] = 1
 
             trial_info['sample'][t] = sample_dir
 
@@ -470,9 +537,14 @@ class Stimulus:
         """
         Generate tuning functions for the Postle task
         """
-        motion_tuning = np.zeros((par['num_motion_tuned'], par['num_receptive_fields'], par['num_motion_dirs']))
-        fix_tuning = np.zeros((par['num_fix_tuned'], par['num_receptive_fields']))
-        rule_tuning = np.zeros((par['num_rule_tuned'], par['num_rules']))
+        #motion_tuning = np.zeros((par['num_motion_tuned'], par['num_receptive_fields'], par['num_motion_dirs']))
+        #fix_tuning = np.zeros((par['num_fix_tuned'], 1))
+        #rule_tuning = np.zeros((par['num_rule_tuned'], par['num_rules']))
+
+        motion_tuning = np.zeros((par['n_input'], par['num_receptive_fields'], par['num_motion_dirs']))
+        fix_tuning = np.zeros((par['n_input'], 1))
+        rule_tuning = np.zeros((par['n_input'], par['num_rules']))
+
 
         # generate list of prefered directions
         # dividing neurons by 2 since two equal groups representing two modalities
@@ -491,15 +563,15 @@ class Stimulus:
         for n in range(par['num_fix_tuned']):
             for i in range(2):
                 if n%2 == i:
-                    fix_tuning[n,i] = par['tuning_height']
+                    fix_tuning[par['num_motion_tuned']+n,0] = par['tuning_height']
 
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
                 if n%par['num_rules'] == i:
-                    rule_tuning[n,i] = par['tuning_height']
+                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = par['tuning_height']
 
 
-        return np.squeeze(motion_tuning), fix_tuning, rule_tuning
+        return motion_tuning, fix_tuning, rule_tuning
 
 
     def plot_neural_input(self, trial_info):

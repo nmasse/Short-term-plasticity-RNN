@@ -47,7 +47,7 @@ par = {
 
     # Cost parameters
     'spike_cost'            : 2e-2,
-    'wiring_cost'           : 0.,
+    'weight_cost'           : 0.,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -58,7 +58,7 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 2000,
-    'iters_between_outputs' : 50,
+    'iters_between_outputs' : 100,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -85,7 +85,7 @@ par = {
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
-    'analyze_tuning'        : False,
+    'analyze_tuning'        : True,
 
 }
 
@@ -116,6 +116,8 @@ def update_trial_params():
     par['num_rules'] = 1
     par['num_rule_tuned'] = 0
     par['ABBA_delay' ] = 0
+    par['rule_onset_time'] = par['dead_time']
+    par['rule_offset_time'] = par['dead_time']
 
     if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         par['rotation_match'] = 0
@@ -158,7 +160,7 @@ def update_trial_params():
         par['delay_time'] = 2400
         par['ABBA_delay'] = par['delay_time']//par['max_num_tests']//2
         par['repeat_pct'] = 0
-        par['analyze_test'] = True
+        par['analyze_test'] = False
         if par['trial_type'] == 'ABBA':
             par['repeat_pct'] = 0.5
 
@@ -181,6 +183,8 @@ def update_trial_params():
         par['rotation_match'] = [0, 0]
         par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+        par['rule_onset_time'] = par['dead_time']
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'DMS+DMRS+DMC':
         par['num_rules'] = 3
@@ -188,6 +192,25 @@ def update_trial_params():
         par['rotation_match'] = [0, 90, 0]
         par['rule_onset_time'] = par['dead_time']
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+
+    elif par['trial_type'] == 'location_DMS':
+        par['num_receptive_fields'] = 3
+        par['rotation_match'] = 0
+        par['num_motion_tuned'] = 54
+        
+    elif par['trial_type'] == 'distractor':
+        par['n_output'] = 9
+        #par['num_motion_tuned'] = 8*4
+        par['sample_time'] = 300
+        par['delay_time'] = 2300
+        par['test_time'] = 500
+        par['num_fix_tuned'] = 4
+        par['simulation_reps'] = 0
+        par['analyze_tuning'] = False
+        par['num_receptive_fields'] = 1
+        par['kappa'] = 0.5
+
+
 
     else:
         print(par['trial_type'], ' not a recognized trial type')
@@ -203,6 +226,26 @@ def update_dependencies():
     par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
+    # The time step in seconds
+    par['dt_sec'] = par['dt']/1000
+    # Length of each trial in ms
+    if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
+        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
+    else:
+        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
+    # Length of each trial in time steps
+    par['num_time_steps'] = par['trial_length']//par['dt']
+
+
+    par['dead_time_rng'] = range(par['dead_time']//par['dt'])
+    par['maintain_fix_time_rng'] = range(par['dead_time']//par['dt'], \
+        (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
+    par['sample_time_rng'] = range((par['dead_time']+par['fix_time'])//par['dt'], \
+        (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
+    par['rule_time_rng'] = range(par['rule_onset_time']//par['dt'], par['rule_offset_time']//par['dt'])
+
+
+
 
     # Possible rules based on rule type values
     #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
@@ -236,15 +279,7 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
 
-    # The time step in seconds
-    par['dt_sec'] = par['dt']/1000
-    # Length of each trial in ms
-    if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
-        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
-    else:
-        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
-    # Length of each trial in time steps
-    par['num_time_steps'] = par['trial_length']//par['dt']
+
 
 
     ####################################################################
@@ -292,6 +327,15 @@ def update_dependencies():
         par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
+
+    par['w_in_mask'] = np.ones_like(par['w_in0'])
+    """
+    par['w_out0'][:, 1:par['n_hidden']:2] = 0
+    par['w_out_mask'][:, 1:par['n_hidden']:2] = 0
+    par['w_in0'][1:par['n_hidden']:2, :] = 0
+    par['w_in_mask'][1:par['n_hidden']:2, :] = 0
+    """
+
 
     """
     Setting up synaptic parameters
