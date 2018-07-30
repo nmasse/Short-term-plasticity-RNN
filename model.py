@@ -258,6 +258,7 @@ def main(gpu_id = None):
 
             accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
+
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N)
 
             """
@@ -265,6 +266,9 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
+
+            if accuracy > 0.95:
+                break
 
         """
         Save model, analyze the network model and save the results

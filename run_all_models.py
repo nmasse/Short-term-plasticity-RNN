@@ -3,7 +3,7 @@ from parameters import *
 import model
 import sys
 
-#task_list = ['DMS+DMRS+DMC']
+
 task_list = ['chunking']
 
 
@@ -24,11 +24,12 @@ except:
     gpu_id = None
 
 
-for j in range(20):
-    for task in task_list:
-        print('Training network on ', task,' task, network model number ', j)
+num_pulses = [4, 5, 6, 7, 8, 10, 15]
 
-        save_fn = task + '_' + str(j) + '.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn}
+for task in task_list:
+    for n in num_pulses:
+        print('Training network on ', task,' task, ', n, ' pulses...')
+        save_fn = task + '_' + str(n) + '.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n}
         update_parameters(updates)
         try_model(gpu_id)
