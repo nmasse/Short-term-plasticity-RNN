@@ -85,7 +85,7 @@ par = {
 
     # Analysis
     'svm_normalize'         : True,
-    'decoding_reps'         : 100,
+    'decoding_reps'         : 5,
     'simulation_reps'       : 100,
     'decode_test'           : False,
     'decode_rule'           : False,
