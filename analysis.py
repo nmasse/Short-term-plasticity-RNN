@@ -162,7 +162,6 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
         sample = np.array(trial_info['sample'])
         rule = np.array(trial_info['rule'])
         print('sample ', sample.shape)
-        par['num_receptive_fields'] = par['num_pulses']
 
     # if trial_info['test'].ndim == 2:
     #     test = trial_info['test'][:,0]
