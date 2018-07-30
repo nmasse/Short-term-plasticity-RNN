@@ -160,7 +160,7 @@ class Model:
         """
         """
         cross_entropy
-        """
+        """ 
         perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
@@ -269,6 +269,9 @@ def main(gpu_id = None):
         """
         Save model, analyze the network model and save the results
         """
+        save_results(model_performance)
+
+        """
         # save_path = saver.save(sess, par['save_dir'] + par['save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
@@ -283,7 +286,16 @@ def main(gpu_id = None):
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
+        """
 
+def save_results(model_performance):
+
+    weights = eval_weights()
+    results = {'weights': weights, 'parameters': par}
+    for k,v in model_performance.items():
+        results[k] = v
+    pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+    print('Model results saved in ', par['save_dir'] + par['save_fn'])
 
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num):
@@ -293,6 +305,7 @@ def append_model_performance(model_performance, accuracy, loss, perf_loss, spike
     model_performance['perf_loss'].append(perf_loss)
     model_performance['spike_loss'].append(spike_loss)
     model_performance['trial'].append(trial_num)
+
 
     return model_performance
 

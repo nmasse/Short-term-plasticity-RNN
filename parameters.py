@@ -56,8 +56,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
-    'num_iterations'        : 2000,
+    'batch_train_size'      : 256,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 50,
 
     # Task specs
@@ -80,10 +80,10 @@ par = {
 
     # Analysis
     'svm_normalize'         : True,
-    'decoding_reps'         : 100,
-    'simulation_reps'       : 100,
-    'decode_test'           : True,
-    'decode_rule'           : True,
+    'decoding_reps'         : 5,
+    'simulation_reps'       : 5,
+    'decode_test'           : False,
+    'decode_rule'           : False,
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
