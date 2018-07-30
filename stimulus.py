@@ -74,9 +74,6 @@ class Stimulus:
 
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
-                print("\n\n\ndebugging............")
-                print(trial_info['neural_input'][emt:eft, eodead:eolongd, t])
-                print(np.reshape(self.fix_tuning[:,0],(-1,1)))
                 trial_info['neural_input'][emt:eft, eodead:eolongd, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
                 for i in range(num_pulses):
                     trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] += np.reshape(self.fix_tuning[:,0],(-1,1))

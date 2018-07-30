@@ -252,8 +252,8 @@ def svm_wraper(lin_clf, h, syn_eff, stim, rule, num_reps, trial_time):
                         # no need to analyze activity during dead time
                         continue
 
-                    score_h[r,n,rep,t,:] = calc_svm(lin_clf, h[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
-                    score_syn_eff[r,n,rep,t,:] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
+                    score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
+                    score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
 
 
     return score_h, score_syn_eff
@@ -270,24 +270,12 @@ def calc_svm(lin_clf, y, train_conds, test_conds, train_ind, test_ind):
         if m2>m1:
             if par['svm_normalize']:
                 y[:,i] /=(m2-m1)
-    print("\n\n\ndebugging.........")
-    print(train_conds[train_ind].shape)
-    print(y[train_ind,:].shape)
-    print(y.shape)
-    score_list = []
-    for j in range(par['num_pulses']):
-        lin_clf.fit(y[train_ind,:], train_conds[train_ind][:,j])
-        pred_stim = lin_clf.predict(y[test_ind,:])
-        score = np.mean(test_conds[test_ind]==pred_stim)
-        """
-        score = 0
-        for i in range(n_test_inds):
-            if test_conds[test_ind[i]]==dec[i]:
-                score += 1/n_test_inds
-        """
-        score_list.append(score)
 
-    return np.array(score_list)
+    lin_clf.fit(y[train_ind,:], train_conds[train_ind])
+    pred_stim = lin_clf.predict(y[test_ind,:])
+    score = np.mean(test_conds[test_ind]==pred_stim)
+
+    return score
 
 
 def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
