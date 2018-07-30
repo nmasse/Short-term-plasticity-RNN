@@ -21,7 +21,7 @@ def plot_all_figures():
         'accuracy_th'           : 0.9} # minimum accuracy of model required for analysis
 
 
-    plot_F3(fig_params)
+    plot_summary_figure(fig_params)
 
 
 
@@ -107,10 +107,12 @@ def plot_SF4(fig_params):
 def plot_F4(fig_params):
 
     task = 'DMS+DMRS'
+    task = 'DMS+DMC_seq4000'
+    fig_params['data_dir'] = './savedir/'
     t = range(-750,2000,fig_params['dt'])
     delay_epoch = range(2150//fig_params['dt'],2250//fig_params['dt'])
     f = plt.figure(figsize=(6,4))
-    chance_level = 1/8
+    chance_level = [1/8, 1/2]
 
     # for each task, we will measure model significance with respect to:
     # dim 1 = 0, neuronal decoding during delay_accuracy
@@ -139,8 +141,8 @@ def plot_F4(fig_params):
 
     good_model_count = 0
     count = 0
-    while good_model_count < fig_params['models_per_task'] and count < 21:
-        x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count) + '.pkl', 'rb'))
+    while good_model_count < fig_params['models_per_task'] and count < 20:
+        x = pickle.load(open(fig_params['data_dir'] + task + '_v' + str(count) + '.pkl', 'rb'))
         count += 1
         print(np.mean(x['accuracy'][0,:]), np.mean(x['accuracy'][1,:]))
         if np.mean(x['accuracy']) > fig_params['accuracy_th']:
@@ -158,6 +160,8 @@ def plot_F4(fig_params):
         print('Too few accurately trained models ', good_model_count)
 
     for j  in range(2):
+
+        chance_level = 1/8 if j == 0 else 1/2
 
         model_signficance[j, 0] = np.sum(np.mean(np.mean(neuronal_decoding[j,:,:,delay_epoch],axis=2) \
             >chance_level,axis=0)>1-p_val_th)
@@ -180,8 +184,9 @@ def plot_F4(fig_params):
 
         ax = f.add_subplot(2, 2, 2*j+1)
         for n in range(fig_params['models_per_task']):
-            ax.plot(t,np.mean(neuronal_decoding[j,n,:,:],axis=0),'g')
             ax.plot(t,np.mean(synaptic_decoding[j,n,:,:],axis=0),'m')
+            ax.plot(t,np.mean(neuronal_decoding[j,n,:,:],axis=0),'g')
+
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -189,13 +194,14 @@ def plot_F4(fig_params):
         ax.yaxis.set_ticks_position('left')
         ax.set_yticks([0,0.2,0.4,0.6,0.8,1])
         ax.set_xticks([0,500, 1000, 1250, 1500])
+        ax.set_xticks([0,500,1500])
         ax.set_ylim([0,1.02])
         ax.set_xlim([-500,2000])
         ax.plot([-900,2000],[chance_level,chance_level],'k--')
         ax.plot([0,0],[0,1],'k--')
         ax.plot([500,500],[0,1],'k--')
-        ax.plot([1000,1000],[0,1],'k--')
-        ax.plot([1250,1250],[0,1],'k--')
+        #ax.plot([1000,1000],[0,1],'k--')
+        #ax.plot([1250,1250],[0,1],'k--')
         ax.plot([1500,1500],[0,1],'k--')
         ax.set_ylabel('Decoding accuracy')
         ax.set_xlabel('Time relative to sample onset (ms)')
@@ -203,8 +209,9 @@ def plot_F4(fig_params):
 
         ax = f.add_subplot(2, 2, 2*j+2)
         ax.plot(delay_accuracy[j,:], np.mean(accuracy[j,:,:],axis=1),'b.')
-        ax.plot(delay_accuracy[j,:], np.mean(accuracy_syn_shuffled[j,:,:],axis=1),'c.')
+
         ax.plot(delay_accuracy[j,:], np.mean(accuracy_neural_shuffled[j,:,:],axis=1),'r.')
+        ax.plot(delay_accuracy[j,:], np.mean(accuracy_syn_shuffled[j,:,:],axis=1),'c.')
         ax.plot([chance_level,chance_level],[0,1],'k--')
         ax.set_aspect(1/0.62)
         ax.spines['right'].set_visible(False)
@@ -217,7 +224,7 @@ def plot_F4(fig_params):
         ax.set_ylabel('Task accuracy')
         ax.set_xlabel('Delay neuronal decoding')
     plt.tight_layout()
-    plt.savefig('Fig4.pdf', format='pdf')
+    plt.savefig('Fig4_dir_seq.pdf', format='pdf')
     plt.show()
 
     print('Number of models with delay neuronal decoding accuracy signficantly greater than chance')
@@ -283,8 +290,10 @@ def plot_SF2_v2(fig_params):
     delay_decoding = np.zeros((N))
 
     for i in range(N):
-        x = pickle.load(open('/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_2000batches/' + 'DMRS90ccw_' + str(i) + '.pkl','rb'))
-        pred_resp = np.matmul(x['weights']['w_in'], stim.motion_tuning)
+        #x = pickle.load(open('/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_2000batches/' + 'DMRS90_grp_shuffle_' + str(i) + '.pkl','rb'))
+        x = pickle.load(open('/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_2000batches_1/' + 'DMRS90ccw_' + str(i) + '.pkl','rb'))
+        print(stim.motion_tuning.shape)
+        pred_resp = np.dot(x['weights']['w_in'], stim.motion_tuning)
         acc_shuffled[i,1:] = np.mean(x['accuracy_syn_shuffled_grp'],axis=3)
         acc_shuffled[i,0] = np.mean(x['accuracy'])
         delay_decoding[i] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch])
@@ -394,16 +403,18 @@ def plot_SF2_v2(fig_params):
         ax.set_xticks([-180,-90,0,90,180])
 
 
-        m = np.mean(diff_min_s[:,neuron_ind[i],:],axis=1)
-        p = scipy.stats.ttest_1samp(m,0)[1]
-        print(' p = ', p)
+        #m = np.mean(diff_min_s[:,neuron_ind[i],:],axis=1)
+        #p = scipy.stats.ttest_1samp(m,0)
+        #print(' p = ', p)
 
 
     #ax = f.add_subplot(4, 5, 16)
     ax = f.add_subplot(2, 4, 5)
-    m = np.mean(acc_shuffled[:,1:],axis=0)
-    sd = np.std(acc_shuffled[:,1:],axis=0)/np.sqrt(20)
-    ax.bar([0,1,2,3], m,  yerr = sd)
+    #m = np.mean(acc_shuffled[:,1:],axis=0)
+    #sd = np.std(acc_shuffled[:,1:],axis=0)/np.sqrt(20)
+    for i in range(4):
+        ax.plot((i+1)*np.ones((N)), acc_shuffled[:N,1+i],'.',color=col[i])
+    #ax.bar([0,1,2,3], m,  yerr = sd)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
@@ -411,22 +422,21 @@ def plot_SF2_v2(fig_params):
     ax.set_ylim([0.5, 1])
 
     #m = acc_shuffled[:,1:] - np.tile(np.reshape(acc_shuffled[:,0],(N,1)),(1,4))
-    P = np.zeros((5,5))
+    P = np.zeros((5,2))
     for i in range(5):
-        for j in range(5):
-            P[i,j] = scipy.stats.ttest_1samp(acc_shuffled[:,i] - acc_shuffled[:,j], 0)[1]
+        P[i,:] = scipy.stats.ttest_1samp(acc_shuffled[:,i] - acc_shuffled[:,-1], 0)
     print('shuffling behavior p = ', P)
+    print('shape ', acc_shuffled.shape)
 
-    P = np.zeros((4,4))
-    d = np.zeros((4,4))
+    P = np.zeros((4,2))
+    #d = np.zeros((4,2))
     for i in range(4):
-        for j in range(4):
-            P[i,j] = scipy.stats.ttest_rel(np.mean(diff_min_n[:,neuron_ind[i],2],axis=1), \
-                np.mean(diff_min_n[:,neuron_ind[j],2],axis=1))[1]
-            d[i,j] = np.mean(np.mean(diff_min_n[:,neuron_ind[i],2],axis=1) - \
-                np.mean(diff_min_n[:,neuron_ind[j],2],axis=1))
+        P[i,:] = scipy.stats.ttest_rel(np.mean(diff_min_n[:,neuron_ind[i],2],axis=1), \
+            np.mean(diff_min_n[:,neuron_ind[-1],2],axis=1))
+        #d[i,j] = np.mean(np.mean(diff_min_n[:,neuron_ind[i],2],axis=1) - \
+            #np.mean(diff_min_n[:,neuron_ind[j],2],axis=1))
     print('Assymetry syn late p = ', P)
-    print('Assymetry syn late diff = ', d)
+    #print('Assymetry syn late diff = ', d)
 
 
 
@@ -590,7 +600,9 @@ def plot_SF3(fig_params):
     s1 = np.reshape(tuning_CTI[:,80:],(20*7))
     u = [np.mean(s0), np.mean(s1)]
     sd = [np.std(s0)/np.sqrt(80*7), np.std(s1)/np.sqrt(20*7)]
-    ax.bar([1,2],u,yerr = sd)
+    #ax.bar([1,2],u,yerr = sd)
+    ax.plot(np.ones((7*80)), s0, 'b.')
+    ax.plot(2*np.ones((7*20)), s1, 'r.')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
@@ -644,9 +656,15 @@ def plot_summary_figure(fig_params):
 
 
     d = '/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/Analysis/'
-    tasks = [ 'DMS','DMC','DMRS90','DMRS45','DMRS180','DMS+DMRS','ABCA','ABBA','dualDMS']
     tasks = [ 'DMS','DMRS90','DMRS45','DMRS180','ABCA','ABBA','DMS+DMRS','dualDMS']
-    #tasks = [ 'dualDMS_v3']
+    """
+    """
+    d = '/home/masse/Short-term-plasticity-RNN/savedir_spike_cost/'
+    sc = '2'
+    tasks = [ 'DMS_spike_cost','DMRS90_spike_cost','DMRS45_spike_cost','DMRS180_spike_cost',\
+         'ABCA_spike_cost', 'ABBA_spike_cost', 'DMS+DMRS_spike_cost', 'dualDMS_spike_cost']
+
+
     num_tasks = len(tasks)
     de1 = range(2150//fig_params['dt'],2250//fig_params['dt']) # DMS, DMRS, DMS+DMRS
     de0 = range(2150//fig_params['dt'],2250//fig_params['dt']) # DMS, DMRS, DMS+DMRS
@@ -665,27 +683,36 @@ def plot_summary_figure(fig_params):
     for n in range(num_tasks):
         count = 0
         for f in fn:
-            if f.startswith(tasks[n] + '_'):
+
+            if f.startswith(tasks[n] + sc + '_'):
+            #if f.startswith(tasks[n] + '_'):
+                print(f)
                 x = pickle.load(open(d + f, 'rb'))
+                #print(x.keys())
+                if not 'neuronal_pev' in x.keys():
+                    continue
                 neuronal = np.sqrt(1e-9+x['neuronal_pev'])*np.exp(1j*x['neuronal_pref_dir'])
                 synaptic = np.sqrt(1e-9+x['synaptic_pev'])*np.exp(1j*x['synaptic_pref_dir'])
 
-                if tasks[n] == 'DMS+DMRS':
+                if tasks[n].startswith('DMS+DMRS'):
                     delay_accuracy[n,count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch[n]])
                     delay_accuracy[n+1,count] = np.mean(x['neuronal_sample_decoding'][1,0,:,delay_epoch[n]])
                     s1 = np.mean(synaptic[:,:,0,delay_epoch_man[n]],axis=2)
+                    #n1 = np.mean(neuronal[:,:,0, 75:85],axis=2)
                     n1 = np.mean(neuronal[:,:,0, 75:85],axis=2)
                     for r,j in product(range(2), range(2)):
                         manipulation[n+r, count] += ((-1)**j)*np.mean(np.real(s1[neuron_ind[j],r]*np.conj(n1[neuron_ind[j],r])))/ \
                             np.mean(np.abs(s1[neuron_ind[j],r])*np.abs(n1[neuron_ind[j],r]))/2
 
-                elif tasks[n] == 'dualDMS':
+
+
+                elif tasks[n].startswith('dualDMS'):
                     delay_accuracy[n+1,count] = np.mean(x['neuronal_sample_decoding'][0,0,:,delay_epoch[n]])/2 + \
                         np.mean(x['neuronal_sample_decoding'][3,1,:,delay_epoch[n]])/2
                     delay_accuracy[n+2,count] = np.mean(x['neuronal_sample_decoding'][1,0,:,delay_epoch[n]])/2 + \
                         np.mean(x['neuronal_sample_decoding'][2,1,:,delay_epoch[n]])/2
 
-                    print(delay_accuracy[n,count], delay_accuracy[n+1,count])
+                    print(delay_accuracy[n+1,count], delay_accuracy[n+2,count])
 
 
                     c = np.zeros((2,4))
@@ -706,6 +733,7 @@ def plot_summary_figure(fig_params):
                     for j in range(2):
                         manipulation[n, count] += ((-1)**j)*np.mean(np.real(s1[neuron_ind[j],:]*np.conj(n1[neuron_ind[j],:])))/ \
                             np.mean(np.abs(s1[neuron_ind[j],:])*np.abs(n1[neuron_ind[j],:]))/2
+                        #manipulation[n, count] += ((-1)**j)*np.mean(np.real(s1[neuron_ind[j],:]*np.conj(n1[neuron_ind[j],:]))/np.abs(s1[neuron_ind[j],:])/np.abs(n1[neuron_ind[j],:]))/2
                 count += 1
 
     u0 = np.zeros((num_tasks+2))
@@ -732,7 +760,7 @@ def plot_summary_figure(fig_params):
     print('Spearman Corr R = ', r, ' P = ',p)
     r, p = scipy.stats.pearsonr(u0, 1-u1)
     print('Pearson Corr R = ', r, ' P = ',p)
-
+    """
     ax = fig.add_subplot(1,3,1)
     ax.errorbar(u0[:3],u1[:3],xerr = sd0[:3],yerr = sd1[:3])
     ax = fig.add_subplot(1,3,2)
@@ -740,11 +768,16 @@ def plot_summary_figure(fig_params):
     ax = fig.add_subplot(1,3,3)
     ax.errorbar(u0[5:],u1[5:],xerr = sd0[5:],yerr = sd1[5:])
     plt.show()
+    """
 
-    fig = plt.figure(figsize=(4,4))
+    fig = plt.figure(figsize=(8,6))
     ax = fig.add_subplot(1,1,1)
     col = ['b','y','r','r','k','g','b','k','m','c','y']
     #col = ['b','y','r','k','g','b','k','m','c']
+
+    print('FINAL RESULTS')
+    print('decoding ', u0)
+    print('manipulation ', 1-u1)
     for i in range(num_tasks+2):
         ax.errorbar(u0[i],1-u1[i],xerr = sd0[i],yerr = sd1[i], fmt='o', color = col[i])
 
@@ -757,9 +790,9 @@ def plot_summary_figure(fig_params):
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
     ax.plot([0.125,0.125],[0,1],'k--')
-    ax.set_xlim([0,0.7])
-    ax.set_ylim([0,0.32])
-    ax.set_aspect(0.7/0.32)
+    #ax.set_xlim([0,0.7])
+    #ax.set_ylim([0,0.32])
+    #ax.set_aspect(0.7/0.32)
     plt.tight_layout()
     plt.savefig('Fig_summary.pdf', format='pdf')
     plt.show()
@@ -796,7 +829,8 @@ def plot_F3(fig_params):
     corr_decoding_syn_shuf =  np.zeros((num_tasks,2))
     corr_neuronal_shuf_syn_shuf =  np.zeros((num_tasks,2))
 
-    decoding_p_val =  np.zeros((num_tasks))
+    decoding_p_val =  np.zeros((num_tasks, 2))
+
 
     p_val_th = 0.025
 
@@ -862,8 +896,8 @@ def plot_F3(fig_params):
         corr_neuronal_shuf_syn_shuf[n,:] = scipy.stats.pearsonr(np.mean(accuracy_neural_shuffled[n,:,:],axis=1), \
             np.mean(accuracy_syn_shuffled[n,:,:],axis=1))
 
-        decoding_p_val[n] = scipy.stats.ttest_ind(np.mean(np.mean(neuronal_decoding_DMS[:,:,delay_epoch],axis=2),axis=1), \
-            np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1))[1]
+        decoding_p_val[n,:] = scipy.stats.ttest_ind(np.mean(np.mean(neuronal_decoding_DMS[:,:,delay_epoch],axis=2),axis=1), \
+            np.mean(np.mean(neuronal_decoding[:,:,delay_epoch],axis=2),axis=1))
 
 
         ax = f.add_subplot(num_tasks, 2, 2*n+1)
@@ -970,6 +1004,7 @@ def plot_F3(fig_params):
     print(decoding_p_val)
 
 
+
 def plot_S_learning(fig_params):
 
     N = 20
@@ -1055,7 +1090,7 @@ def plot_S_learning(fig_params):
 
 def plot_F6_v2(fig_params):
 
-    task = 'dualDMS_v4'
+    task = 'dualDMS_fixed'
     t = range(-750,3500,fig_params['dt'])
     p_val_th = 0.025
     chance_level = 1/8
@@ -1082,17 +1117,17 @@ def plot_F6_v2(fig_params):
     delay_epoch_pre_cue.append(range(25+50+50+100+50+40, 25+50+50+100+50+50))
 
     neuronal_rule_decoding = np.zeros((fig_params['models_per_task'], 2, fig_params['N'], len(t)), dtype=np.float32)
-    neuronal_decoding = np.zeros((2*fig_params['models_per_task'], 4, fig_params['N'], len(t)), dtype=np.float32)
-    neuronal_decoding_probe = np.zeros((2*fig_params['models_per_task'], 4, fig_params['N'], len(t)), dtype=np.float32)
+    neuronal_decoding = np.zeros((2*fig_params['models_per_task'], 6, fig_params['N'], len(t)), dtype=np.float32)
+    #neuronal_decoding_probe = np.zeros((2*fig_params['models_per_task'], 4, fig_params['N'], len(t)), dtype=np.float32)
     synaptic_rule_decoding = np.zeros((fig_params['models_per_task'], 2, fig_params['N'], len(t)), dtype=np.float32)
-    synaptic_decoding = np.zeros((2*fig_params['models_per_task'], 4, fig_params['N'], len(t)), dtype=np.float32)
-    sig_pre_cue = np.zeros((2*fig_params['models_per_task'], 4, 2))
-    sig_post_cue = np.zeros((2*fig_params['models_per_task'], 4, 2))
+    synaptic_decoding = np.zeros((2*fig_params['models_per_task'], 6, fig_params['N'], len(t)), dtype=np.float32)
+    sig_pre_cue = np.zeros((2*fig_params['models_per_task'], 6, 2))
+    sig_post_cue = np.zeros((2*fig_params['models_per_task'], 6, 2))
 
     good_model_count = -1
     count = -1
 
-    while good_model_count < fig_params['models_per_task'] and count < 6:
+    while good_model_count < fig_params['models_per_task'] and count < 19:
         count += 1
         try:
             x = pickle.load(open(fig_params['data_dir'] + task + '_' + str(count) + '.pkl', 'rb'))
@@ -1109,36 +1144,42 @@ def plot_F6_v2(fig_params):
         synaptic_rule_decoding[good_model_count,:,:,:] = x['synaptic_rule_decoding']
 
         # first stim cued
-        neuronal_decoding[2*good_model_count,0,:,:] = x['neuronal_sample_decoding'][0,0,:,:]
-        neuronal_decoding[2*good_model_count+1,0,:,:] = x['neuronal_sample_decoding'][1,1,:,:]
-        #neuronal_decoding_probe[2*good_model_count,0,:,:] = x1['neuronal_sample_decoding'][0,0,:,:]
-        #neuronal_decoding_probe[2*good_model_count+1,0,:,:] = x1['neuronal_sample_decoding'][1,1,:,:]
-        synaptic_decoding[2*good_model_count,0,:,:] = x['synaptic_sample_decoding'][0,0,:,:]
-        synaptic_decoding[2*good_model_count+1,0,:,:] = x['synaptic_sample_decoding'][1,1,:,:]
+        neuronal_decoding[2*good_model_count,0,:,:] = x['neuronal_sample_decoding'][0,0,:,:]/2 + x['neuronal_sample_decoding'][2,0,:,:]/2
+        neuronal_decoding[2*good_model_count+1,0,:,:] = x['neuronal_sample_decoding'][1,1,:,:]/2 + x['neuronal_sample_decoding'][3,1,:,:]/2
+        synaptic_decoding[2*good_model_count,0,:,:] = x['synaptic_sample_decoding'][0,0,:,:]/2 + x['synaptic_sample_decoding'][2,0,:,:]/2
+        synaptic_decoding[2*good_model_count+1,0,:,:] = x['synaptic_sample_decoding'][1,1,:,:]/2 + x['synaptic_sample_decoding'][3,1,:,:]/2
 
         # first stim not cued
-        neuronal_decoding[2*good_model_count,1,:,:] = x['neuronal_sample_decoding'][1,0,:,:]
-        neuronal_decoding[2*good_model_count+1,1,:,:] = x['neuronal_sample_decoding'][0,1,:,:]
-        #neuronal_decoding_probe[2*good_model_count,1,:,:] = x1['neuronal_sample_decoding'][1,0,:,:]
-        #neuronal_decoding_probe[2*good_model_count+1,1,:,:] = x1['neuronal_sample_decoding'][0,1,:,:]
-        synaptic_decoding[2*good_model_count,1,:,:] = x['synaptic_sample_decoding'][1,0,:,:]
-        synaptic_decoding[2*good_model_count+1,1,:,:] = x['synaptic_sample_decoding'][0,1,:,:]
+        neuronal_decoding[2*good_model_count,1,:,:] = x['neuronal_sample_decoding'][1,0,:,:]/2 + x['neuronal_sample_decoding'][3,0,:,:]/2
+        neuronal_decoding[2*good_model_count+1,1,:,:] = x['neuronal_sample_decoding'][0,1,:,:]/2 +  x['neuronal_sample_decoding'][2,1,:,:]/2
+        synaptic_decoding[2*good_model_count,1,:,:] = x['synaptic_sample_decoding'][1,0,:,:]/2 + x['synaptic_sample_decoding'][3,0,:,:]/2
+        synaptic_decoding[2*good_model_count+1,1,:,:] = x['synaptic_sample_decoding'][0,1,:,:]/2 + x['synaptic_sample_decoding'][2,1,:,:]/2
 
         # first stim not cued, second stim cued
         neuronal_decoding[2*good_model_count,2,:,:] = x['neuronal_sample_decoding'][1,0,:,:]
         neuronal_decoding[2*good_model_count+1,2,:,:] = x['neuronal_sample_decoding'][2,1,:,:]
-        #neuronal_decoding_probe[2*good_model_count,2,:,:] = x1['neuronal_sample_decoding'][1,0,:,:]
-        #neuronal_decoding_probe[2*good_model_count+1,2,:,:] = x1['neuronal_sample_decoding'][2,1,:,:]
         synaptic_decoding[2*good_model_count,2,:,:] = x['synaptic_sample_decoding'][1,0,:,:]
         synaptic_decoding[2*good_model_count+1,2,:,:] = x['synaptic_sample_decoding'][2,1,:,:]
 
         # first stim not cued, second stim not cued
         neuronal_decoding[2*good_model_count,3,:,:] = x['neuronal_sample_decoding'][3,0,:,:]
         neuronal_decoding[2*good_model_count+1,3,:,:] = x['neuronal_sample_decoding'][0,1,:,:]
-        #neuronal_decoding_probe[2*good_model_count,3,:,:] = x1['neuronal_sample_decoding'][3,0,:,:]
-        #neuronal_decoding_probe[2*good_model_count+1,3,:,:] = x1['neuronal_sample_decoding'][0,1,:,:]
         synaptic_decoding[2*good_model_count,3,:,:] = x['synaptic_sample_decoding'][3,0,:,:]
         synaptic_decoding[2*good_model_count+1,3,:,:] = x['synaptic_sample_decoding'][0,1,:,:]
+
+        # second stim cued
+        neuronal_decoding[2*good_model_count,4,:,:] = x['neuronal_sample_decoding'][1,0,:,:]/2 + x['neuronal_sample_decoding'][0,0,:,:]/2
+        neuronal_decoding[2*good_model_count+1,4,:,:] = x['neuronal_sample_decoding'][2,1,:,:]/2 + x['neuronal_sample_decoding'][3,1,:,:]/2
+        synaptic_decoding[2*good_model_count,4,:,:] = x['synaptic_sample_decoding'][1,0,:,:]/2 + x['synaptic_sample_decoding'][0,0,:,:]/2
+        synaptic_decoding[2*good_model_count+1,4,:,:] = x['synaptic_sample_decoding'][2,1,:,:]/2 + x['synaptic_sample_decoding'][3,1,:,:]/2
+
+        # second stim not cued
+        neuronal_decoding[2*good_model_count,5,:,:] = x['neuronal_sample_decoding'][2,0,:,:]/2 + x['neuronal_sample_decoding'][3,0,:,:]/2
+        neuronal_decoding[2*good_model_count+1,5,:,:] = x['neuronal_sample_decoding'][0,1,:,:]/2 + x['neuronal_sample_decoding'][1,1,:,:]/2
+        synaptic_decoding[2*good_model_count,5,:,:] = x['synaptic_sample_decoding'][2,0,:,:]/2 + x['synaptic_sample_decoding'][3,0,:,:]/2
+        synaptic_decoding[2*good_model_count+1,5,:,:] = x['synaptic_sample_decoding'][0,1,:,:]/2 + x['synaptic_sample_decoding'][1,1,:,:]/2
+
+
 
     for j in range(2):
         s = np.mean(neuronal_decoding[:,:,:,delay_epoch_pre_cue[j]],axis=3)
@@ -1153,12 +1194,12 @@ def plot_F6_v2(fig_params):
     print(np.sum(sig_pre_cue,axis=0))
     print(np.sum(sig_post_cue,axis=0))
 
-    f = plt.figure(figsize=(6,5))
+    f = plt.figure(figsize=(6,4))
 
     n_mean = np.mean(np.mean(neuronal_decoding[:,:,:,:],axis=2),axis=0)
     n_sd = np.std(np.mean(neuronal_decoding[:,:,:,:],axis=2),axis=0)/np.sqrt(40)
-    n_probe_mean = np.mean(np.mean(neuronal_decoding_probe[:,:,:,:],axis=2),axis=0)
-    n_probe_sd = np.std(np.mean(neuronal_decoding_probe[:,:,:,:],axis=2),axis=0)/np.sqrt(40)
+    #n_probe_mean = np.mean(np.mean(neuronal_decoding_probe[:,:,:,:],axis=2),axis=0)
+    #n_probe_sd = np.std(np.mean(neuronal_decoding_probe[:,:,:,:],axis=2),axis=0)/np.sqrt(40)
     s_mean = np.mean(np.mean(synaptic_decoding[:,:,:,:],axis=2),axis=0)
     s_sd = np.std(np.mean(synaptic_decoding[:,:,:,:],axis=2),axis=0)/np.sqrt(40)
 
@@ -1166,49 +1207,57 @@ def plot_F6_v2(fig_params):
 
     ax = f.add_subplot(2, 2, 1)
     ax.plot(t,n_mean[0,:],color=[0,0,1])
-    ax.fill_between(t, n_mean[0,:]-n_sd[0,:], n_mean[0,:]+n_sd[0,:], color=[0,0,1,0.5])
+    ax.fill_between(t, n_mean[0,:]-n_sd[0,:], n_mean[0,:]+n_sd[0,:], color=[0,0,1,0.2])
     ax.plot(t,n_mean[1,:],color=[1,0,0])
-    ax.fill_between(t, n_mean[1,:]-n_sd[1,:], n_mean[1,:]+n_sd[1,:], color=[1,0,0,0.5])
+    ax.fill_between(t, n_mean[1,:]-n_sd[1,:], n_mean[1,:]+n_sd[1,:], color=[1,0,0,0.2])
     ax.plot(t,s_mean[0,:],color=[1,1,0])
-    ax.fill_between(t, s_mean[0,:]-s_sd[0,:], s_mean[0,:]+s_sd[0,:], color=[1,1,0,0.5])
+    ax.fill_between(t, s_mean[0,:]-s_sd[0,:], s_mean[0,:]+s_sd[0,:], color=[1,1,0,0.2])
     ax.plot(t,s_mean[1,:],color=[0,0,0])
-    ax.fill_between(t, s_mean[1,:]-s_sd[1,:], s_mean[1,:]+s_sd[1,:], color=[0,0,0,0.5])
+    ax.fill_between(t, s_mean[1,:]-s_sd[1,:], s_mean[1,:]+s_sd[1,:], color=[0,0,0,0.2])
     add_dualDMS_subplot_details(ax, chance_level)
     ax.set_xlim([-500,2000])
 
     ax = f.add_subplot(2, 2, 2)
-    ax.plot(t,n_mean[2,:],color=[0,0,1])
-    ax.fill_between(t, n_mean[2,:]-n_sd[2,:], n_mean[2,:]+n_sd[0,:], color=[0,0,1,0.5])
-    ax.plot(t,n_mean[3,:],color=[1,0,0])
-    ax.fill_between(t, n_mean[3,:]-n_sd[3,:], n_mean[3,:]+n_sd[1,:], color=[1,0,0,0.5])
-    ax.plot(t,s_mean[2,:],color=[1,1,0])
-    ax.fill_between(t, s_mean[2,:]-s_sd[2,:], s_mean[2,:]+s_sd[0,:], color=[1,1,0,0.5])
-    ax.plot(t,s_mean[3,:],color=[0,0,0])
-    ax.fill_between(t, s_mean[3,:]-s_sd[3,:], s_mean[3,:]+s_sd[1,:], color=[0,0,0,0.5])
+    ax.plot(t,n_mean[4,:],color=[0,0,1])
+    ax.fill_between(t, n_mean[4,:]-n_sd[4,:], n_mean[4,:]+n_sd[4,:], color=[0,0,1,0.2])
+    ax.plot(t,n_mean[5,:],color=[1,0,0])
+    ax.fill_between(t, n_mean[5,:]-n_sd[5,:], n_mean[5,:]+n_sd[5,:], color=[1,0,0,0.2])
+    ax.plot(t,s_mean[4,:],color=[1,1,0])
+    ax.fill_between(t, s_mean[4,:]-s_sd[4,:], s_mean[4,:]+s_sd[4,:], color=[1,1,0,0.2])
+    ax.plot(t,s_mean[5,:],color=[0,0,0])
+    ax.fill_between(t, s_mean[5,:]-s_sd[5,:], s_mean[5,:]+s_sd[5,:], color=[0,0,0,0.2])
     add_dualDMS_subplot_details(ax, chance_level)
     ax.set_xlim([2000,3500])
 
     j = 1
     n_mean_pre = np.mean(np.mean(neuronal_decoding[:,:,:,delay_epoch_pre_cue[j]],axis=3),axis=2)
     n_mean_post = np.mean(np.mean(neuronal_decoding[:,:,:,delay_epoch_post_cue[j]],axis=3),axis=2)
+
     #p_val = scipy.stats.ttest_rel(n_mean_pre,n_mean_post)[1]
-    p_val = [scipy.stats.ttest_rel(n_mean_post[:,0],n_mean_post[:,1])[1], scipy.stats.ttest_rel(n_mean_post[:,2],n_mean_post[:,3])[1]]
+    p_val = [scipy.stats.ttest_rel(n_mean_post[:,0],n_mean_post[:,1])[1], scipy.stats.ttest_rel(n_mean_post[:,2],n_mean_post[:,3])[1], scipy.stats.ttest_rel(n_mean_post[:,4],n_mean_post[:,5])[1]]
+    t_stats = [scipy.stats.ttest_rel(n_mean_post[:,0],n_mean_post[:,1])[0], scipy.stats.ttest_rel(n_mean_post[:,2],n_mean_post[:,3])[0], scipy.stats.ttest_rel(n_mean_post[:,4],n_mean_post[:,5])[0]]
     post = np.mean(n_mean_post, axis=0)
     pre = np.mean(n_mean_pre, axis=0)
-    print('post = ', post)
-    print('pre = ', pre)
+    post_sd = np.std(n_mean_post, axis=0)
+    pre_sd = np.std(n_mean_pre, axis=0)
+    print('post = ', post, 'SD ',post_sd)
+    print('pre = ', pre, 'SD ', pre_sd)
     print('p_val = ', p_val)
+    print('t_stats = ', t_stats)
     ax = f.add_subplot(2, 2, 3)
     ax.plot([0,1],[0,1],'k--')
     ax.plot([chance_level,chance_level],[0,1],'k--')
     ax.plot([0,1],[chance_level,chance_level],'k--')
     ax.plot(n_mean_pre[:,0+2*j], n_mean_post[:,0+2*j],'b.')
     ax.plot(n_mean_pre[:,1+2*j], n_mean_post[:,1+2*j],'r.')
-    ax.plot(n_mean_pre[ind_uattended,0+2*j], n_mean_post[ind_uattended,0+2*j],'c.')
+    #ax.plot(n_mean_pre[ind_uattended,0+2*j], n_mean_post[ind_uattended,0+2*j],'c.')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
+    ax.set_xticks([0,0.5,1])
+    ax.set_yticks([0,0.5,1])
+    ax.set_aspect('equal')
     #ax.set_yticks([0,0.5,0.6,0.7,0.8,0.9,1])
     #ax.set_xticks([0,0.2,0.4,0.6,0.8,1])
     ax.set_ylim([0,1])
@@ -1221,20 +1270,20 @@ def plot_F6_v2(fig_params):
     s_sd = np.std(np.mean(synaptic_rule_decoding[:,:,:,:],axis=2),axis=0)/np.sqrt(20)
 
     ax = f.add_subplot(2, 2, 4)
-    ax.plot(t,n_mean[0,:],color=[0,1,0])
-    ax.fill_between(t, n_mean[0,:]-n_sd[0,:], n_mean[0,:]+n_sd[0,:], color=[0,1,0,0.5])
-    ax.plot(t,s_mean[0,:],color=[1,0,1])
-    ax.fill_between(t, s_mean[0,:]-s_sd[0,:], s_mean[0,:]+s_sd[0,:], color=[1,0,1,0.5])
-    #add_dualDMS_subplot_details(ax, chance_level)
-    #ax.set_xlim([-500,2000])
+    ax.plot(t,n_mean[0,:],linestyle = '--', color=[0,1,0], linewidth = 1)
+    ax.fill_between(t, n_mean[0,:]-n_sd[0,:], n_mean[0,:]+n_sd[0,:], color=[0,1,0,0.2])
+    ax.plot(t,s_mean[0,:],linestyle = '--', color=[1,0,1], linewidth = 1)
+    ax.fill_between(t, s_mean[0,:]-s_sd[0,:], s_mean[0,:]+s_sd[0,:], color=[1,0,1,0.2])
+
 
     #ax = f.add_subplot(3, 2, 6)
     ax.plot(t,n_mean[1,:],color=[0,1,0])
-    ax.fill_between(t, n_mean[1,:]-n_sd[1,:], n_mean[1,:]+n_sd[1,:], color=[0,1,0,0.5])
+    ax.fill_between(t, n_mean[1,:]-n_sd[1,:], n_mean[1,:]+n_sd[1,:], color=[0,1,0,0.2])
     ax.plot(t,s_mean[1,:],color=[1,0,1])
-    ax.fill_between(t, s_mean[1,:]-s_sd[1,:], s_mean[1,:]+s_sd[1,:], color=[1,0,1,0.5])
-    add_dualDMS_subplot_details(ax, chance_level)
+    ax.fill_between(t, s_mean[1,:]-s_sd[1,:], s_mean[1,:]+s_sd[1,:], color=[1,0,1,0.2])
+    add_dualDMS_subplot_details(ax, 0.5)
     ax.set_xlim([-500,3500])
+    ax.set_ylim([0.45,1.02])
 
 
     plt.tight_layout()
@@ -1285,7 +1334,7 @@ def plot_F6(fig_params):
             print('not found: ',  fig_params['data_dir'] + task + '_' + str(count) + '.pkl')
             continue
 
-        if np.mean(x['accuracy']) >  0.9:
+        if np.mean(x['accuracy']) >  0.7:
 
             if good_model_count == example_ind:
                 for j in range(4):
@@ -1781,12 +1830,16 @@ def plot_F5(fig_params):
             acc_se[0] = np.std(accuracy_test2[:good_model_count])/np.sqrt(good_model_count)
             acc_se[1:] = np.std(accuracy_test2_shuffled[:good_model_count, :],axis=0)/np.sqrt(good_model_count)
             ax = f.add_subplot(4,2,8)
-            p0, p1, p2, p3, p4 = ax.bar([0,1,2,3,4], acc, yerr=acc_se)
-            p0.set_facecolor('k')
-            p1.set_facecolor(col[0])
-            p2.set_facecolor(col[1])
-            p3.set_facecolor(col[2])
-            p4.set_facecolor(col[3])
+            ax.plot(np.ones((good_model_count)), accuracy_test2[:good_model_count],'k.')
+            for i in range(2,6):
+                ax.plot(i*np.ones((good_model_count)), accuracy_test2_shuffled[:good_model_count, i-2],'.', color=col[i-2])
+
+            #p0, p1, p2, p3, p4 = ax.bar([0,1,2,3,4], acc, yerr=acc_se)
+            #p0.set_facecolor('k')
+            #p1.set_facecolor(col[0])
+            #p2.set_facecolor(col[1])
+            #p3.set_facecolor(col[2])
+            #p4.set_facecolor(col[3])
             ax.set_ylabel('Behavioral accuracy')
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
@@ -1801,20 +1854,22 @@ def plot_F5(fig_params):
         _, p[i] = scipy.stats.ttest_rel(accuracy_test2[:good_model_count], accuracy_test2_shuffled[:good_model_count, i])
     print('p-vals ', p)
     print('accuracy after suppression lowest compared to otehr three')
-    _, p0 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,0], accuracy_test2_shuffled[:good_model_count, 2])
-    _, p1 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,1], accuracy_test2_shuffled[:good_model_count, 2])
-    _, p2 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,3], accuracy_test2_shuffled[:good_model_count, 2])
+    p0 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,0], accuracy_test2_shuffled[:good_model_count, 2])
+    p1 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,1], accuracy_test2_shuffled[:good_model_count, 2])
+    p2 = scipy.stats.ttest_rel(accuracy_test2_shuffled[:good_model_count,3], accuracy_test2_shuffled[:good_model_count, 2])
     print('p-vals ', p0, p1, p2)
 
     plt.tight_layout()
     plt.savefig('Fig5.pdf', format='pdf')
     plt.show()
 
-    p_val = scipy.stats.ttest_ind(tuning_sim_ABCA,tuning_sim_ABBA_base)[1]
-    print('Mean ABCA sim ', np.mean(tuning_sim_ABCA), ' Mean ABBA sim ', np.mean(tuning_sim_ABBA_base) , ' p = ', p_val)
+    p_val = scipy.stats.ttest_ind(tuning_sim_ABCA,tuning_sim_ABBA_base)
+    print('Mean ABCA sim ', np.mean(tuning_sim_ABCA), '+/-', np.std(tuning_sim_ABCA), ' Mean ABBA sim ', np.mean(tuning_sim_ABBA_base) , \
+        '+/-',  np.std(tuning_sim_ABBA_base) , 'p = ', p_val)
 
-    p_val = scipy.stats.ttest_rel(tuning_sim_ABBA_supp ,tuning_sim_ABBA_base)[1]
-    print('Mean ABBA sim supp', np.mean(tuning_sim_ABBA_supp), ' Mean ABBA sim ', np.mean(tuning_sim_ABBA_base) , ' p = ', p_val)
+    p_val = scipy.stats.ttest_rel(tuning_sim_ABBA_supp ,tuning_sim_ABBA_base)
+    print('Mean ABBA sim supp', np.mean(tuning_sim_ABBA_supp), '+/-', np.std(tuning_sim_ABBA_supp), ' Mean ABBA sim ', \
+        np.mean(tuning_sim_ABBA_base) , '+/-', np.std(tuning_sim_ABBA_base),' p = ', p_val)
 
 
     print('Number of models with delay neuronal decoding accuracy signficantly greater than chance')
