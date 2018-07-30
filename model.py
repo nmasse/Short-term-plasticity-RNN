@@ -7,6 +7,7 @@ import tensorflow as tf
 import numpy as np
 import stimulus
 import analysis
+import pickle
 from parameters import *
 import os, sys
 
@@ -170,17 +171,13 @@ class Model:
 
 
         with tf.variable_scope('rnn_cell', reuse = True):
-            W_in = tf.get_variable('W_in')
             W_rnn = tf.get_variable('W_rnn')
-        with tf.variable_scope('output', reuse = True):
-            W_out = tf.get_variable('W_out')
-        self.wiring_loss = tf.reduce_sum(tf.nn.relu(W_in)) + tf.reduce_sum(tf.nn.relu(W_rnn)) + tf.reduce_sum(tf.nn.relu(W_out))
-        self.wiring_loss *= par['wiring_cost']
 
+        self.weight_loss = par['weight_cost']*tf.reduce_mean(tf.nn.relu(W_rnn))
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
         self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
 
-        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
+        self.loss = self.perf_loss + self.spike_loss + self.weight_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
@@ -196,6 +193,9 @@ class Model:
             elif var.name == "output/W_out:0":
                 grad *= par['w_out_mask']
                 print('Applied weight mask to w_out.')
+            elif var.name == "rnn_cell/W_in:0":
+                grad *= par['w_in_mask']
+                print('Applied weight mask to w_in.')
             if not str(type(grad)) == "<class 'NoneType'>":
                 capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
 
@@ -206,6 +206,11 @@ def main(gpu_id = None):
 
     if gpu_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+
+    """
+    Print key parameters
+    """
+    print_important_params()
 
     """
     Reset TensorFlow before running anything
@@ -241,37 +246,46 @@ def main(gpu_id = None):
         sess.run(init)
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
+        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'weight_loss': [], 'trial': []}
 
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
-            trial_info = stim.generate_trial()
+            #trial_info = stim.generate_trial()
+
+            # temporary fix!!!!!
+            if par['trial_type'] == ' DMS+DMC':
+                set_rule = 0 if i<=2000 else None
+            else:
+                set_rule = None
+            trial_info = stim.generate_trial(set_rule = set_rule)
 
             """
             Run the model
             """
-            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
+            _, loss, perf_loss, spike_loss, weight_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.weight_loss, model.y_hat, \
                 model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
                 y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
             accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, (i+1)*N)
 
             """
             Save the network model and output model performance to screen
             """
             if i%par['iters_between_outputs']==0 and i > 0:
-                print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
+                print_results(i, N, perf_loss, spike_loss, weight_loss, state_hist, accuracy)
+                save_results(model_performance)
 
         """
         Save model, analyze the network model and save the results
         """
-        #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
+        save_results(model_performance)
+
+        """
         if par['analyze_model']:
-            weights = eval_weights()
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
@@ -283,15 +297,26 @@ def main(gpu_id = None):
                 {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
                 simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
+        """
 
 
+def save_results(model_performance):
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num):
+    weights = eval_weights()
+    results = {'weights': weights, 'parameters': par}
+    for k,v in model_performance.items():
+        results[k] = v
+    pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+    print('Model results saved in ', par['save_dir'] + par['save_fn'])
+
+
+def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, trial_num):
 
     model_performance['accuracy'].append(accuracy)
     model_performance['loss'].append(loss)
     model_performance['perf_loss'].append(perf_loss)
     model_performance['spike_loss'].append(spike_loss)
+    model_performance['weight_loss'].append(weight_loss)
     model_performance['trial'].append(trial_num)
 
     return model_performance
@@ -317,8 +342,14 @@ def eval_weights():
 
     return weights
 
-def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, state_hist, accuracy):
+def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss, state_hist, accuracy):
 
-    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
+    print(par['trial_type'] + ' Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
       ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
-      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+      ' | Weight loss {:0.4f}'.format(weight_loss) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+
+def print_important_params():
+
+    important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost','weight_cost','trial_type','dt']
+    for k in important_params:
+        print(k, ': ', par[k])

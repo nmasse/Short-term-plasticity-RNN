@@ -10,30 +10,98 @@ import pickle
 import stimulus
 import matplotlib.pyplot as plt
 
-def analyze_model_from_file(filename, savefile = None):
+def analyze_model_from_file(filename, savefile = None, update_params = {}):
 
-    x = pickle.load(open(filename, 'rb'))
+    results = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        x['parameters']['save_fn'] = 'test.pkl'
+        results['parameters']['save_fn'] = 'test.pkl'
     else:
-        x['parameters']['save_fn'] = savefile
-    update_parameters(x['parameters'])
+        results['parameters']['save_fn'] = savefile
+    update_parameters(results['parameters'])
+
     stim = stimulus.Stimulus()
-    trial_info = stim.generate_trial()
-    input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
-    y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-        x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
-
-    h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-    syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-    syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-
-    analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, \
-            lesion = False, tuning = True, decoding = False, load_previous_file = False, save_raw_data = False)
+    # generate trials with match probability at 50%
+    trial_info = stim.generate_trial(test_mode = False)
+    input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
+    y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
+        results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
 
 
-def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, simulation = True, \
+    # generate trials with random sample and test stimuli, used for decoding
+    trial_info_decode = stim.generate_trial(test_mode = True)
+    input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
+    _, h_decode, syn_x_decode, syn_u_decode = run_model(input_data, results['parameters']['h_init'], \
+        results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
+
+
+
+    for k,v in update_params.items():
+        par[k] = v
+
+    print('Analysis params...')
+    print('svm_normalize ', par['svm_normalize'])
+    print('decoding_reps ', par['decoding_reps'])
+    print('simulation_reps ', par['simulation_reps'])
+    print('decode_test ', par['decode_test'])
+    print('decode_rule ', par['decode_rule'])
+    print('decode_sample_vs_test ', par['decode_sample_vs_test'])
+    print('suppress_analysis ', par['suppress_analysis'])
+    print('analyze_tuning ', par['analyze_tuning'])
+    print('decode_stability ', par['decode_stability'])
+
+
+    """
+    Calculate accuracy after lesioning weights
+    """
+    if lesion:
+        print('lesioning weights...')
+        lesion_results = lesion_weights(trial_info, h, syn_x, syn_u, results['weights'], trial_time)
+        for key, val in lesion_results.items():
+             results[key] = val
+
+    """
+    Calculate the neuronal and synaptic contributions towards solving the task
+    """
+    if simulation:
+        print('simulating network...')
+        simulation_results = simulate_network(trial_info, h, syn_x, \
+            syn_u, results['weights'], num_reps = par['simulation_reps'])
+        for key, val in simulation_results.items():
+            results[key] = val
+
+    """
+    Calculate neuronal and synaptic sample motion tuning
+    """
+    if tuning:
+        print('calculate tuning...')
+        tuning_results = calculate_tuning(h, syn_x, syn_u, \
+            trial_info, trial_time, results['weights'], calculate_test = True)
+        for key, val in tuning_results.items():
+            results[key] = val
+
+    """
+    Decode the sample direction from neuronal activity and synaptic efficacies
+    using support vector machines
+    """
+    if decoding:
+        print('decoding activity...')
+        decoding_results = calculate_svms(h_decode, syn_x_decode, syn_u_decode, trial_info_decode, trial_time, \
+            num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
+            decode_sample_vs_test = par['decode_sample_vs_test'])
+        for key, val in decoding_results.items():
+            results[key] = val
+
+    pickle.dump(results, open(save_fn, 'wb') )
+    print('Analysis results saved in ', save_fn)
+
+    """
+    analyze_model(trial_info, trial_info_decode, y_hat, h, syn_x, syn_u, h_decode, syn_x_decode, syn_u_decode, None, x['weights'], simulation = False, \
+        lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+    """
+
+
+def analyze_model(trial_info, trial_info_decode, y_hat, h, syn_x, syn_u, h_decode, syn_x_decode, syn_u_decode, model_performance, weights, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
 
     """
@@ -104,7 +172,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     """
     if decoding:
         print('decoding activity...')
-        decoding_results = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
+        decoding_results = calculate_svms(h_decode, syn_x_decode, syn_u_decode, trial_info_decode, trial_time, \
             num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
             decode_sample_vs_test = par['decode_sample_vs_test'])
         for key, val in decoding_results.items():
@@ -185,7 +253,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     if decode_rule:
         print('rule decoding...')
         decoding_results['neuronal_rule_decoding'], decoding_results['synaptic_rule_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(rule), num_reps, trial_time)
 
     return decoding_results
 
@@ -202,15 +270,20 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
     _, num_time_steps, num_trials = h.shape
     num_rules = len(np.unique(rule))
 
-    score_h = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
-    score_syn_eff = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
+    if par['decode_stability']:
+        score_h = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps, num_time_steps), dtype = np.float32)
+        score_syn_eff = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps, num_time_steps), dtype = np.float32)
+    else:
+        score_h = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
+        score_syn_eff = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps), dtype = np.float32)
 
 
     for r in range(num_rules):
         ind_rule = np.where(rule==r)[0]
+        print('len rule ind', len(ind_rule))
         for n in range(par['num_receptive_fields']):
             if par['trial_type'] == 'dualDMS':
-                current_conds = conds[:,n]
+                current_conds = np.array(conds[:,n])
             else:
                 current_conds = np.array(conds)
 
@@ -227,12 +300,14 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
             cond_ind = []
             for c in range(num_conds):
                 cond_ind.append(ind_rule[np.where(current_conds[ind_rule] == c)[0]])
+                print('LENGTH ', len(cond_ind[c]))
                 if len(cond_ind[c]) < 4:
                     print('Not enough trials for this condition!')
                     print('Setting cond_ind to [0,1,2,3]')
                     cond_ind[c] = [0,1,2,3]
 
             for rep in range(num_reps):
+                print('Decode rep ', rep)
                 for c in range(num_conds):
                     u = range(c*trials_per_cond, (c+1)*trials_per_cond)
                     q = np.random.permutation(len(cond_ind[c]))
@@ -245,17 +320,41 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
                     q = np.random.randint(len(test_ind), size = trials_per_cond)
                     equal_test_ind[u] =  test_ind[q]
 
-                for t in range(num_time_steps):
-                    if trial_time[t] <= par['dead_time']:
-                        # no need to analyze activity during dead time
-                        continue
-
-                    score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
-                    score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
-
+                if par['decode_stability']:
+                    score_h[r,n,rep,:,:] = calc_svm_pair(lin_clf, h,  current_conds, current_conds, equal_train_ind, equal_test_ind, num_time_steps)
+                    score_syn_eff[r,n,rep,:,:] = calc_svm_pair(lin_clf, syn_eff,  current_conds, current_conds, equal_train_ind, equal_test_ind, num_time_steps)
+                else:
+                    for t in range(par['dead_time']//par['dt'], num_time_steps):
+                        score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
+                        score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
 
     return score_h, score_syn_eff
 
+
+def calc_svm_pair(lin_clf, y, train_conds, test_conds, train_ind, test_ind, num_time_steps):
+
+    n_test_inds = len(test_ind)
+    score = np.zeros((num_time_steps, num_time_steps))
+
+    # normalize values between 0 and 1
+    for t in range(num_time_steps):
+        for i in range(par['n_hidden']):
+            m1 = y[i,t,train_ind].min()
+            m2 =  y[i,t,train_ind].max()
+            y[i,t,:] -= m1
+            if m2>m1:
+                if par['svm_normalize']:
+                    y[i,t,:] /=(m2-m1)
+
+    # normalize values between 0 and 1
+    for t in range(par['dead_time']//par['dt'], num_time_steps):
+        lin_clf.fit(y[:,t,train_ind].T, train_conds[train_ind])
+        for t1 in range(par['dead_time']//par['dt'],num_time_steps):
+            dec = lin_clf.predict(y[:,t1,test_ind].T)
+            score[t, t1] = np.mean(test_conds[test_ind] == dec)
+
+
+    return score
 
 def calc_svm(lin_clf, y, train_conds, test_conds, train_ind, test_ind):
 
@@ -271,10 +370,7 @@ def calc_svm(lin_clf, y, train_conds, test_conds, train_ind, test_ind):
 
     lin_clf.fit(y[train_ind,:], train_conds[train_ind])
     dec = lin_clf.predict(y[test_ind,:])
-    score = 0
-    for i in range(n_test_inds):
-        if test_conds[test_ind[i]]==dec[i]:
-            score += 1/n_test_inds
+    score = np.mean(test_conds[test_ind]==dec)
 
     return score
 
@@ -583,6 +679,8 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
     """
     Calculates neuronal and synaptic sample motion direction tuning
     """
+    print('Setting calculate_test to FALSE')
+    calculate_test = False
 
     # time ranges for suppression analysis
     test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
@@ -606,7 +704,8 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
         num_test_stimuli = 3
         rule = np.array(trial_info['rule'])
         sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
-        test = np.reshape(np.array(trial_info['test']),(par['batch_train_size'], 1, 1))
+        if calculate_test:
+            test = np.reshape(np.array(trial_info['test']),(par['batch_train_size'], 1, 1))
     else:
         rule = np.array(trial_info['rule'])
         num_test_stimuli = 1
