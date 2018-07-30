@@ -86,13 +86,13 @@ class Stimulus:
             """
             Determine the desired network output response
             """
-            trial_info['desired_output'][8, eodead:eolongd, t] = 1
+            trial_info['desired_output'][0, eodead:eolongd, t] = 1
             for i in range(num_pulses):
-                trial_info['desired_output'][8, eor[i]:eodr[i], t] = 1
+                trial_info['desired_output'][0, eor[i]:eodr[i], t] = 1
 
-            trial_info['desired_output'][sample_dirs[0], eolongd:eor[0], t] = 1
+            trial_info['desired_output'][sample_dirs[0]+1, eolongd:eor[0], t] = 1
             for i in range(1, num_pulses):
-                trial_info['desired_output'][sample_dirs[i], eodr[i-1]:eor[i], t] = 1
+                trial_info['desired_output'][sample_dirs[i]+1, eodr[i-1]:eor[i], t] = 1
 
             """
             Append trial info
