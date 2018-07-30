@@ -10,7 +10,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : './savedir_sweep/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -86,6 +86,7 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : True,
+    'decode_stability'      : False,
 
 }
 
@@ -116,8 +117,8 @@ def update_trial_params():
     par['num_rules'] = 1
     par['num_rule_tuned'] = 0
     par['ABBA_delay' ] = 0
-    par['rule_onset_time'] = par['dead_time']
-    par['rule_offset_time'] = par['dead_time']
+    par['rule_onset_time'] = [par['dead_time']]
+    par['rule_offset_time'] = [par['dead_time']]
 
     if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         par['rotation_match'] = 0
@@ -141,16 +142,21 @@ def update_trial_params():
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
         par['num_rule_tuned'] = 12
-        par['sample_time'] = 500
-        par['test_time'] = 500
-        par['delay_time'] = 1000
+        par['sample_time'] = 400
+        par['test_time'] = 400
+        par['delay_time'] = 800
         par['analyze_rule'] = True
         par['num_motion_tuned'] = 36
         par['noise_in_sd']  = 0.1
         par['noise_rnn_sd'] = 0.5
-        par['num_iterations'] = 4000
+        par['num_iterations'] = 5000
 
         par['dualDMS_single_test'] = False
+        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + 500)
+        par['rule_offset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time'] + par['test_time'])
+        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time'] + par['test_time']+ 500)
+        par['rule_offset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + 2*par['delay_time'] + 2*par['test_time'])
+
 
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         par['catch_trial_pct'] = 0
@@ -170,37 +176,38 @@ def update_trial_params():
         par['num_rule_tuned'] = 12
         if par['trial_type'] == 'DMS+DMRS':
             par['rotation_match'] = [0, 90]
-            par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
+            par['rule_onset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 500]
+            par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 750]
         else:
             par['rotation_match'] = [0, 45]
-            par['rule_onset_time'] = par['dead_time']
-            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']-200
+            par['rule_onset_time'] = [par['dead_time']]
+            par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']]
 
     elif par['trial_type'] == 'DMS+DMC':
         par['num_rules'] = 2
         par['num_rule_tuned'] = 12
         par['rotation_match'] = [0, 0]
-        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
-        par['rule_onset_time'] = par['dead_time']
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+        #par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+        #par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+        par['rule_onset_time'] = [par['dead_time']]
+        par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']]
 
     elif par['trial_type'] == 'DMS+DMRS+DMC':
         par['num_rules'] = 3
         par['num_rule_tuned'] = 18
         par['rotation_match'] = [0, 90, 0]
-        par['rule_onset_time'] = par['dead_time']
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+        par['rule_onset_time'] = [par['dead_time']]
+        par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']]
 
     elif par['trial_type'] == 'location_DMS':
         par['num_receptive_fields'] = 3
         par['rotation_match'] = 0
         par['num_motion_tuned'] = 54
-        
+
     elif par['trial_type'] == 'distractor':
-        par['n_output'] = 9
-        #par['num_motion_tuned'] = 8*4
+        # this task will not use the create_tuning_functions in stimulus.py
+        # instead, it will used a simplified neural input
+        par['n_output'] = par['num_motion_dirs'] + 1
         par['sample_time'] = 300
         par['delay_time'] = 2300
         par['test_time'] = 500
@@ -208,7 +215,6 @@ def update_trial_params():
         par['simulation_reps'] = 0
         par['analyze_tuning'] = False
         par['num_receptive_fields'] = 1
-        par['kappa'] = 0.5
 
 
 
@@ -238,13 +244,8 @@ def update_dependencies():
 
 
     par['dead_time_rng'] = range(par['dead_time']//par['dt'])
-    par['maintain_fix_time_rng'] = range(par['dead_time']//par['dt'], \
-        (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
-    par['sample_time_rng'] = range((par['dead_time']+par['fix_time'])//par['dt'], \
-        (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
-    par['rule_time_rng'] = range(par['rule_onset_time']//par['dt'], par['rule_offset_time']//par['dt'])
-
-
+    par['sample_time_rng'] = range((par['dead_time']+par['fix_time'])//par['dt'], (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
+    par['rule_time_rng'] = [range(par['rule_onset_time'][n]//par['dt'], par['rule_offset_time'][n]//par['dt']) for n in range(len(par['rule_onset_time']))]
 
 
     # Possible rules based on rule type values

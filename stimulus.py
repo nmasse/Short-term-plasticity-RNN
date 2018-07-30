@@ -50,7 +50,22 @@ class Stimulus:
         5. probe_time (usually set to one time step, always presented 3/4 through delay
         """
 
-        # number of trials
+
+        trial_length = par['num_time_steps']
+        test_time_rng = []
+        mask_time_rng = []
+
+        for n in range(2):
+            test_time_rng.append(range((par['dead_time']+par['fix_time']+par['sample_time']+(n+1)*par['delay_time']+n*par['test_time'])//par['dt'], \
+                (par['dead_time']+par['fix_time']+par['sample_time']+(n+1)*par['delay_time']+(n+1)*par['test_time'])//par['dt']))
+            mask_time_rng.append(range((par['dead_time']+par['fix_time']+par['sample_time']+(n+1)*par['delay_time']+n*par['test_time'])//par['dt'], \
+                (par['dead_time']+par['fix_time']+par['sample_time']+(n+1)*par['delay_time']+n*par['test_time']+par['mask_duration'])//par['dt']))
+
+
+        fix_time_rng = []
+        fix_time_rng.append(range(par['dead_time']//par['dt'], (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']))
+        fix_time_rng.append(range((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time'])//par['dt'], \
+            (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']))
 
 
         # end of trial epochs
@@ -148,97 +163,87 @@ class Stimulus:
             Calculate input neural activity based on trial params
             """
             # SAMPLE stimuli
-            trial_info['neural_input'][:est, eof:eos, t] += np.reshape(self.motion_tuning[:,0,trial_info['sample'][t,0]],(-1,1))
-            trial_info['neural_input'][:est, eof:eos, t] += np.reshape(self.motion_tuning[:,1,trial_info['sample'][t,1]],(-1,1))
+            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:,0,trial_info['sample'][t,0]],(-1,1))
+            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:,1,trial_info['sample'][t,1]],(-1,1))
 
             # Cued TEST stimuli
-            trial_info['neural_input'][:est, eod1:eot1, t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,0],trial_info['test'][t,0,0]],(-1,1))
-            trial_info['neural_input'][:est, eod2:trial_length, t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,1],trial_info['test'][t,1,0]],(-1,1))
+            trial_info['neural_input'][:, test_time_rng[0], t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,0],trial_info['test'][t,0,0]],(-1,1))
+            trial_info['neural_input'][:, test_time_rng[1], t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,1],trial_info['test'][t,1,0]],(-1,1))
 
             # Non-cued TEST stimuli
-            trial_info['neural_input'][:est, eod1:eot1, t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,0])%2,trial_info['test'][t,0,1]],(-1,1))
-            trial_info['neural_input'][:est, eod2:trial_length, t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,1])%2,trial_info['test'][t,1,1]],(-1,1))
+            trial_info['neural_input'][:, test_time_rng[0], t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,0])%2,trial_info['test'][t,0,1]],(-1,1))
+            trial_info['neural_input'][:, test_time_rng[1], t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,1])%2,trial_info['test'][t,1,1]],(-1,1))
 
 
             # FIXATION
-            trial_info['neural_input'][ert:eft,eodead:eod1,t] += np.reshape(self.fix_tuning[:,0],(-1,1)) #ON
-            trial_info['neural_input'][ert:eft,eod1:eot1,t] += np.reshape(self.fix_tuning[:,1],(-1,1)) #OFF
-            trial_info['neural_input'][ert:eft,eot1:eod2,t] += np.reshape(self.fix_tuning[:,0],(-1,1)) #ON
-            trial_info['neural_input'][ert:eft,eod2:trial_length,t] += np.reshape(self.fix_tuning[:,1],(-1,1)) #OFF
+            trial_info['neural_input'][:,fix_time_rng[0],t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+            trial_info['neural_input'][:,fix_time_rng[1],t] += np.reshape(self.fix_tuning[:,0],(-1,1))
 
             # RULE CUE
-            trial_info['neural_input'][est:ert,cue_time1:eot1,t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,0]],(-1,1))
-            trial_info['neural_input'][est:ert,cue_time2:trial_length,t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,1]],(-1,1))
+            trial_info['neural_input'][:,par['rule_time_rng'][0],t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,0]],(-1,1))
+            trial_info['neural_input'][:,par['rule_time_rng'][1],t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,1]],(-1,1))
 
             # PROBE
             # increase reponse of all stim tuned neurons by 10
+            """
             if trial_info['probe'][t,0]:
                 trial_info['neural_input'][:est,probe_time1,t] += 10
             if trial_info['probe'][t,1]:
                 trial_info['neural_input'][:est,probe_time2,t] += 10
+            """
 
 
             """
             Desired outputs
             """
             # FIXATION
-            trial_info['desired_output'][0,:eod1, t] = 1
-            trial_info['desired_output'][0,eot1:eod2, t] = 1
+            trial_info['desired_output'][0,fix_time_rng[0], t] = 1
+            trial_info['desired_output'][0,fix_time_rng[1], t] = 1
             # TEST 1
+            trial_info['train_mask'][ test_time_rng[0], t] *= 1. # can use a greater weight for test period if needed
             if trial_info['match'][t,0] == 1:
-                trial_info['desired_output'][2,eod1:eot1, t] = 1
+                trial_info['desired_output'][2,test_time_rng[0], t] = 1
             else:
-                trial_info['desired_output'][1,eod1:eot1, t] = 1
+                trial_info['desired_output'][1,test_time_rng[0], t] = 1
             # TEST 2
+            trial_info['train_mask'][ test_time_rng[1], t] *= 1. # can use a greater weight for test period if needed
             if trial_info['match'][t,1] == 1:
-                trial_info['desired_output'][2,eod2:trial_length, t] = 1
+                trial_info['desired_output'][2,test_time_rng[1], t] = 1
             else:
-                trial_info['desired_output'][1,eod2:trial_length, t] = 1
+                trial_info['desired_output'][1,test_time_rng[1], t] = 1
 
             # set to mask equal to zero during the dead time, and during the first times of test stimuli
-            trial_info['train_mask'][:eodead, t] = 0
-            trial_info['train_mask'][eod1:eod1+mask_duration, t] = 0
-            trial_info['train_mask'][eod2:eod2+mask_duration, t] = 0
+            trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
+            trial_info['train_mask'][mask_time_rng[0], t] = 0
+            trial_info['train_mask'][mask_time_rng[1], t] = 0
 
         return trial_info
 
     def generate_distractor_trial(self):
 
-        trial_length = par['num_time_steps']
-
-
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
 
         # set to mask equal to zero during the dead time
 
         # end of trial epochs
         d1 = (par['delay_time']-300)//2
-        eodead = par['dead_time']//par['dt']
-        eof = (par['dead_time']+par['fix_time'])//par['dt']
-        eos = (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt']
-        eod1 = (par['dead_time']+par['fix_time']+par['sample_time']+d1)//par['dt']
-        eoddist = (par['dead_time']+par['fix_time']+par['sample_time']+d1+300)//par['dt']
-        eod = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
+        distrator_time_rng = range((par['dead_time']+par['fix_time']+par['sample_time']+d1)//par['dt'],\
+            (par['dead_time']+par['fix_time']+par['sample_time']+d1+300)//par['dt'])
+        test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
 
-        # end of neuron indices
-        emt = par['num_motion_tuned']
-        eft = par['num_fix_tuned']+par['num_motion_tuned']
-        ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
 
-        trial_info['train_mask'][:eodead, :] = 0
-        trial_info['train_mask'][eodead:eodead+mask_duration, :] = 0
-        trial_info['neural_input'][-par['num_fix_tuned']:, :eod, :] = par['tuning_height']
+        trial_info['train_mask'][:par['dead_time']//par['dt'], :] = 0
 
         for t in range(par['batch_train_size']):
 
@@ -248,24 +253,24 @@ class Stimulus:
             sample_dir = np.random.randint(par['num_motion_dirs'])
             distractor_dir = np.random.randint(par['num_motion_dirs'])
 
-            trial_info['neural_input'][sample_dir*4:(sample_dir+1)*4, eof:eos, t] = par['tuning_height']
-            trial_info['neural_input'][distractor_dir*4:(distractor_dir+1)*4, eod1:eoddist, t] = par['tuning_height']
-
-            #trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,sample_dir],(-1,1))
-            #trial_info['neural_input'][:emt, eof:eos, t] += np.reshape(self.motion_tuning[:,distractor_dir],(-1,1))
+            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:, 0, sample_dir],(-1,1))
+            trial_info['neural_input'][:, distrator_time_rng, t] += np.reshape(self.motion_tuning[:, 0, distractor_dir],(-1,1))
+            trial_info['neural_input'][:, :test_onset, t] += np.reshape(self.fix_tuning[:, 0],(-1,1))
 
 
             """
             Determine the desired network output response
             """
-            trial_info['desired_output'][0, eodead:eod, t] = 1
-            trial_info['desired_output'][1+sample_dir, eod:, t] = 1
+            trial_info['desired_output'][0, :test_onset, t] = 1
+            trial_info['desired_output'][1+sample_dir, test_onset:, t] = 1
+            trial_info['train_mask'][test_onset:test_onset+mask_duration, t] = 0
 
 
             """
             Append trial info
             """
             trial_info['sample'][t] = sample_dir
+            trial_info['distractor'][t] = distractor_dir
             trial_info['test'][t] = 0
             trial_info['rule'][t] = 0
             trial_info['catch'][t] = 0
@@ -347,6 +352,7 @@ class Stimulus:
                 test_onset = (par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'])//par['dt']
 
             test_time_rng =  range(test_onset, par['num_time_steps'])
+            fix_time_rng =  range(test_onset)
             trial_info['train_mask'][test_onset:test_onset+mask_duration, t] = 0
 
             """
@@ -388,16 +394,16 @@ class Stimulus:
 
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
-                trial_info['neural_input'][:, par['fix_time_rng'], t] += np.reshape(self.fix_tuning[:,1],(-1,1))
+                trial_info['neural_input'][:, fix_time_rng, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
 
             # RULE CUE
             if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
-                trial_info['neural_input'][:, par['rule_time_rng'], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
+                trial_info['neural_input'][:, par['rule_time_rng'][0], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
 
             """
             Determine the desired network output response
             """
-            trial_info['desired_output'][0, par['maintain_fix_time_rng'], t] = 1
+            trial_info['desired_output'][0, fix_time_rng, t] = 1
             if not catch:
                 trial_info['train_mask'][ test_time_rng, t] *= 1. # can use a greater weight for test period if needed
                 if match == 0:
@@ -441,17 +447,6 @@ class Stimulus:
         for n in range(par['max_num_tests']):
             test_time_rng.append(range(eos+ABBA_delay*(2*n+1), eos+ABBA_delay*(2*n+2)))
             mask_time_rng.append(range(eos+ABBA_delay*(2*n+1), eos+ABBA_delay*(2*n+1) + mask_duration))
-
-        # end of trial epochs
-        #eodead = par['dead_time']//par['dt']
-        #eof = (par['dead_time']+par['fix_time'])//par['dt']
-        #eos = eof + ABBA_delay
-
-        # end of neuron indices
-        #emt = par['num_motion_tuned']
-        #eft = par['num_fix_tuned']+par['num_motion_tuned']
-        #ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_rule_tuned']
-        #self.num_input_neurons = ert
 
 
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
@@ -554,16 +549,18 @@ class Stimulus:
         stim_dirs = np.float32(np.arange(0,360,360/par['num_motion_dirs']))
 
         for n in range(par['num_motion_tuned']//par['num_receptive_fields']):
-            for i in range(len(stim_dirs)):
+            for i in range(par['num_motion_dirs']):
                 for r in range(par['num_receptive_fields']):
-                    d = np.cos((stim_dirs[i] - pref_dirs[n])/180*np.pi)
-                    n_ind = n+r*par['num_motion_tuned']//par['num_receptive_fields']
-                    motion_tuning[n_ind,r,i] = par['tuning_height']*np.exp(par['kappa']*d)/np.exp(par['kappa'])
+                    if par['trial_type'] == 'distractor':
+                        if n%par['num_motion_dirs'] == i:
+                            motion_tuning[n,0,i] = par['tuning_height']
+                    else:
+                        d = np.cos((stim_dirs[i] - pref_dirs[n])/180*np.pi)
+                        n_ind = n+r*par['num_motion_tuned']//par['num_receptive_fields']
+                        motion_tuning[n_ind,r,i] = par['tuning_height']*np.exp(par['kappa']*d)/np.exp(par['kappa'])
 
         for n in range(par['num_fix_tuned']):
-            for i in range(2):
-                if n%2 == i:
-                    fix_tuning[par['num_motion_tuned']+n,0] = par['tuning_height']
+            fix_tuning[par['num_motion_tuned']+n,0] = par['tuning_height']
 
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
