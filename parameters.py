@@ -24,11 +24,11 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 50,
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 1,
+    'num_pulses'            : 10,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 1000,
     'resp_cue_time'         : 200,
@@ -63,7 +63,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 256,
-    'num_iterations'        : 2000,
+    'num_iterations'        : 1000,
     'iters_between_outputs' : 50,
 
     # Task specs
