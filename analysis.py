@@ -161,6 +161,8 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     else:
         sample = np.array(trial_info['sample'])
         rule = np.array(trial_info['rule'])
+        print('sample ', sample.shape)
+        par['num_receptive_fields'] = par['num_pulses']
 
     # if trial_info['test'].ndim == 2:
     #     test = trial_info['test'][:,0]
@@ -191,7 +193,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
+def svm_wraper(lin_clf, h, syn_eff, stim, rule, num_reps, trial_time):
 
     """
     Wraper function used to decode sample/test or rule information
@@ -201,47 +203,49 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
     num_rules = len(np.unique(rule))
+    num_stim = par['num_pulses'] if par['trial_type']=='chunking' else par['num_receptive_fields']
 
-    score_h = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps, par['num_pulses']), dtype = np.float32)
-    score_syn_eff = np.zeros((num_rules, par['num_receptive_fields'], num_reps, num_time_steps, par['num_pulses']), dtype = np.float32)
+    score_h = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
+    score_syn_eff = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
 
     for r in range(num_rules):
         ind_rule = np.where(rule==r)[0]
-        for n in range(par['num_receptive_fields']):
-            if par['trial_type'] == 'dualDMS':
-                current_conds = conds[:,n]
+
+        for n in range(num_stim):
+            if par['trial_type'] == 'dualDMS' or par['trial_type'] == 'chunking':
+                current_stim = stim[:,n]
             else:
-                current_conds = np.array(conds)
+                current_stim = np.array(stim)
 
-            num_conds = len(np.unique(conds[ind_rule]))
-            if num_conds <= 2:
-                trials_per_cond = 100
+            num_unique_stim = len(np.unique(stim[ind_rule]))
+            if num_unique_stim <= 2:
+                trials_per_stim = 100
             else:
-                trials_per_cond = 25
-            print('Rule ', r, ' num conds ', num_conds)
+                trials_per_stim = 25
+            print('Rule ', r, ' num conds ', num_unique_stim)
 
-            equal_train_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
-            equal_test_ind = np.zeros((num_conds*trials_per_cond), dtype = np.uint16)
+            equal_train_ind = np.zeros((num_unique_stim*trials_per_cond), dtype = np.uint16)
+            equal_test_ind = np.zeros((num_unique_stim*trials_per_cond), dtype = np.uint16)
 
-            cond_ind = []
-            for c in range(num_conds):
-                cond_ind.append(ind_rule[np.where(current_conds[ind_rule] == c)[0]])
-                if len(cond_ind[c]) < 4:
-                    print('Not enough trials for this condition!')
+            stim_ind = []
+            for c in range(num_unique_stim):
+                stim_ind.append(ind_rule[np.where(current_stim[ind_rule] == c)[0]])
+                if len(stim_ind[c]) < 4:
+                    print('Not enough trials for this stimulus!')
                     print('Setting cond_ind to [0,1,2,3]')
-                    cond_ind[c] = [0,1,2,3]
+                    stim_ind[c] = [0,1,2,3]
 
             for rep in range(num_reps):
-                for c in range(num_conds):
-                    u = range(c*trials_per_cond, (c+1)*trials_per_cond)
-                    q = np.random.permutation(len(cond_ind[c]))
-                    i = int(np.round(len(cond_ind[c])*train_pct))
-                    train_ind = cond_ind[c][q[:i]]
-                    test_ind = cond_ind[c][q[i:]]
+                for c in range(num_unique_stim):
+                    u = range(c*trials_per_cond, (c+1)*trials_per_stim)
+                    q = np.random.permutation(len(stim_ind[c]))
+                    i = int(np.round(len(stim_ind[c])*train_pct))
+                    train_ind = stim_ind[c][q[:i]]
+                    test_ind = stim_ind[c][q[i:]]
 
-                    q = np.random.randint(len(train_ind), size = trials_per_cond)
+                    q = np.random.randint(len(train_ind), size = trials_per_stim)
                     equal_train_ind[u] =  train_ind[q]
-                    q = np.random.randint(len(test_ind), size = trials_per_cond)
+                    q = np.random.randint(len(test_ind), size = trials_per_stim)
                     equal_test_ind[u] =  test_ind[q]
 
                 for t in range(num_time_steps):
@@ -249,8 +253,8 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, trial_time):
                         # no need to analyze activity during dead time
                         continue
 
-                    score_h[r,n,rep,t,:] = calc_svm(lin_clf, h[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
-                    score_syn_eff[r,n,rep,t,:] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_conds, current_conds, equal_train_ind, equal_test_ind)
+                    score_h[r,n,rep,t,:] = calc_svm(lin_clf, h[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
+                    score_syn_eff[r,n,rep,t,:] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
 
 
     return score_h, score_syn_eff
