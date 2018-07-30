@@ -35,7 +35,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 1e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -43,8 +43,8 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_in_sd'           : 0,
+    'noise_rnn_sd'          : 0.05,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -52,7 +52,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 1e-9,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -62,7 +62,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 256,
+    'batch_train_size'      : 1024,
     'num_iterations'        : 100,
     'iters_between_outputs' : 50,
 
