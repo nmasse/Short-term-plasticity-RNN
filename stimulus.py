@@ -41,7 +41,8 @@ class Stimulus:
         emt = par['num_motion_tuned']
         eft = par['num_fix_tuned']+par['num_motion_tuned']
         ert = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_resp_cue_tuned']
-        # eot = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_resp_cue_tuned'] + par['num_order_cue_tuned']
+        if par['order_cue']:
+            eot = par['num_fix_tuned']+par['num_motion_tuned'] + par['num_resp_cue_tuned'] + par['num_order_cue_tuned']
 
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
@@ -86,12 +87,13 @@ class Stimulus:
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
 
-            # # ORDER CUE
-            # trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
-            # trial_info['neural_input'][ert, eof:eos[0], t] += par['tuning_height']
-            # for i in range(1,par['num_pulses']):
-            #     trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
-            #     trial_info['neural_input'][ert+i, eods[i-1]:eos[i], t] += par['tuning_height']
+            # ORDER CUE
+            if par['order_cue']:
+                trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
+                trial_info['neural_input'][ert, eof:eos[0], t] += par['tuning_height']
+                for i in range(1,par['num_pulses']):
+                    trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
+                    trial_info['neural_input'][ert+i, eods[i-1]:eos[i], t] += par['tuning_height']
 
             """
             Determine the desired network output response

@@ -267,7 +267,7 @@ def main(gpu_id = None):
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
 
-            if accuracy > 0.95:
+            if accuracy > 0.98:
                 break
 
         """

@@ -133,6 +133,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     direction from this value
     """
     syn_efficacy = syn_x*syn_u
+    combined = np.concatenate((h, syn_efficacy), axis=0)
 
     if par['trial_type'] == 'DMC':
         """
@@ -170,8 +171,8 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
     print('sample decoding...num_reps = ', num_reps)
-    decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'] = \
-        svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, trial_time)
+    decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
+        svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
@@ -192,7 +193,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, stim, rule, num_reps, trial_time):
+def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time):
 
     """
     Wraper function used to decode sample/test or rule information
@@ -206,6 +207,7 @@ def svm_wraper(lin_clf, h, syn_eff, stim, rule, num_reps, trial_time):
 
     score_h = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
     score_syn_eff = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
+    score_combo = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
 
     for r in range(num_rules):
         ind_rule = np.where(rule==r)[0]
@@ -254,9 +256,10 @@ def svm_wraper(lin_clf, h, syn_eff, stim, rule, num_reps, trial_time):
 
                     score_h[r,n,rep,t] = calc_svm(lin_clf, h[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
                     score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
+                    score_combo[r,n,rep,t] = calc_svm(lin_clf, combo[:,t,:].T, current_stim, current_stim, equal_train_ind, equal_test_ind)
 
 
-    return score_h, score_syn_eff
+    return score_h, score_syn_eff, score_combo
 
 
 def calc_svm(lin_clf, y, train_conds, test_conds, train_ind, test_ind):

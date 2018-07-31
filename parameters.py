@@ -32,6 +32,7 @@ par = {
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
+    'order_cue'             : True,
 
     # Timings and rates
     'dt'                    : 10,
@@ -63,7 +64,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 50000,
+    'num_iterations'        : 1,
     'iters_between_outputs' : 50,
 
     # Task specs
@@ -196,8 +197,10 @@ def update_trial_params():
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'chunking':
-        # par['num_order_cue_tuned'] = par['num_pulses']
-        pass
+        if par['order_cue']:
+            par['num_order_cue_tuned'] = par['num_pulses']
+        else:
+            pass
 
     else:
         print(par['trial_type'], ' not a recognized trial type')
@@ -211,7 +214,10 @@ def update_dependencies():
 
     # Number of input neurons
     if par['trial_type'] == 'chunking':
-        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']# + par['num_order_cue_tuned']
+        if par['order_cue']:
+            par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned'] + par['num_order_cue_tuned']
+        else:
+            par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
     else:
         par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
@@ -356,7 +362,7 @@ def update_dependencies():
             par['syn_u_init'][i,:] = par['U'][i,0]
 
 def initialize(dims, connection_prob):
-    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+    w = 0.5 * np.random.gamma(shape=0.25, scale=1.0, size=dims)
     #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
