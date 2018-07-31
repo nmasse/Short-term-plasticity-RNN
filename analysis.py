@@ -27,9 +27,12 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
         par[k] = v
 
     stim = stimulus.Stimulus()
+    print('time step ', par['num_time_steps'])
+    print('st ', par['sample_time'])
 
     # generate trials with match probability at 50%
     trial_info = stim.generate_trial(test_mode = False)
+    print(trial_info['neural_input'].shape)
     input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
     y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
@@ -40,8 +43,6 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     input_data = np.squeeze(np.split(trial_info_decode['neural_input'], results['parameters']['num_time_steps'], axis=1))
     _, h_decode, syn_x_decode, syn_u_decode = run_model(input_data, results['parameters']['h_init'], \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
-
-
 
     for k,v in update_params.items():
         par[k] = v
@@ -58,13 +59,8 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     print('decode_stability ', par['decode_stability'])
     print('trial_type ', par['trial_type'])
 
-
-    lesion = False
-    simulation = False
-    tuning = False
-    decoding = True
     trial_time = np.arange(0,h.shape[1]*par['dt'], par['dt'])
-
+    lesion = False
 
     """
     Calculate accuracy after lesioning weights
@@ -78,7 +74,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
-    if simulation:
+    if par['simulation_reps'] > 0:
         print('simulating network...')
         simulation_results = simulate_network(trial_info, h, syn_x, \
             syn_u, results['weights'], num_reps = par['simulation_reps'])
@@ -88,7 +84,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     """
     Calculate neuronal and synaptic sample motion tuning
     """
-    if tuning:
+    if par['analyze_tuning']:
         print('calculate tuning...')
         tuning_results = calculate_tuning(h, syn_x, syn_u, \
             trial_info, trial_time, results['weights'], calculate_test = True)
@@ -99,10 +95,10 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     Decode the sample direction from neuronal activity and synaptic efficacies
     using support vector machines
     """
-    if decoding:
+    if par['decoding_reps'] > 0:
         print('decoding activity...')
         decoding_results = calculate_svms(h_decode, syn_x_decode, syn_u_decode, trial_info_decode, trial_time, \
-            num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
+            num_reps = par['decoding_reps'], num_reps_stability = 5, decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
             decode_sample_vs_test = par['decode_sample_vs_test'])
         for key, val in decoding_results.items():
             results[key] = val
@@ -257,7 +253,7 @@ def dimension_reduction(h, syn_x, syn_u, trial_info, trial_time):
             """
 
 
-def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
+def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_reps_stability = 5, \
     decode_test = False, decode_rule = False, decode_sample_vs_test = False):
 
     """
@@ -312,8 +308,8 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
     print('sample decoding...num_reps = ', num_reps)
-    decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],
-    decoding_results['neuronal_sample_decoding_stability'], decoding_results['synaptic_sample_decoding_stability'] = \
+    decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'], \
+        decoding_results['neuronal_sample_decoding_stability'], decoding_results['synaptic_sample_decoding_stability'] = \
         svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, num_reps_stability, trial_time)
 
     if decode_sample_vs_test:
@@ -356,7 +352,6 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_reps_stability, t
 
     for r in range(num_rules):
         ind_rule = np.where(rule==r)[0]
-        print('len rule ind', len(ind_rule))
         for n in range(par['num_receptive_fields']):
             if par['trial_type'] == 'dualDMS':
                 current_conds = np.array(conds[:,n])
@@ -376,14 +371,12 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_reps_stability, t
             cond_ind = []
             for c in range(num_conds):
                 cond_ind.append(ind_rule[np.where(current_conds[ind_rule] == c)[0]])
-                print('LENGTH ', len(cond_ind[c]))
                 if len(cond_ind[c]) < 4:
                     print('Not enough trials for this condition!')
                     print('Setting cond_ind to [0,1,2,3]')
                     cond_ind[c] = [0,1,2,3]
 
             for rep in range(num_reps):
-                print('Decode rep ', rep)
                 for c in range(num_conds):
                     u = range(c*trials_per_cond, (c+1)*trials_per_cond)
                     q = np.random.permutation(len(cond_ind[c]))
@@ -396,36 +389,28 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_reps_stability, t
                     q = np.random.randint(len(test_ind), size = trials_per_cond)
                     equal_test_ind[u] =  test_ind[q]
 
-                score_h[r,n,rep,t] = calc_svm(lin_clf, h, current_conds, current_conds, equal_train_ind, equal_test_ind)
-                score_syn_eff[r,n,rep,t] = calc_svm(lin_clf, syn_eff, current_conds, current_conds, equal_train_ind, equal_test_ind)
+                score_h[r,n,rep,:] = calc_svm(lin_clf, h, current_conds, current_conds, equal_train_ind, equal_test_ind)
+                score_syn_eff[r,n,rep,:] = calc_svm(lin_clf, syn_eff, current_conds, current_conds, equal_train_ind, equal_test_ind)
 
                 if par['decode_stability'] and r < num_reps_stability:
-                    score_h_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, h,  current_conds, current_conds, equal_train_ind, equal_test_ind, num_time_steps)
-                    score_syn_eff_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, syn_eff,  current_conds, current_conds, equal_train_ind, equal_test_ind, num_time_steps)
+                    score_h_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, h,  current_conds, current_conds, equal_train_ind, equal_test_ind)
+                    score_syn_eff_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, syn_eff,  current_conds, current_conds, equal_train_ind, equal_test_ind)
 
 
 
     return score_h, score_syn_eff, score_h_stability, score_syn_eff_stability
 
 
-def calc_svm_stability(lin_clf, y, train_conds, test_conds, train_ind, test_ind, num_time_steps):
+def calc_svm_stability(lin_clf, y, train_conds, test_conds, train_ind, test_ind):
 
     n_test_inds = len(test_ind)
-    score = np.zeros((num_time_steps, num_time_steps))
+    score = np.zeros((par['num_time_steps'], par['num_time_steps']))
 
-    # normalize values between 0 and 1
-    for t in range(num_time_steps):
-        for i in range(par['n_hidden']):
-            m1 = y[i,t,train_ind].min()
-            m2 =  y[i,t,train_ind].max()
-            y[i,t,:] -= m1
-            if m2>m1:
-                if par['svm_normalize']:
-                    y[i,t,:] /=(m2-m1)
+    y = normalize_values(y, train_ind)
 
-    for t in range(par['dead_time']//par['dt'], num_time_steps):
+    for t in range(par['dead_time']//par['dt'], par['num_time_steps']):
         lin_clf.fit(y[:,t,train_ind].T, train_conds[train_ind])
-        for t1 in range(par['dead_time']//par['dt'],num_time_steps):
+        for t1 in range(par['dead_time']//par['dt'],par['num_time_steps']):
             dec = lin_clf.predict(y[:,t1,test_ind].T)
             score[t, t1] = np.mean(test_conds[test_ind] == dec)
 
@@ -435,23 +420,31 @@ def calc_svm_stability(lin_clf, y, train_conds, test_conds, train_ind, test_ind,
 def calc_svm(lin_clf, y, train_conds, test_conds, train_ind, test_ind):
 
     n_test_inds = len(test_ind)
-    score = np.zeros((num_time_steps))
+    score = np.zeros((par['num_time_steps']))
 
-    # normalize values between 0 and 1
-    for i in range(y.shape[1]):
-        m1 = y[train_ind,i].min()
-        m2 = y[train_ind,i].max()
-        y[:,i] -= m1
-        if m2>m1:
-            if par['svm_normalize']:
-                y[:,i] /=(m2-m1)
+    y = normalize_values(y, train_ind)
 
-    for t in range(par['dead_time']//par['dt'], num_time_steps):
+    for t in range(par['dead_time']//par['dt'], par['num_time_steps']):
         lin_clf.fit(y[:,t,train_ind].T, train_conds[train_ind])
-        dec = lin_clf.predict(y[test_ind,:])
+        dec = lin_clf.predict(y[:,t,test_ind].T)
         score[t] = np.mean(test_conds[test_ind]==dec)
 
     return score
+
+def normalize_values(y, train_ind):
+
+    # normalize values between 0 and 1
+    for t in range(y.shape[1]):
+        for i in range(y.shape[0]):
+            m1 = y[i,t,train_ind].min()
+            m2 =  y[i,t,train_ind].max()
+            y[i,t,:] -= m1
+            if m2>m1:
+                if par['svm_normalize']:
+                    y[i,t,:] /=(m2-m1)
+
+    return y
+
 
 
 def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
