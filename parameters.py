@@ -142,9 +142,9 @@ def update_trial_params():
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
         par['num_rule_tuned'] = 12
-        par['sample_time'] = 400
-        par['test_time'] = 400
-        par['delay_time'] = 800
+        par['sample_time'] = 500
+        par['test_time'] = 500
+        par['delay_time'] = 1000
         par['analyze_rule'] = True
         par['num_motion_tuned'] = 36
         par['noise_in_sd']  = 0.1
@@ -152,9 +152,11 @@ def update_trial_params():
         par['num_iterations'] = 5000
 
         par['dualDMS_single_test'] = False
-        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + 500)
+        par['rule_onset_time'] = []
+        par['rule_offset_time'] = []
+        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time']/2)
         par['rule_offset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time'] + par['test_time'])
-        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time'] + par['test_time']+ 500)
+        par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + 3*par['delay_time']/2 + par['test_time'])
         par['rule_offset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + 2*par['delay_time'] + 2*par['test_time'])
 
 
@@ -245,7 +247,7 @@ def update_dependencies():
 
     par['dead_time_rng'] = range(par['dead_time']//par['dt'])
     par['sample_time_rng'] = range((par['dead_time']+par['fix_time'])//par['dt'], (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
-    par['rule_time_rng'] = [range(par['rule_onset_time'][n]//par['dt'], par['rule_offset_time'][n]//par['dt']) for n in range(len(par['rule_onset_time']))]
+    par['rule_time_rng'] = [range(int(par['rule_onset_time'][n]/par['dt']), int(par['rule_offset_time'][n]/par['dt'])) for n in range(len(par['rule_onset_time']))]
 
 
     # Possible rules based on rule type values
