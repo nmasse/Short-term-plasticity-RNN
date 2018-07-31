@@ -30,12 +30,12 @@ par = {
     # Chunking trial
     'num_pulses'            : 3,
     'num_resp_cue_tuned'    : 2,
-    'long_delay_time'       : 500,
+    'long_delay_time'       : 400,
     'resp_cue_time'         : 200,
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 5e-3,
+    'learning_rate'         : 1e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -71,8 +71,8 @@ par = {
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 100,
     'fix_time'              : 200,
-    'sample_time'           : 200,
-    'delay_time'            : 200,
+    'sample_time'           : 400,
+    'delay_time'            : 400,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
     'mask_duration'         : 50,  # duration of traing mask after test onset

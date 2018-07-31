@@ -51,7 +51,8 @@ class Stimulus:
 
         # set to mask equal to zero during the dead time
         trial_info['train_mask'][:eodead, :] = 0
-
+        for i in range(par['num_pulses']):
+            trial_info['train_mask'][eor[i]:eor[i]+par['mask_duration'], :] = 0
         # If the DMS and DMS rotate are being performed together,
         # or if I need to make the test more challenging, this will eliminate easry test directions
         # If so, reduce set of test stimuli so that a single strategy can't be used
