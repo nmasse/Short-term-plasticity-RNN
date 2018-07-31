@@ -24,7 +24,7 @@ except:
     gpu_id = None
 
 
-num_pulses = [4, 5, 6, 7, 8, 10, 15]
+num_pulses = [3, 4, 5, 6, 7, 8, 10, 15]
 
 for task in task_list:
     for n in num_pulses:

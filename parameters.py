@@ -196,6 +196,7 @@ def update_trial_params():
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'chunking':
+        # par['num_order_cue_tuned'] = par['num_pulses']
         pass
 
     else:
@@ -210,7 +211,7 @@ def update_dependencies():
 
     # Number of input neurons
     if par['trial_type'] == 'chunking':
-        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
+        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']# + par['num_order_cue_tuned']
     else:
         par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
