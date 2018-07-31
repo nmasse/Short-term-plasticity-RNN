@@ -161,7 +161,7 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits_v2(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
 
