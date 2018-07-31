@@ -24,13 +24,13 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 50,
+    'n_hidden'              : 100,
     'n_output'              : 9,
 
     # Chunking trial
     'num_pulses'            : 3,
     'num_resp_cue_tuned'    : 2,
-    'long_delay_time'       : 400,
+    'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
 
     # Timings and rates
@@ -71,8 +71,8 @@ par = {
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 100,
     'fix_time'              : 200,
-    'sample_time'           : 400,
-    'delay_time'            : 400,
+    'sample_time'           : 200,
+    'delay_time'            : 200,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
     'mask_duration'         : 50,  # duration of traing mask after test onset
@@ -305,10 +305,10 @@ def update_dependencies():
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
 
-    if par['EI']:
-        par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
-        par['w_out0'][:, par['ind_inh']] = 0
-        par['w_out_mask'][:, par['ind_inh']] = 0
+    # if par['EI']:
+    #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
+    #     par['w_out0'][:, par['ind_inh']] = 0
+    #     par['w_out_mask'][:, par['ind_inh']] = 0
 
     """
     Setting up synaptic parameters
