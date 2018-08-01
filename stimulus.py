@@ -13,7 +13,6 @@ class Stimulus:
 
     def generate_trial(self, test_mode = False, set_rule = None):
 
-
         if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC',\
             'DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC','location_DMS']:
             trial_info = self.generate_basic_trial(test_mode, set_rule)
@@ -50,7 +49,6 @@ class Stimulus:
         5. probe_time (usually set to one time step, always presented 3/4 through delay
         """
 
-
         trial_length = par['num_time_steps']
         test_time_rng = []
         mask_time_rng = []
@@ -68,40 +66,9 @@ class Stimulus:
             (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']))
 
 
-        # end of trial epochs
-        eodead = par['dead_time']//par['dt']
-        eof = (par['dead_time']+par['fix_time'])//par['dt']
-        eos = (par['dead_time']+par['fix_time']+par['sample_time'])//par['dt']
-        eod1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-        eot1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time'])//par['dt']
-        eod2 = (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']
-        trial_length = (par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time'])//par['dt']
-
-        # rule cue time
-        """
-        rule_onset1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_onset_time'])//par['dt']
-        rule_offset1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['rule_offset_time'])//par['dt']
-        rule_onset2 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']\
-            +par['test_time']+par['rule_onset_time'])//par['dt']
-        rule_offset2 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']\
-            +par['test_time']+par['rule_offset_time'])//par['dt']
-        """
-
-        cue_time1 = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']//2)//par['dt']
-        cue_time2 = (par['dead_time']+par['fix_time']+par['sample_time']+3*par['delay_time']//2+par['test_time'])//par['dt']
-
-        # probe_time1 will be right before the first test stimulus
-        probe_time1 = (par['dead_time']+par['fix_time']+par['sample_time']+9*par['delay_time']//10)//par['dt']
-        # probe_time2 will be after first test stimulus, but before the second cue signal
-        probe_time2 = (par['dead_time']+par['fix_time']+par['sample_time']+14*par['delay_time']//10+par['test_time'])//par['dt']
-
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
 
-        # end of neuron indices
-        est = par['num_motion_tuned']
-        ert = par['num_motion_tuned']+par['num_rule_tuned']
-        eft = par['num_motion_tuned']+par['num_rule_tuned']+par['num_fix_tuned']
 
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
@@ -200,13 +167,13 @@ class Stimulus:
             trial_info['desired_output'][0,fix_time_rng[0], t] = 1
             trial_info['desired_output'][0,fix_time_rng[1], t] = 1
             # TEST 1
-            trial_info['train_mask'][ test_time_rng[0], t] *= 1. # can use a greater weight for test period if needed
+            trial_info['train_mask'][ test_time_rng[0], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
             if trial_info['match'][t,0] == 1:
                 trial_info['desired_output'][2,test_time_rng[0], t] = 1
             else:
                 trial_info['desired_output'][1,test_time_rng[0], t] = 1
             # TEST 2
-            trial_info['train_mask'][ test_time_rng[1], t] *= 1. # can use a greater weight for test period if needed
+            trial_info['train_mask'][ test_time_rng[1], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
             if trial_info['match'][t,1] == 1:
                 trial_info['desired_output'][2,test_time_rng[1], t] = 1
             else:
@@ -405,7 +372,7 @@ class Stimulus:
             """
             trial_info['desired_output'][0, fix_time_rng, t] = 1
             if not catch:
-                trial_info['train_mask'][ test_time_rng, t] *= 1. # can use a greater weight for test period if needed
+                trial_info['train_mask'][ test_time_rng, t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
                 if match == 0:
                     trial_info['desired_output'][1, test_time_rng, t] = 1
                 else:
@@ -516,6 +483,7 @@ class Stimulus:
                 trial_info['neural_input'][:, test_time_rng[i], t] += np.reshape(self.motion_tuning[:, RF, stim_dir],(-1,1))
                 trial_info['train_mask'][mask_time_rng[i], t] = 0
                 trial_info['desired_output'][0, test_time_rng[i], t] = 0
+                trial_info['train_mask'][ test_time_rng[i], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
                 if stim_dir == sample_dir:
                     trial_info['desired_output'][2, test_time_rng[i], t] = 1
                     trial_info['match'][t,i] = 1
@@ -565,7 +533,7 @@ class Stimulus:
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
                 if n%par['num_rules'] == i:
-                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = par['tuning_height']
+                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = par['tuning_height']*par['rule_cue_multiplier']
 
 
         return motion_tuning, fix_tuning, rule_tuning
