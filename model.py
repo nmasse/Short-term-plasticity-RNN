@@ -8,6 +8,7 @@ import numpy as np
 import stimulus
 import analysis
 import pickle
+import time
 from parameters import *
 import os, sys
 
@@ -350,6 +351,7 @@ def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss,
 
 def print_important_params():
 
-    important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost','weight_cost','trial_type','dt']
+    important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
+        'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt']
     for k in important_params:
         print(k, ': ', par[k])
