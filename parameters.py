@@ -32,7 +32,9 @@ par = {
     'learning_rate'         : 2e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
-
+    'test_cost_multiplier'  : 1.,
+    'rule_cue_multiplier'   : 1.,
+    'balance_EI'            : False,
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -149,7 +151,7 @@ def update_trial_params():
         par['num_motion_tuned'] = 36
         par['noise_in_sd']  = 0.1
         par['noise_rnn_sd'] = 0.5
-        par['num_iterations'] = 5000
+        #par['num_iterations'] = 4000
 
         par['dualDMS_single_test'] = False
         par['rule_onset_time'] = []
@@ -268,9 +270,7 @@ def update_dependencies():
     par['EI_list'][-par['num_inh_units']:] = -1.
 
     par['drop_mask'] = np.ones((par['n_hidden'],par['n_hidden']), dtype=np.float32)
-    ind_inh = np.where(par['EI_list']==-1)[0]
-    par['drop_mask'][:, ind_inh] = 0.
-    par['drop_mask'][ind_inh, :] = 0.
+    par['ind_inh'] = np.where(par['EI_list']==-1)[0]
 
     par['EI_matrix'] = np.diag(par['EI_list'])
 
@@ -304,7 +304,8 @@ def update_dependencies():
     # If not, initializes with a diagonal matrix
     if par['EI']:
         par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
-
+        if par['balance_EI']:
+            par['w_rnn0'][:, par['ind_inh']] *= 1/(1-par['exc_inh_prop'])
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -327,7 +328,6 @@ def update_dependencies():
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
 
     if par['EI']:
-        par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
         par['w_out0'][:, par['ind_inh']] = 0
         par['w_out_mask'][:, par['ind_inh']] = 0
 
