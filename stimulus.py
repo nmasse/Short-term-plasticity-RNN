@@ -219,6 +219,7 @@ class Stimulus:
         if par['rule'] == 0:
             trial_info['rule'][:] = 0
         elif par['rule'] == 1:
+            print('variable delay')
             trial_info['rule'][:] = 1
         else:
             trial_info['rule'] = np.random.randint(2, size=par['batch_train_size'])

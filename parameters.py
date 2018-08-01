@@ -23,7 +23,7 @@ par = {
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
-    'num_rule_tuned'        : 12,
+    'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
     'n_output'              : 3,
 

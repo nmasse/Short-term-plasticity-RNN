@@ -16,18 +16,19 @@ from mpl_toolkits.mplot3d import Axes3D
 
 def analyze_model_from_file(filename, savefile = None, update_params = {}):
 
+    print(filename)
     results = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        results['parameters']['save_fn'] = filename[:-4]+'_test.pkl'
-        savefile = filename[:-4]+'_test.pkl'
-        print(results['parameters']['save_fn'])
+        name = filename[:10] + 'test/' + filename[17:]
+        results['parameters']['save_fn'] = name
+        savefile = results['parameters']['save_fn']
     else:
         results['parameters']['save_fn'] = savefile
 
     print('tt', results['parameters']['trial_type'])
+    results['parameters']['rule'] = 0
+    results['parameters']['num_rules'] = 1
     update_parameters(results['parameters'])
-    updates = {'rule':0, 'num_rules':1}
-    update_parameters(updates)
     results['parameters'] = par
 
     for k, v in results['parameters'].items():
@@ -303,7 +304,6 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
         sample[ind_rule] = np.floor(trial_info['sample'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
         test[ind_rule] = np.floor(trial_info['test'][ind_rule]/(num_motion_dirs/2)*np.ones_like(trial_info['sample'][ind_rule]))
         rule = trial_info['rule']
-
     else:
         sample = np.array(trial_info['sample'])
         rule = np.array(trial_info['rule'])
