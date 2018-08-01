@@ -9,6 +9,8 @@ import stimulus
 import analysis
 from parameters import *
 import os, sys
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -266,6 +268,23 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
+                print(trial_info['desired_output'][:,105,0])
+                softmax(np.array(y_hat))[:,105,0].T
+                for b in range(10):
+                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat))[:,:,b].T]
+                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
+                    #fig.suptitle()
+                    j = 0
+                    for ax in axes.flat:
+                        im = ax.imshow(plot_list[j])
+                        j += 1
+                    cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+                    plt.colorbar(im, cax=cax, **kw)
+                    plt.savefig("./savedir/output_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
+                    plt.close()
+                    plt.imshow(trial_info['neural_input'][:,:,b])
+                    plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
+                    plt.close()
 
             if accuracy > 0.98:
                 break
@@ -287,8 +306,8 @@ def main(gpu_id = None):
             #     {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
             # analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
             #     simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
-
-
+def softmax(x):
+    return np.exp(x)/np.sum(np.exp(x), axis=0)
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num):
 

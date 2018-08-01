@@ -147,7 +147,7 @@ class Stimulus:
         for n in range(par['num_resp_cue_tuned']):
             for i in range(par['num_receptive_fields']):
                 if n%par['num_receptive_fields'] == i:
-                    fix_tuning[n,i] = par['tuning_height']
+                    response_tuning[n,i] = par['tuning_height']
 
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
