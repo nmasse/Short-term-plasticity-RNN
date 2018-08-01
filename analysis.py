@@ -37,6 +37,12 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
 
+    results['trial_info'] = trial_info
+    results['h'] = h
+    results['syn_x'] = syn_x
+    results['syn_u'] = syn_u
+    results['y_hat'] = y_hat
+
 
     # generate trials with random sample and test stimuli, used for decoding
     trial_info_decode = stim.generate_trial(test_mode = True)
@@ -103,16 +109,13 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
         for key, val in decoding_results.items():
             results[key] = val
 
-    #print('about to dm')
-    #dimension_reduction(h, syn_x, syn_u, trial_info, trial_time)
+    print('Performing dPCA...')
+    dim_results = dimension_reduction(h, syn_x, syn_u, trial_info, trial_time)
+    for key, val in dim_results.items():
+        results[key] = val
 
     pickle.dump(results, open(savefile, 'wb') )
     print('Analysis results saved in ', savefile)
-
-    """
-    analyze_model(trial_info, trial_info_decode, y_hat, h, syn_x, syn_u, h_decode, syn_x_decode, syn_u_decode, None, x['weights'], simulation = False, \
-        lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
-    """
 
 
 def analyze_model(trial_info, trial_info_decode, y_hat, h, syn_x, syn_u, h_decode, syn_x_decode, syn_u_decode, model_performance, weights, simulation = True, \
@@ -214,7 +217,7 @@ def dimension_reduction(h, syn_x, syn_u, trial_info, trial_time):
                 h_mean[:, :, n] = np.mean(h[:,:,ind], axis = 2)
 
             h_mean = np.transpose(np.reshape(h_mean,(par['n_hidden'], -1)))
-
+            """
             pca = PCA(n_components=3)
             pca.fit(h_mean)
             PCA(copy=True, iterated_power='auto', n_components=3, random_state=None,\
@@ -246,11 +249,39 @@ def dimension_reduction(h, syn_x, syn_u, trial_info, trial_time):
             print(pca.explained_variance_ratio_)
             print(y.shape)
             """
-            h_mean = np.zeros((par['n_hidden'], par['num_time_steps'], par['num_motion_dirs']))
+
+            num_trials = 128
+            h_trial = np.zeros((num_trials, par['n_hidden'], par['num_time_steps'], par['num_motion_dirs']), dtype = np.float32)
+            s_trial = np.zeros((num_trials, par['n_hidden'], par['num_time_steps'], par['num_motion_dirs']), dtype = np.float32)
             for n in range(par['num_motion_dirs']):
                 ind = np.where((trial_info['sample']==n)*(trial_info['rule']==r)*(trial_info['sample']==n))[0]
-                h_mean[:, :, n] = np.mean(h[:,:,ind], axis = 2)
-            """
+                # in case we don't have enough trials for this condition, we'll reuse some trials
+                print('Number of trials ', len(ind) , ' required: ', num_trials)
+                ind = np.array([*list(ind), *list(ind)])
+
+                for i in range(num_trials):
+                    h_trial[i,:,:,n] = h[:,:,ind[i]]
+                    s_trial[i,:,:,n] = syn_x[:,:,ind[i]]*syn_u[:,:,ind[i]]
+
+            # trial-average data
+            h = np.mean(h_trial,axis = 0)
+            s = np.mean(s_trial,axis = 0)
+            # center data
+            h -= np.mean(h.reshape((par['n_hidden'],-1)),1)[:,None,None]
+            s -= np.mean(s.reshape((par['n_hidden'],-1)),1)[:,None,None]
+
+            dpca = dPCA(labels='st',regularizer='auto')
+            dpca.protect = ['t']
+
+            dpca_neuronal = dpca.fit_transform(h,h_trial)
+            dpca_synaptic = dpca.fit_transform(s,s_trial)
+            results = {'dpca_neuronal': dpca_neuronal, 'dpca_synaptic': dpca_synaptic}
+
+        return results
+
+
+
+
 
 
 def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_reps_stability = 5, \
@@ -305,6 +336,10 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
         test = trial_info['test'][:,0]
     else:
         test = np.array(trial_info['test'])
+
+    if len(np.unique(np.array(trial_info['rule']))) == 1 and decode_rule:
+        print('Only one unique rule; setting decode rule to False')
+        decode_rule = False
 
 
     print('sample decoding...num_reps = ', num_reps)
@@ -392,7 +427,7 @@ def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_reps_stability, t
                 score_h[r,n,rep,:] = calc_svm(lin_clf, h, current_conds, current_conds, equal_train_ind, equal_test_ind)
                 score_syn_eff[r,n,rep,:] = calc_svm(lin_clf, syn_eff, current_conds, current_conds, equal_train_ind, equal_test_ind)
 
-                if par['decode_stability'] and r < num_reps_stability:
+                if par['decode_stability'] and rep < num_reps_stability:
                     score_h_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, h,  current_conds, current_conds, equal_train_ind, equal_test_ind)
                     score_syn_eff_stability[r,n,rep,:,:] = calc_svm_stability(lin_clf, syn_eff,  current_conds, current_conds, equal_train_ind, equal_test_ind)
 
