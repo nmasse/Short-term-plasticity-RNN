@@ -14,7 +14,6 @@ class Stimulus:
 
     def generate_trial(self, test_mode = False):
 
-
         if par['trial_type'] in ['DMS','DMRS45','DMRS90','DMRS90ccw','DMRS180','DMC','DMS+DMRS','DMS+DMRS_early_cue', 'DMS+DMC','DMS+DMRS+DMC']:
             trial_info = self.generate_basic_trial(test_mode)
         elif par['trial_type'] == 'DMSvar':
@@ -213,12 +212,10 @@ class Stimulus:
                       'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
 
-        # determine trial length
-        par['num_time_steps'] = np.int(par['trial_length']//par['dt'])
 
-        # RULE == 0: fixed delay
-        # RULE == 1: all variable delay
-        # RULE == 2: half fixed / half variable delay
+        # delay_type == 0: fixed delay
+        # delay_type == 1: all variable delay
+        # delay_type == 2: half fixed / half variable delay
         if par['rule'] == 0:
             trial_info['rule'][:] = 0
         elif par['rule'] == 1:
@@ -254,17 +251,17 @@ class Stimulus:
                 # s = skewnorm.rvs(6.5, loc=-0.75)
                 # par['delay_time'] = np.max([np.min([1000 + s*500, 2000]),500])
                 par['delay_time'] = np.random.randint(500,2000)
-                par['post_time'] = np.max([1500 - par['delay_time'],0])
+                par['post_time'] = 2000 - par['delay_time']
                 eod = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
                 eot = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['post_time'])//par['dt'])
             else:
                 par['delay_time'] = 1000
-                par['post_time'] = 500
+                par['post_time'] = 1000
                 eod = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
                 eot = int((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['post_time'])//par['dt'])
 
             trial_info['train_mask'][eot:, t] = 0
-            #trial_info['train_mask'][eod:eod+mask_duration, t] = 0
+            trial_info['train_mask'][eod:eod+par['mask_duration'], t] = 0
 
             # generate test stim
             if not trial_info['match'][t]:
@@ -288,7 +285,6 @@ class Stimulus:
             
             # DESIRED OUTPUT
             trial_info['desired_output'][0, eodead:eod, t] = 1
-            trial_info['train_mask'][eod:eot, t] = 1
             if trial_info['match'][t]:
                 trial_info['desired_output'][1, eod:eot, t] = 1
             else:

@@ -56,7 +56,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 256,
+    'batch_train_size'      : 1024,
     'num_iterations'        : 1000,
     'iters_between_outputs' : 50,
 
@@ -68,12 +68,12 @@ par = {
     'sample_time'           : 500,
     'delay_time'            : 1000,
     'test_time'             : 500,
-    'post_time'             : 500,
+    'post_time'             : 1000,
     'variable_delay_max'    : 1500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
-    'num_rules'             : 3, # this will be two for the DMS+DMRS task
+    'num_rules'             : 2, # this will be two for the DMS+DMRS task
 
     # Save paths
     'save_fn'               : 'model_results.pkl',
@@ -87,6 +87,7 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
+    'decode_stability'      : False
 
 }
 
@@ -108,8 +109,9 @@ def update_parameters(updates):
     update_trial_params()
     update_dependencies()
 
-def update_trial_params():
 
+def update_trial_params():
+    
     """
     Update all the trial parameters given trial_type
     """
@@ -127,10 +129,10 @@ def update_trial_params():
             par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
 
     elif par['trial_type'] == 'DMSvar':
-        par['num_rules'] = 3
+        par['num_rules'] = 2
         par['num_rule_tuned'] = 12
-        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
+        par['rule_onset_time'] = par['dead_time']#+par['fix_time']+par['sample_time'] + 500
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']+par['post_time']
 
     elif par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45

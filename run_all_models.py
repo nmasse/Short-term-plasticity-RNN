@@ -4,7 +4,7 @@ import model
 import sys
 
 task_list = ['DMSvar']
-rule_list = [1]
+rule_list = [0, 1, 2]
 
 
 def try_model(gpu_id):
@@ -24,12 +24,11 @@ except:
     gpu_id = None
 
 
-for j in range(1):
+for j in range(10):
     for task in task_list:
         for rule in rule_list:
             print('Training network on ', task,' task, network model number ', j)
-
-            save_fn = task + '_' + str(j) + '_rule_' + str(rule) + '.pkl'
+            save_fn = 'delay_type_'+str(rule)+'/'+task+'_'+str(j)+'.pkl'
             updates = {'trial_type':task, 'save_fn':save_fn, 'rule':rule}
             update_parameters(updates)
             try_model(gpu_id)

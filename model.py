@@ -8,6 +8,7 @@ import numpy as np
 import stimulus
 import analysis
 from parameters import *
+import pickle
 import os, sys
 
 # Ignore "use compiled version of TensorFlow" errors
