@@ -275,7 +275,6 @@ def main(gpu_id = None):
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T)]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
-                    #fig.suptitle()
                     j = 0
                     for ax in axes.flat:
                         im = ax.imshow(plot_list[j])
