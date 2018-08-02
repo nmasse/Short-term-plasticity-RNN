@@ -242,9 +242,9 @@ def update_dependencies():
     par['EI_list'][-par['num_inh_units']:] = -1.
 
     par['drop_mask'] = np.ones((par['n_hidden'],par['n_hidden']), dtype=np.float32)
-    ind_inh = np.where(par['EI_list']==-1)[0]
-    par['drop_mask'][:, ind_inh] = 0.
-    par['drop_mask'][ind_inh, :] = 0.
+    par['ind_inh'] = np.where(par['EI_list']==-1)[0]
+    par['drop_mask'][:, par['ind_inh']] = 0.
+    par['drop_mask'][par['ind_inh'], :] = 0.
 
     par['EI_matrix'] = np.diag(par['EI_list'])
 
