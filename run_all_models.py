@@ -24,7 +24,7 @@ except:
     gpu_id = None
 
 
-for j in range(10):
+for j in range(11,20):
     for task in task_list:
         for rule in rule_list:
             print('Training network on ', task,' task, network model number ', j)

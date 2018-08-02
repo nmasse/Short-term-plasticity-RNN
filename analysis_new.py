@@ -19,7 +19,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     print(filename)
     results = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        name = filename[:10] + 'test/' + filename[17:]
+        name = filename[:9] + '/test/' + filename[17:]
         results['parameters']['save_fn'] = name
         savefile = results['parameters']['save_fn']
     else:
@@ -28,6 +28,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     print('tt', results['parameters']['trial_type'])
     results['parameters']['rule'] = 0
     results['parameters']['num_rules'] = 1
+    results['parameters']['decode_stability'] = True
     update_parameters(results['parameters'])
     results['parameters'] = par
 

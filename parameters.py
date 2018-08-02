@@ -87,7 +87,7 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
-    'decode_stability'      : False
+    'decode_stability'      : True
 
 }
 
