@@ -219,7 +219,6 @@ class Stimulus:
         if par['rule'] == 0:
             trial_info['rule'][:] = 0
         elif par['rule'] == 1:
-            print('variable delay')
             trial_info['rule'][:] = 1
         else:
             trial_info['rule'] = np.random.randint(2, size=par['batch_train_size'])
@@ -241,10 +240,15 @@ class Stimulus:
         trial_info['train_mask'][:eodead, :] = 0
 
         # generate trial info for match / standard trials
-        trial_info['match'] = np.random.randint(2, size=par['batch_train_size'])
         trial_info['sample'] = np.random.randint(par['num_motion_dirs'], size=par['batch_train_size'])
-        trial_info['test'][np.where(trial_info['match'])[0]] = trial_info['sample'][np.where(trial_info['match'])[0]]        
-
+        if test_mode:
+            trial_info['test'] = np.random.randint(par['num_motion_dirs'])
+            trial_info['match'] = np.int8(trial_info['sample'] == trial_info['test'])
+        else:
+            trial_info['match'] = np.random.randint(2, size=par['batch_train_size'])
+            trial_info['test'][np.where(trial_info['match'])[0]] = trial_info['sample'][np.where(trial_info['match'])[0]]        
+        
+        
         # generate individual trial based on three type of rule cues
         for t in range(par['batch_train_size']):
             # determine delay time

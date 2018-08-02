@@ -247,7 +247,7 @@ def main(gpu_id = None):
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
-            trial_info = stim.generate_trial()
+            trial_info = stim.generate_trial(test_mode=False)
 
             """
             Run the model

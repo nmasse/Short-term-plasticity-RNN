@@ -29,7 +29,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 1e-2,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -46,7 +46,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 2e-2,
+    'spike_cost'            : 1e-3,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -87,8 +87,8 @@ par = {
     'decode_sample_vs_test' : False,
     'suppress_analysis'     : False,
     'analyze_tuning'        : False,
-    'decode_stability'      : True
-
+    'decode_stability'      : True,
+    'balance_EI'            : True
 }
 
 
@@ -282,6 +282,8 @@ def update_dependencies():
     # If not, initializes with a diagonal matrix
     if par['EI']:
         par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
+        if par['balance_EI']:
+            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
@@ -354,8 +356,8 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-def initialize(dims, connection_prob):
-    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
+    w = np.random.gamma(shape, scale, size=dims)
     #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
