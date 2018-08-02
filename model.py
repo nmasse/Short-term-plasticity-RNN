@@ -269,9 +269,11 @@ def main(gpu_id = None):
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
                 print(trial_info['desired_output'][:,105,0])
-                softmax(np.array(y_hat))[:,105,0].T
+                print(np.array(y_hat)[50,:,0].T)
+                print(np.exp(np.array(y_hat)[50,:,0].T))
+                print(softmax(np.array(y_hat)[50,:,0].T))
                 for b in range(10):
-                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat))[:,:,b].T]
+                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T)]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
                     #fig.suptitle()
                     j = 0

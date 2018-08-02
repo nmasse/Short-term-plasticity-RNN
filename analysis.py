@@ -882,6 +882,9 @@ def get_perf(y, y_hat, mask):
     """
     y_hat = np.stack(y_hat, axis=1)
     mask *= y[0,:,:]==0
+    plt.imshow(mask[:,:,0])
+    plt.savefig("./savedir/mask.png")
+    plt.close()
     mask_non_match = mask*(y[1,:,:]==1)
     mask_match = mask*(y[2,:,:]==1)
     y = np.argmax(y, axis = 0)
