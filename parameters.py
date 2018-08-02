@@ -33,6 +33,7 @@ par = {
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
     'order_cue'             : True,
+    'balance_EI'            : True,
 
     # Timings and rates
     'dt'                    : 10,
@@ -311,6 +312,9 @@ def update_dependencies():
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
 
+    if par['balance_EI']:
+        par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
+
     # if par['EI']:
     #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
     #     par['w_out0'][:, par['ind_inh']] = 0
@@ -361,11 +365,19 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-def initialize(dims, connection_prob):
-    w = 0.5 * np.random.gamma(shape=0.25, scale=1.0, size=dims)
+
+
+def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
+    w = np.random.gamma(shape, scale, size=dims)
     #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
+
+# def initialize(dims, connection_prob):
+#     w = 0.5 * np.random.gamma(shape=0.25, scale=1.0, size=dims)
+#     #w = np.random.uniform(0,0.25, size=dims)
+#     w *= (np.random.rand(*dims) < connection_prob)
+#     return np.float32(w)
 
 
 def spectral_radius(A):
