@@ -10,30 +10,46 @@ import pickle
 import stimulus
 import matplotlib.pyplot as plt
 
-def analyze_model_from_file(filename, savefile = None):
+def analyze_model_from_file(filename, savefile = None, analysis = False):
 
-    x = pickle.load(open(filename, 'rb'))
+    x = pickle.load(open('./savedir/'+filename, 'rb'))
     if savefile is None:
         x['parameters']['save_fn'] = 'test.pkl'
     else:
         x['parameters']['save_fn'] = savefile
     update_parameters(x['parameters'])
-    stim = stimulus.Stimulus()
-    trial_info = stim.generate_trial()
-    input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+    if analysis:
+        for i in range(par['num_pulses']):
+            stim = stimulus.Stimulus()
+            trial_info = stim.generate_trial(analysis = True, num_fixed =i)
+            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
-    y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-        x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
+                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
 
-    h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-    syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-    syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
+            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
+            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
+            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-    analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, \
-            lesion = False, tuning = True, decoding = False, load_previous_file = False, save_raw_data = False)
+            analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = True, stim_num = i, simulation = False, \
+                    lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+    else:
+        stim = stimulus.Stimulus()
+        trial_info = stim.generate_trial()
+        input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+
+        y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
+            x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+
+        h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
+        syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
+        syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
+
+        analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, \
+                lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
-def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, simulation = True, \
+def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, stim_num=0, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
 
     """
@@ -49,7 +65,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
 
     save_fn = par['save_dir'] + par['save_fn']
-    if load_previous_file:
+
+    if stim_num>0:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
@@ -57,7 +74,8 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
             'parameters': par,
             'weights': weights,
             'trial_time': trial_time,
-            'mean_h': mean_h}
+            'mean_h': mean_h,
+            'timeline': trial_info['timeline']}
 
     pickle.dump(results, open(save_fn, 'wb') )
     print('Analysis results saved in ', save_fn)
@@ -106,7 +124,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         print('decoding activity...')
         decoding_results = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
             num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
-            decode_sample_vs_test = par['decode_sample_vs_test'])
+            decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, stim_num=stim_num)
         for key, val in decoding_results.items():
             results[key] = val
 
@@ -115,7 +133,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
 
 def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
-    decode_test = False, decode_rule = False, decode_sample_vs_test = False):
+    decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, stim_num=0):
 
     """
     Calculates neuronal and synaptic decoding accuracies uisng support vector machines
@@ -171,8 +189,16 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
     print('sample decoding...num_reps = ', num_reps)
-    decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-        svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
+    if not analysis:
+        decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
+    else:
+        decoding_results['neuronal_sample_decoding'+str(stim_num)], decoding_results['synaptic_sample_decoding'+str(stim_num)],decoding_results['combined_decoding'+str(stim_num)] = \
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, stim_num)
+        # neu, syn, comb = svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time, analysis, stim_num)
+        # decoding_results['neuronal_sample_decoding'] = np.concatenate((decoding_results['neuronal_sample_decoding'], neu), axis = 1)
+        # decoding_results['synaptic_sample_decoding'] = np.concatenate((decoding_results['synaptic_sample_decoding'], syn), axis = 1)
+        # decoding_results['combined_decoding'] = np.concatenate((decoding_results['combined_decoding'], comb), axis = 1)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
@@ -193,7 +219,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time):
+def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, stim_num=0):
 
     """
     Wraper function used to decode sample/test or rule information
@@ -203,7 +229,15 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time):
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
     num_rules = len(np.unique(rule))
-    num_stim = par['num_pulses'] if par['trial_type']=='chunking' else par['num_receptive_fields']
+    if par['trial_type']=='chunking':
+        if analysis:
+            num_stim = 1
+        else:
+            num_stim = par['num_pulses']
+    else:
+        num_stim = par['num_receptive_fields']
+
+    #num_stim = par['num_pulses'] if par['trial_type']=='chunking' else par['num_receptive_fields']
 
     score_h = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
     score_syn_eff = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
@@ -214,7 +248,10 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time):
 
         for n in range(num_stim):
             if par['trial_type'] == 'dualDMS' or par['trial_type'] == 'chunking':
-                current_stim = stim[:,n]
+                if analysis:
+                    current_stim = stim[:,stim_num]
+                else:
+                    current_stim = stim[:,n]
             else:
                 current_stim = np.array(stim)
 

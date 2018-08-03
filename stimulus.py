@@ -11,13 +11,13 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning, self.response_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, test_mode = False):
+    def generate_trial(self, analysis = False, num_fixed = 0):
 
 
-        return self.generate_chunking_trial(par['num_pulses'])
+        return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
 
 
-    def generate_chunking_trial(self, num_pulses):
+    def generate_chunking_trial(self, num_pulses, analysis, num_fixed):
         """
         Generate trials to investigate chunking
         """
@@ -48,8 +48,18 @@ class Stimulus:
                       'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'sample'          :  np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size'])),
+                      'timeline'        :  [eodead, eof]}
 
+        trial_info['timeline'].append(eos[0])
+        for i in range(1,num_pulses):
+            trial_info['timeline'].append(eods[i-1])
+            trial_info['timeline'].append(eos[i])
+        trial_info['timeline'].append(eolongd)
+        trial_info['timeline'].append(eor[0])
+        for i in range(1,num_pulses):
+            trial_info['timeline'].append(eodr[i-1])
+            trial_info['timeline'].append(eor[i])
 
         # set to mask equal to zero during the dead time
         trial_info['train_mask'][:eodead, :] = 0
@@ -66,7 +76,11 @@ class Stimulus:
             """
             Generate trial paramaters
             """
-            sample_dirs = [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
+            if not analysis:
+                sample_dirs = [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
+            else:
+                sample_dirs = [0]*num_fixed + [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses-num_fixed)]
+
             rule = np.random.randint(par['num_rules'])
 
             """
