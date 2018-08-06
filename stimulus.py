@@ -6,7 +6,7 @@ from parameters import *
 class Stimulus:
 
     def __init__(self):
-        #pass
+
         # generate tuning functions
         self.motion_tuning, self.fix_tuning, self.rule_tuning = self.create_tuning_functions()
 
@@ -22,8 +22,6 @@ class Stimulus:
             trial_info = self.generate_dualDMS_trial(test_mode)
         elif par['trial_type'] == 'distractor':
             trial_info = self.generate_distractor_trial()
-
-
 
         return trial_info
 
@@ -82,7 +80,6 @@ class Stimulus:
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size']))}
 
 
-
         for t in range(par['batch_train_size']):
 
             # generate sample, match, rule and prob params
@@ -115,10 +112,7 @@ class Stimulus:
                         trial_info['test'][t,i,0] = trial_info['sample'][t,trial_info['test_mod'][t,i]]
                     else:
                         sample = trial_info['sample'][t,trial_info['test_mod'][t,i]]
-                        #bad_directions = [(i+sample+par['num_motion_dirs']//2)%par['num_motion_dirs'] for i in range(1)]
-                        #bad_directions.append(sample_dir)
                         bad_directions = [sample]
-                        #possible_stim = np.setdiff1d(list(range(self.num_stim)), sample)
                         possible_stim = np.setdiff1d(list(range(par['num_motion_dirs'])), bad_directions)
                         trial_info['test'][t,i,0] = possible_stim[np.random.randint(len(possible_stim))]
 
@@ -159,7 +153,6 @@ class Stimulus:
                 trial_info['neural_input'][:est,probe_time2,t] += 10
             """
 
-
             """
             Desired outputs
             """
@@ -184,6 +177,9 @@ class Stimulus:
             trial_info['train_mask'][mask_time_rng[0], t] = 0
             trial_info['train_mask'][mask_time_rng[1], t] = 0
 
+
+        #trial_info['train_mask'] /= np.mean(trial_info['train_mask'][par['dead_time']//par['dt']:,:])
+
         return trial_info
 
     def generate_distractor_trial(self):
@@ -194,21 +190,19 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'catch'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'probe'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'rule'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'test'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'distractor'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
 
         # set to mask equal to zero during the dead time
 
         # end of trial epochs
-        d1 = (par['delay_time']-300)//2
-        distrator_time_rng = range((par['dead_time']+par['fix_time']+par['sample_time']+d1)//par['dt'],\
-            (par['dead_time']+par['fix_time']+par['sample_time']+d1+300)//par['dt'])
-        test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-
+        d1 = (par['delay_time'] - par['distractor_time'])//2
+        distrator_time_rng = range((par['dead_time']+par['fix_time'] + par['sample_time']+d1)//par['dt'],\
+            (par['dead_time']+par['fix_time']+par['sample_time']+ d1 + par['distractor_time'])//par['dt'])
+        test_onset = (par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'])//par['dt']
 
         trial_info['train_mask'][:par['dead_time']//par['dt'], :] = 0
 
@@ -224,24 +218,21 @@ class Stimulus:
             trial_info['neural_input'][:, distrator_time_rng, t] += np.reshape(self.motion_tuning[:, 0, distractor_dir],(-1,1))
             trial_info['neural_input'][:, :test_onset, t] += np.reshape(self.fix_tuning[:, 0],(-1,1))
 
-
             """
             Determine the desired network output response
             """
             trial_info['desired_output'][0, :test_onset, t] = 1
             trial_info['desired_output'][1+sample_dir, test_onset:, t] = 1
             trial_info['train_mask'][test_onset:test_onset+mask_duration, t] = 0
-
+            trial_info['train_mask'][test_onset:, t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
 
             """
             Append trial info
             """
             trial_info['sample'][t] = sample_dir
             trial_info['distractor'][t] = distractor_dir
-            trial_info['test'][t] = 0
-            trial_info['rule'][t] = 0
-            trial_info['catch'][t] = 0
-            trial_info['match'][t] = 0
+
+
 
         return trial_info
 
@@ -333,7 +324,6 @@ class Stimulus:
                         # do not use sample_dir as a match test stimulus
                         dir0 = int(sample_cat*par['num_motion_dirs']//2)
                         dir1 = int(par['num_motion_dirs']//2 + sample_cat*par['num_motion_dirs']//2)
-                        #possible_dirs = np.setdiff1d(list(range(dir0, dir1)), sample_dir)
                         possible_dirs = list(range(dir0, dir1))
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
                     else:
@@ -347,7 +337,6 @@ class Stimulus:
                     else:
                         possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
-
 
             """
             Calculate neural input based on sample, tests, fixation, rule, and probe
@@ -388,6 +377,8 @@ class Stimulus:
             trial_info['rule'][t] = rule
             trial_info['catch'][t] = catch
             trial_info['match'][t] = match
+
+        #trial_info['train_mask'] /= np.mean(trial_info['train_mask'][par['dead_time']//par['dt']:,:])
 
         return trial_info
 
@@ -492,6 +483,8 @@ class Stimulus:
 
             trial_info['sample'][t] = sample_dir
 
+        #trial_info['train_mask'] /= np.mean(trial_info['train_mask'][par['dead_time']//par['dt']:,:])
+
         return trial_info
 
 
@@ -500,9 +493,6 @@ class Stimulus:
         """
         Generate tuning functions for the Postle task
         """
-        #motion_tuning = np.zeros((par['num_motion_tuned'], par['num_receptive_fields'], par['num_motion_dirs']))
-        #fix_tuning = np.zeros((par['num_fix_tuned'], 1))
-        #rule_tuning = np.zeros((par['num_rule_tuned'], par['num_rules']))
 
         motion_tuning = np.zeros((par['n_input'], par['num_receptive_fields'], par['num_motion_dirs']))
         fix_tuning = np.zeros((par['n_input'], 1))
