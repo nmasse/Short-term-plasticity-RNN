@@ -10,7 +10,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir_sweep/',
+    'save_dir'              : './savedir/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -48,6 +48,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
+    'spike_regularization'  : 'L2', # 'L1' or 'L2'
     'spike_cost'            : 2e-2,
     'weight_cost'           : 0.,
 
@@ -89,6 +90,7 @@ par = {
     'suppress_analysis'     : False,
     'analyze_tuning'        : True,
     'decode_stability'      : False,
+    'save_trial_data'       : False,
 
 }
 
@@ -141,6 +143,8 @@ def update_trial_params():
         par['catch_trial_pct'] = 0
         par['num_receptive_fields'] = 2
         par['num_rules'] = 2
+        #par['num_motion_tuned'] = 36*2
+        #par['tuning_height'] /= 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
         par['num_rule_tuned'] = 12
@@ -148,7 +152,6 @@ def update_trial_params():
         par['test_time'] = 500
         par['delay_time'] = 1000
         par['analyze_rule'] = True
-        par['num_motion_tuned'] = 36
         par['noise_in_sd']  = 0.1
         par['noise_rnn_sd'] = 0.5
         #par['num_iterations'] = 4000
@@ -213,7 +216,8 @@ def update_trial_params():
         # instead, it will used a simplified neural input
         par['n_output'] = par['num_motion_dirs'] + 1
         par['sample_time'] = 300
-        par['delay_time'] = 2300
+        par['distractor_time'] = 300
+        par['delay_time'] = 1900
         par['test_time'] = 500
         par['num_fix_tuned'] = 4
         par['simulation_reps'] = 0
@@ -305,7 +309,8 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
         if par['balance_EI']:
-            par['w_rnn0'][:, par['ind_inh']] *= 1/(1-par['exc_inh_prop'])
+            #par['w_rnn0'][:, par['ind_inh']] *= 1/(1-par['exc_inh_prop'])
+            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -385,8 +390,8 @@ def update_dependencies():
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-def initialize(dims, connection_prob):
-    w = np.random.gamma(shape=0.25, scale=1.0, size=dims)
+def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
+    w = np.random.gamma(shape, scale, size=dims)
     #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
