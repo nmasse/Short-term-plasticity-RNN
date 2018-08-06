@@ -190,19 +190,19 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'rule'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'match'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'test'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'distractor'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'distractor'      :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
+                      'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
 
         # set to mask equal to zero during the dead time
 
         # end of trial epochs
-        d1 = (par['delay_time'] - par['distractor_time'])//2
-        distrator_time_rng = range((par['dead_time']+par['fix_time'] + par['sample_time']+d1)//par['dt'],\
+
+        distrator_time_rng = range((par['dead_time']+par['fix_time'] + par['sample_time'] + par['delay_time'] )//par['dt'],\
             (par['dead_time']+par['fix_time']+par['sample_time']+ d1 + par['distractor_time'])//par['dt'])
-        test_onset = (par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'])//par['dt']
+        test_onset = (par['dead_time']+par['fix_time'] + par['distractor_time'] + par['sample_time'] + 2*par['delay_time'])//par['dt']
 
         trial_info['train_mask'][:par['dead_time']//par['dt'], :] = 0
 

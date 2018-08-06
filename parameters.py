@@ -10,7 +10,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : './savedirs/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -217,7 +217,7 @@ def update_trial_params():
         par['n_output'] = par['num_motion_dirs'] + 1
         par['sample_time'] = 300
         par['distractor_time'] = 300
-        par['delay_time'] = 1900
+        par['delay_time'] = 800
         par['test_time'] = 500
         par['num_fix_tuned'] = 4
         par['simulation_reps'] = 0
