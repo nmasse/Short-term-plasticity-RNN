@@ -32,7 +32,9 @@ class Model:
         self.mask = tf.unstack(mask, axis=0)
 
         # Load the initial hidden state activity to be used at the start of each trial
-        self.hidden_init = tf.constant(par['h_init'])
+        #self.hidden_init = tf.constant(par['h_init'])
+        with tf.variable_scope('initial_activity'):
+            self.hidden_init = tf.get_variable('hidden_init', initializer = par['h_init'], trainable=True)
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
@@ -163,20 +165,24 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        self.perf_loss = tf.reduce_mean(tf.stack([mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]))
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
+        if par['spike_regularization'] == 'L1':
+            self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.stack([tf.reduce_mean(h) for h in self.hidden_state_hist]))
+        elif par['spike_regularization'] == 'L2':
+            self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.stack([tf.reduce_mean(tf.square(h)) for h in self.hidden_state_hist]))
+        else:
+            error('Unrecognized spike regularization')
 
 
         with tf.variable_scope('rnn_cell', reuse = True):
             W_rnn = tf.get_variable('W_rnn')
 
-        self.weight_loss = par['weight_cost']*tf.reduce_mean(tf.nn.relu(W_rnn))
-        self.perf_loss = tf.reduce_mean(tf.stack(perf_loss, axis=0))
-        self.spike_loss = tf.reduce_mean(tf.stack(spike_loss, axis=0))
+        self.weight_loss = par['weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_rnn)))
 
         self.loss = self.perf_loss + self.spike_loss + self.weight_loss
 
@@ -252,14 +258,7 @@ def main(gpu_id = None):
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
-            #trial_info = stim.generate_trial()
-
-            # temporary fix!!!!!
-            if par['trial_type'] == ' DMS+DMC':
-                set_rule = 0 if i<=2000 else None
-            else:
-                set_rule = None
-            trial_info = stim.generate_trial(set_rule = set_rule)
+            trial_info = stim.generate_trial(set_rule = None)
 
             """
             Run the model
@@ -276,7 +275,7 @@ def main(gpu_id = None):
             """
             Save the network model and output model performance to screen
             """
-            if i%par['iters_between_outputs']==0 and i > 0:
+            if i%par['iters_between_outputs']==0:
                 print_results(i, N, perf_loss, spike_loss, weight_loss, state_hist, accuracy)
                 save_results(model_performance)
 
@@ -307,8 +306,10 @@ def save_results(model_performance):
     results = {'weights': weights, 'parameters': par}
     for k,v in model_performance.items():
         results[k] = v
-    pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-    print('Model results saved in ', par['save_dir'] + par['save_fn'])
+    fn = par['save_dir'] + par['save_fn']
+    #fn = fn[:-4] + '_iter' + str(iter) + '.pkl'
+    pickle.dump(results, open(fn, 'wb'))
+    print('Model results saved in ',fn)
 
 
 def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, trial_num):
@@ -352,6 +353,6 @@ def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss,
 def print_important_params():
 
     important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
-        'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt']
+        'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt']
     for k in important_params:
         print(k, ': ', par[k])
