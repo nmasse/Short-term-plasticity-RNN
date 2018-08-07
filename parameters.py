@@ -24,7 +24,7 @@ par = {
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 100,
+    'n_hidden'              : 30,
     'n_output'              : 9,
 
     # Chunking trial
@@ -37,7 +37,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 1e-2,
+    'learning_rate'         : 4e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
