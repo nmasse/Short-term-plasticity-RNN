@@ -8,14 +8,33 @@ from sklearn import svm
 import time
 import pickle
 import stimulus
+import os
 from sklearn.decomposition import PCA, FactorAnalysis
 from dPCA import dPCA
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+def run_multiple():
+
+    update_params = {'decode_stability':True, 'decoding_reps':3, 'simulation_reps': 3, 'analyze_tuning':True,\
+                    'suppress_analysis':False, 'decode_test':False,'decode_rule':False}
+
+    data_dir = './savedir_INIT/'
+    #filenames = os.listdir(data_dir)
+    for i in [0,1,2,3,4]:
+        #./savedir_FINAL_FAST/DMRS90_wc0_sc4_tcm3_balEI1_L2_lr2_v0.pkl
+        fn = 'DMRS90_wc'+str(0)+'_sc5_tcm2_balEI1_L2_lr2_v' + str(i) + '.pkl'
+
+        print('Analyzing ', data_dir + fn)
+        analyze_model_from_file(data_dir + fn, savefile = data_dir + fn, update_params = update_params)
+
+
 def analyze_model_from_file(filename, savefile = None, update_params = {}):
 
     results = pickle.load(open(filename, 'rb'))
+
+
+
     if savefile is None:
         results['parameters']['save_fn'] = 'test.pkl'
     else:
@@ -24,6 +43,8 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     print('tt', results['parameters']['trial_type'])
     update_parameters(results['parameters'])
     for k, v in results['parameters'].items():
+        par[k] = v
+    for k, v in update_params.items():
         par[k] = v
 
     stim = stimulus.Stimulus()
@@ -37,11 +58,12 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
 
-    results['trial_info'] = trial_info
-    results['h'] = h
-    results['syn_x'] = syn_x
-    results['syn_u'] = syn_u
-    results['y_hat'] = y_hat
+
+    if par['save_trial_data']:
+        results['trial_info'] = trial_info
+        results['syn_x'] = syn_x
+        results['syn_u'] = syn_u
+        results['y_hat'] = y_hat
 
 
     # generate trials with random sample and test stimuli, used for decoding
@@ -69,6 +91,47 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     lesion = False
 
     """
+    Calculate task accuracy
+    """
+    results['task_accuracy'],_,_ = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+
+    """
+    Decode the sample direction from neuronal activity and synaptic efficacies
+    using support vector machines
+    """
+    if par['decoding_reps'] > 0:
+        print('decoding activity...')
+        decoding_results = calculate_svms(h_decode, syn_x_decode, syn_u_decode, trial_info_decode, trial_time, \
+            num_reps = par['decoding_reps'], num_reps_stability = 5, decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
+            decode_sample_vs_test = par['decode_sample_vs_test'])
+        for key, val in decoding_results.items():
+            results[key] = val
+
+    """
+    Calculate neuronal and synaptic sample motion tuning
+    """
+    if par['analyze_tuning']:
+        print('calculate tuning...')
+        tuning_results = calculate_tuning(h, syn_x, syn_u, \
+            trial_info, trial_time, results['weights'], calculate_test = True)
+        for key, val in tuning_results.items():
+            results[key] = val
+
+
+    """
+    Calculate mean sample traces
+    """
+    results['h_sample_mean'] = np.zeros((results['parameters']['n_hidden'], results['parameters']['num_time_steps'], results['parameters']['num_motion_dirs']), dtype = np.float32)
+    for i in range(results['parameters']['num_motion_dirs']):
+        ind = np.where(trial_info_decode['sample'] == i)[0]
+        results['h_sample_mean'][:,:,i] = np.mean(h_decode[:,:,ind], axis = 2)
+
+
+    pickle.dump(results, open(savefile, 'wb') )
+    print('Analysis results saved in ', savefile)
+    return None
+
+    """
     Calculate accuracy after lesioning weights
     """
     if lesion:
@@ -87,27 +150,8 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
         for key, val in simulation_results.items():
             results[key] = val
 
-    """
-    Calculate neuronal and synaptic sample motion tuning
-    """
-    if par['analyze_tuning']:
-        print('calculate tuning...')
-        tuning_results = calculate_tuning(h, syn_x, syn_u, \
-            trial_info, trial_time, results['weights'], calculate_test = True)
-        for key, val in tuning_results.items():
-            results[key] = val
 
-    """
-    Decode the sample direction from neuronal activity and synaptic efficacies
-    using support vector machines
-    """
-    if par['decoding_reps'] > 0:
-        print('decoding activity...')
-        decoding_results = calculate_svms(h_decode, syn_x_decode, syn_u_decode, trial_info_decode, trial_time, \
-            num_reps = par['decoding_reps'], num_reps_stability = 5, decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
-            decode_sample_vs_test = par['decode_sample_vs_test'])
-        for key, val in decoding_results.items():
-            results[key] = val
+
 
     print('Performing dPCA...')
     dim_results = dimension_reduction(h, syn_x, syn_u, trial_info, trial_time)
@@ -116,6 +160,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
 
     pickle.dump(results, open(savefile, 'wb') )
     print('Analysis results saved in ', savefile)
+    print(results.keys())
 
 
 def analyze_model(trial_info, trial_info_decode, y_hat, h, syn_x, syn_u, h_decode, syn_x_decode, syn_u_decode, model_performance, weights, simulation = True, \
@@ -571,6 +616,9 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
 
 def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20):
 
+
+    epsilon = 1e-3
+
     """
     Simulation will start from the start of the test period until the end of trial
     """
@@ -616,7 +664,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     _, trial_length, batch_train_size = h.shape
 
     simulation_results = {
-        'accuracy'                      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
+        'simulation_accuracy'                      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_neural_shuffled'      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_suppression'          : np.zeros((par['num_rules'], len(suppression_time_range), len(neuron_groups), 3)),
@@ -675,7 +723,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 simulation_results['accuracy_syn_shuffled'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
-
                 #Neuron group shuffling
 
                 for g in range(len(neuron_groups)):
@@ -702,9 +749,8 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                                 pred_err = syn_efficacy[hidden_num,t1,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
                                 mse = np.mean(pred_err**2)
                                 response_var = np.var(syn_efficacy[hidden_num,t1,trial_ind])
-                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var+1e-9)
+                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var + epsilon)
                                 simulation_results['synaptic_pref_dir_test_shuffled'][r,t,g,n,hidden_num,t1+test_onset[t]] = np.arctan2(weights[2,0],weights[1,0])
-
 
                     # reset neuronal activity, shuffle synaptic activity
                     hidden_init = h[:,test_onset[t]-1,trial_ind]
@@ -723,7 +769,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                                 pred_err = syn_efficacy[hidden_num,t1,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
                                 mse = np.mean(pred_err**2)
                                 response_var = np.var(syn_efficacy[hidden_num,t1,trial_ind])
-                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var+1e-9)
+                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var + epsilon)
                                 simulation_results['synaptic_pref_dir_test_shuffled'][r,t,g,n,hidden_num,t1+test_onset[t]] = np.arctan2(weights[2,0],weights[1,0])
 
 
@@ -783,11 +829,13 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
 
 def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, calculate_test = False):
 
+    epsilon = 1e-9
     """
     Calculates neuronal and synaptic sample motion direction tuning
     """
     print('Setting calculate_test to FALSE')
     calculate_test = False
+    num_test_stimuli = 1
 
     # time ranges for suppression analysis
     test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
@@ -813,6 +861,10 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
         sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
         if calculate_test:
             test = np.reshape(np.array(trial_info['test']),(par['batch_train_size'], 1, 1))
+    elif par['trial_type'] == 'location_DMS':
+        par['num_receptive_fields'] = 1
+        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
+        rule = np.array(trial_info['rule'])
     else:
         rule = np.array(trial_info['rule'])
         num_test_stimuli = 1
@@ -879,6 +931,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
     for r in range(par['num_rules']):
         trial_ind = np.where((rule==r))[0]
+        print('RULE ', trial_ind)
         for n in range(par['n_hidden']):
             for t in range(num_time_steps):
 
@@ -900,8 +953,9 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                         pred_err = h[n,t,trial_ind] - np.dot(sample_dir[trial_ind,:,rf], weights).T
                         mse = np.mean(pred_err**2)
                         response_var = np.var(h[n,t,trial_ind])
-                        tuning_results['neuronal_pev'][n,r,rf,t] = 1 - mse/(response_var+1e-9)
-                        tuning_results['neuronal_pref_dir'][n,r,rf,t] = np.arctan2(weights[2,0],weights[1,0])
+                        if response_var > epsilon:
+                            tuning_results['neuronal_pev'][n,r,rf,t] = 1 - mse/(response_var + epsilon)
+                            tuning_results['neuronal_pref_dir'][n,r,rf,t] = np.arctan2(weights[2,0],weights[1,0])
 
                         if calculate_test:
                             weights = np.linalg.lstsq(test_dir[trial_ind,:,ts,rf], h[n,t,trial_ind])
@@ -909,8 +963,9 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                             pred_err = h[n,t,trial_ind] - np.dot(test_dir[trial_ind,:,ts,rf], weights).T
                             mse = np.mean(pred_err**2)
                             response_var = np.var(h[n,t,trial_ind])
-                            tuning_results['neuronal_pev_test'][n,r,rf,ts,t] = 1 - mse/(response_var+1e-9)
-                            tuning_results['neuronal_pref_dir_test'][n,r,rf,ts,t] = np.arctan2(weights[2,0],weights[1,0])
+                            if response_var > epsilon:
+                                tuning_results['neuronal_pev_test'][n,r,rf,ts,t] = 1 - mse/(response_var + epsilon)
+                                tuning_results['neuronal_pref_dir_test'][n,r,rf,ts,t] = np.arctan2(weights[2,0],weights[1,0])
 
 
                         # Synaptic sample tuning
@@ -919,7 +974,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                         pred_err = syn_efficacy[n,t,trial_ind] - np.dot(sample_dir[trial_ind,:,rf], weights).T
                         mse = np.mean(pred_err**2)
                         response_var = np.var(syn_efficacy[n,t,trial_ind])
-                        tuning_results['synaptic_pev'][n,r,rf,t] = 1 - mse/(response_var+1e-9)
+                        tuning_results['synaptic_pev'][n,r,rf,t] = 1 - mse/(response_var + epsilon)
                         tuning_results['synaptic_pref_dir'][n,r,rf,t] = np.arctan2(weights[2,0],weights[1,0])
 
                         if calculate_test:
@@ -928,7 +983,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                             pred_err = syn_efficacy[n,t,trial_ind] - np.dot(test_dir[trial_ind,:,ts,rf], weights).T
                             mse = np.mean(pred_err**2)
                             response_var = np.var(syn_efficacy[n,t,trial_ind])
-                            tuning_results['synaptic_pev_test'][n,r,rf,ts,t] = 1 - mse/(response_var+1e-9)
+                            tuning_results['synaptic_pev_test'][n,r,rf,ts,t] = 1 - mse/(response_var + epsilon)
                             tuning_results['synaptic_pref_dir_test'][n,r,rf,ts,t] = np.arctan2(weights[2,0],weights[1,0])
 
         if par['suppress_analysis'] and (par['trial_type'] == 'ABCA' or  par['trial_type'] == 'ABBA'):
