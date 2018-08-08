@@ -201,7 +201,7 @@ class Stimulus:
         # end of trial epochs
 
         distrator_time_rng = range((par['dead_time']+par['fix_time'] + par['sample_time'] + par['delay_time'] )//par['dt'],\
-            (par['dead_time']+par['fix_time']+par['sample_time']+ d1 + par['distractor_time'])//par['dt'])
+            (par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['distractor_time'])//par['dt'])
         test_onset = (par['dead_time']+par['fix_time'] + par['distractor_time'] + par['sample_time'] + 2*par['delay_time'])//par['dt']
 
         trial_info['train_mask'][:par['dead_time']//par['dt'], :] = 0
