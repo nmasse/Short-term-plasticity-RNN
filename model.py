@@ -114,28 +114,13 @@ class Model:
         """
         Update the synaptic plasticity paramaters
         """
-        if par['synapse_config'] == 'std_stf':
+        if par['synapse_config'] is not None:
             # implement both synaptic short term facilitation and depression
-            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
+            syn_x += (par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h)*par['dynamic_synapse']
+            syn_u += (par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h)*par['dynamic_synapse']
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post = syn_u*syn_x*h
-
-        elif par['synapse_config'] == 'std':
-            # implement synaptic short term derpression, but no facilitation
-            # we assume that syn_u remains constant at 1
-            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_x*h
-            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_x*h
-
-        elif par['synapse_config'] == 'stf':
-            # implement synaptic short term facilitation, but no depression
-            # we assume that syn_x remains constant at 1
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_u*h
 
         else:
             # no synaptic plasticity
@@ -277,27 +262,13 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0:
                 print_results(i, N, perf_loss, spike_loss, weight_loss, state_hist, accuracy)
-                save_results(model_performance)
+
 
         """
         Save model, analyze the network model and save the results
         """
         save_results(model_performance)
 
-        """
-        if par['analyze_model']:
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = True, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
-
-            # Generate another batch of trials with test_mode = True (sample and test stimuli
-            # are independently drawn), and then perform tuning and decoding analysis
-            trial_info = stim.generate_trial(test_mode = True)
-            y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                sess.run([model.y_hat, model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], \
-                {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-                simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
-        """
 
 
 def save_results(model_performance):
@@ -353,6 +324,7 @@ def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss,
 def print_important_params():
 
     important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
-        'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt']
+        'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt',\
+        'delay_time','weight_multiplier', 'connection_prob','synapse_config']
     for k in important_params:
         print(k, ': ', par[k])
