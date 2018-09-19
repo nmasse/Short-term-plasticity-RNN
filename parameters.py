@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
+import matplotlib.pyplot as plt
 
 print("--> Loading parameters...")
 
@@ -10,20 +11,20 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedirs/',
+    'save_dir'              : './savedir_INIT/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : 'full', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
 
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 0,
-    'num_rule_tuned'        : 12,
+    'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
     'n_output'              : 3,
 
@@ -35,16 +36,17 @@ par = {
     'test_cost_multiplier'  : 1.,
     'rule_cue_multiplier'   : 1.,
     'balance_EI'            : False,
+    'weight_multiplier'     : 1.,
 
     # Variance values
-    'clip_max_grad_val'     : 1,
+    'clip_max_grad_val'     : 0.1,
     'input_mean'            : 0.0,
     'noise_in_sd'           : 0.1,
     'noise_rnn_sd'          : 0.5,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 4,        # magnitutde scaling factor for von Mises
+    'tuning_height'         : 5,        # magnitutde scaling factor for von Mises
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
@@ -119,7 +121,8 @@ def update_trial_params():
     """
 
     par['num_rules'] = 1
-    par['num_rule_tuned'] = 0
+    par['num_receptive_fields'] = 1
+    #par['num_rule_tuned'] = 0
     par['ABBA_delay' ] = 0
     par['rule_onset_time'] = [par['dead_time']]
     par['rule_offset_time'] = [par['dead_time']]
@@ -143,8 +146,6 @@ def update_trial_params():
         par['catch_trial_pct'] = 0
         par['num_receptive_fields'] = 2
         par['num_rules'] = 2
-        #par['num_motion_tuned'] = 36*2
-        #par['tuning_height'] /= 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
         par['num_rule_tuned'] = 12
@@ -152,11 +153,7 @@ def update_trial_params():
         par['test_time'] = 500
         par['delay_time'] = 1000
         par['analyze_rule'] = True
-        par['noise_in_sd']  = 0.1
-        par['noise_rnn_sd'] = 0.5
-        #par['num_iterations'] = 4000
-
-        par['dualDMS_single_test'] = False
+        par['num_motion_tuned'] = 36*2
         par['rule_onset_time'] = []
         par['rule_offset_time'] = []
         par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time']/2)
@@ -170,8 +167,8 @@ def update_trial_params():
         par['match_test_prob'] = 0.5
         par['max_num_tests'] = 3
         par['sample_time'] = 400
-        par['delay_time'] = 2400
-        par['ABBA_delay'] = par['delay_time']//par['max_num_tests']//2
+        par['ABBA_delay'] = 400
+        par['delay_time'] = 6*par['ABBA_delay']
         par['repeat_pct'] = 0
         par['analyze_test'] = False
         if par['trial_type'] == 'ABBA':
@@ -209,7 +206,7 @@ def update_trial_params():
     elif par['trial_type'] == 'location_DMS':
         par['num_receptive_fields'] = 3
         par['rotation_match'] = 0
-        par['num_motion_tuned'] = 54
+        par['num_motion_tuned'] = 36*3
 
     elif par['trial_type'] == 'distractor':
         # this task will not use the create_tuning_functions in stimulus.py
@@ -243,7 +240,7 @@ def update_dependencies():
     # The time step in seconds
     par['dt_sec'] = par['dt']/1000
     # Length of each trial in ms
-    if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
+    if par['trial_type'] == 'dualDMS':
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
@@ -287,30 +284,25 @@ def update_dependencies():
 
 
 
-
-
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
-
     par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
-
-    par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
-    par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob'])
+    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob']/par['num_receptive_fields'])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
+        par['w_rnn0'] = par['weight_multiplier']*initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
         if par['balance_EI']:
-            #par['w_rnn0'][:, par['ind_inh']] *= 1/(1-par['exc_inh_prop'])
-            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
+            #par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
+            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=1., scale=1.)
+            #par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], 1, shape=1., scale=1.)
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -322,13 +314,11 @@ def update_dependencies():
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
-
-    if par['synapse_config'] == None:
+    if par['synapse_config'] is None:
         par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
 
-
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
+    par['w_out0'] = par['weight_multiplier']*initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
 
@@ -337,58 +327,67 @@ def update_dependencies():
         par['w_out_mask'][:, par['ind_inh']] = 0
 
     par['w_in_mask'] = np.ones_like(par['w_in0'])
-    """
-    par['w_out0'][:, 1:par['n_hidden']:2] = 0
-    par['w_out_mask'][:, 1:par['n_hidden']:2] = 0
-    par['w_in0'][1:par['n_hidden']:2, :] = 0
-    par['w_in_mask'][1:par['n_hidden']:2, :] = 0
-    """
 
 
-    """
-    Setting up synaptic parameters
-    0 = static
-    1 = facilitating
-    2 = depressing
-    """
-    par['synapse_type'] = np.zeros(par['n_hidden'], dtype=np.int8)
+    # for the location_DMS task, inputs from the 3 receptive fields project onto non-overlapping
+    # units in the RNN. This tries to replicates what liekly happesn in areas MST, which are retinotopic
+    if par['trial_type'] == 'location_DMS':
+        par['w_in_mask'] *= 0
+        target_ind = [range(0, par['n_hidden'],3), range(1, par['n_hidden'],3), range(2, par['n_hidden'],3)]
+        for n in range(par['n_input']):
+            u = int(n//(par['n_input']/3))
+            par['w_in_mask'][target_ind[u], n] = 1
+        par['w_in0'] = par['w_in0']*par['w_in_mask']
 
-    # only facilitating synapses
-    if par['synapse_config'] == 'stf':
-        par['synapse_type'] = np.ones(par['n_hidden'], dtype=np.int8)
-
-    # only depressing synapses
-    elif par['synapse_config'] == 'std':
-        par['synapse_type'] = 2*np.ones(par['n_hidden'], dtype=np.int8)
-
-    # even numbers facilitating, odd numbers depressing
-    elif par['synapse_config'] == 'std_stf':
-        par['synapse_type'] = np.ones(par['n_hidden'], dtype=np.int8)
-        par['ind'] = range(1,par['n_hidden'],2)
-        par['synapse_type'][par['ind']] = 2
-
+    # initialize synaptic values
     par['alpha_stf'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
     par['alpha_std'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
     par['U'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
-
-    # initial synaptic values
     par['syn_x_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
     par['syn_u_init'] = np.zeros((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['dynamic_synapse'] = np.ones((par['n_hidden'], 1), dtype=np.float32)
+
+    if par['synapse_config'] == 'full' or par['synapse_config'] == 'std_stf':
+        par['synapse_type'] = ['facilitating' if i%2==0 else 'depressing' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'excitatory_facilitating':
+        par['synapse_type'] = ['facilitating' if par['EI_list'][i]==1 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'facilitating':
+        par['synapse_type'] = ['facilitating' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'inhibitory_facilitating':
+        par['synapse_type'] = ['facilitating' if par['EI_list'][i]==-1 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'excitatory_half_facilitating':
+        par['synapse_type'] = ['facilitating' if par['EI_list'][i]==1 and i%2==0 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'excitatory_depressing':
+        par['synapse_type'] = ['depressing' if par['EI_list'][i]==1 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'excitatory_depressing_inhibitory_facilitating':
+        par['synapse_type'] = ['depressing' if par['EI_list'][i]==1 else 'facilitating' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'inhibitory_depressing':
+        par['synapse_type'] = ['depressing' if par['EI_list'][i]==-1 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'excitatory_half_depressing':
+        par['synapse_type'] = ['depressing' if par['EI_list'][i]==1  and i%2==0 else 'static' for i in range(par['n_hidden'])]
+    elif par['synapse_config'] == 'depressing':
+        par['synapse_type'] = ['depressing' for i in range(par['n_hidden'])]
 
     for i in range(par['n_hidden']):
-        if par['synapse_type'][i] == 1:
+        if par['synapse_type'][i] == 'facilitating':
             par['alpha_stf'][i,0] = par['dt']/par['tau_slow']
             par['alpha_std'][i,0] = par['dt']/par['tau_fast']
             par['U'][i,0] = 0.15
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
 
-        elif par['synapse_type'][i] == 2:
+        elif par['synapse_type'][i] == 'depressing':
             par['alpha_stf'][i,0] = par['dt']/par['tau_fast']
             par['alpha_std'][i,0] = par['dt']/par['tau_slow']
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+        elif par['synapse_type'][i] == 'static':
+            par['dynamic_synapse'][i,0] = 0
+            par['U'][i,0] = 1.
+            par['syn_x_init'][i,0] = 1.
+            par['syn_u_init'][i,0] = 1.
 
 def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
     w = np.random.gamma(shape, scale, size=dims)
