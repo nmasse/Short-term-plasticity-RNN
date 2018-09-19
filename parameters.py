@@ -22,7 +22,7 @@ par = {
     'var_delay'             : False,
 
     # Network shape
-    'num_motion_tuned'      : 36,
+    'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
@@ -63,12 +63,12 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 2000,
-    'iters_between_outputs' : 100,
+    'iters_between_outputs' : 10,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 250,
+    'dead_time'             : 0,
     'fix_time'              : 500,
     'sample_time'           : 500,
     'delay_time'            : 1000,
@@ -148,12 +148,12 @@ def update_trial_params():
         par['num_rules'] = 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
-        par['num_rule_tuned'] = 12
+        par['num_rule_tuned'] = 2
         par['sample_time'] = 500
         par['test_time'] = 500
         par['delay_time'] = 1000
         par['analyze_rule'] = True
-        par['num_motion_tuned'] = 36*2
+        par['num_motion_tuned'] = 24*2
         par['rule_onset_time'] = []
         par['rule_offset_time'] = []
         par['rule_onset_time'].append(par['dead_time'] + par['fix_time'] + par['sample_time'] + par['delay_time']/2)
@@ -191,8 +191,6 @@ def update_trial_params():
         par['num_rules'] = 2
         par['num_rule_tuned'] = 12
         par['rotation_match'] = [0, 0]
-        #par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-        #par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
         par['rule_onset_time'] = [par['dead_time']]
         par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']]
 
@@ -206,7 +204,7 @@ def update_trial_params():
     elif par['trial_type'] == 'location_DMS':
         par['num_receptive_fields'] = 3
         par['rotation_match'] = 0
-        par['num_motion_tuned'] = 36*3
+        par['num_motion_tuned'] = 24*3
 
     elif par['trial_type'] == 'distractor':
         # this task will not use the create_tuning_functions in stimulus.py
@@ -300,9 +298,9 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = par['weight_multiplier']*initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
         if par['balance_EI']:
-            #par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
-            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=1., scale=1.)
-            #par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], 1, shape=1., scale=1.)
+            par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=0.5, scale=1.)
+            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=0.5, scale=1.)
+
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -391,8 +389,8 @@ def update_dependencies():
 
 def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
     w = np.random.gamma(shape, scale, size=dims)
-    #w = np.random.uniform(0,0.25, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
+
     return np.float32(w)
 
 
