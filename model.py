@@ -32,9 +32,14 @@ class Model:
         self.mask = tf.unstack(mask, axis=0)
 
         # Load the initial hidden state activity to be used at the start of each trial
+
         #self.hidden_init = tf.constant(par['h_init'])
+
         with tf.variable_scope('initial_activity'):
             self.hidden_init = tf.get_variable('hidden_init', initializer = par['h_init'], trainable=True)
+
+        #self.hidden_init = tf.random_uniform([par['n_hidden'], 1], 0, 0.5)
+
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
@@ -305,12 +310,17 @@ def eval_weights():
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
+    with tf.variable_scope('initial_activity', reuse=True):
+        hidden_init = tf.get_variable('hidden_init')
+    
+
     weights = {
         'w_in'  : W_in.eval(),
         'w_rnn' : W_rnn.eval(),
         'w_out' : W_out.eval(),
         'b_rnn' : b_rnn.eval(),
-        'b_out'  : b_out.eval()
+        'b_out'  : b_out.eval(),
+        'hidden_init': hidden_init.eval()
     }
 
     return weights
@@ -325,6 +335,6 @@ def print_important_params():
 
     important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
         'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt',\
-        'delay_time','weight_multiplier', 'connection_prob','synapse_config']
+        'delay_time','weight_multiplier', 'connection_prob','synapse_config','tau_slow']
     for k in important_params:
         print(k, ': ', par[k])
