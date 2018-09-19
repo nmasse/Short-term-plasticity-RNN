@@ -21,9 +21,9 @@ def run_multiple():
     task_list = [ 'DMS','DMRS90','DMRS45','DMRS180','ABCA','ABBA','DMS+DMRS','dualDMS','location_DMS']
     task_list = [ 'location_DMS']
     #task_list = ['ABCA','ABBA','DMS+DMRS','dualDMS','location_DMS']
-    task_list =['DMS']
+    task_list =['DMS+DMRS']
 
-    update_params = {'decode_stability':False, 'decoding_reps':5, 'simulation_reps': 0, 'analyze_tuning':False,'calculate_resp_matrix':False,\
+    update_params = {'decode_stability':False, 'decoding_reps':100, 'simulation_reps': 100, 'analyze_tuning':True,'calculate_resp_matrix':False,\
                     'suppress_analysis':False, 'decode_test': False,'decode_rule':False, 'decode_match':False, 'analyze_currents':False}
 
     #data_dir = '/media/masse/MySSDataStor1/Short-Term-Synaptic-Plasticity/savedir_resubmission/FINAL/'
@@ -898,13 +898,14 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     test_dir[:,2] = np.sin(2*np.pi*test//par['num_motion_dirs'])
 
     n_hidden, trial_length, batch_train_size = h.shape
+    num_grp_reps = 5
 
     simulation_results = {
         'simulation_accuracy'            : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_neural_shuffled'      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_rules'], num_test_periods, num_reps)),
         'accuracy_suppression'          : np.zeros((par['num_rules'], len(suppression_time_range), len(neuron_groups), 3)),
-        'accuracy_neural_shuffled_grp'  : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps)),
+        'accuracy_neural_shuffled_grp'  : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_grp_reps)),
         'accuracy_syn_shuffled_grp'     : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps)),
         'synaptic_pev_test_suppression' : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), n_hidden, trial_length)),
         'synaptic_pref_dir_test_suppression': np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), n_hidden, trial_length))}
@@ -956,6 +957,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 simulation_results['accuracy_syn_shuffled'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
+            for n in range(num_grp_reps):
                 #Neuron group shuffling
 
                 for g in range(len(neuron_groups)):
