@@ -177,24 +177,22 @@ class Stimulus:
             trial_info['train_mask'][mask_time_rng[0], t] = 0
             trial_info['train_mask'][mask_time_rng[1], t] = 0
 
-
-        #trial_info['train_mask'] /= np.mean(trial_info['train_mask'][par['dead_time']//par['dt']:,:])
-
         return trial_info
 
     def generate_distractor_trial(self):
 
         # duration of mask after test onset
         mask_duration = par['mask_duration']//par['dt']
+        num_time_steps = (par['dead_time']+par['fix_time']+par['sample_time']+par['distractor_time']+par['test_time']+2*par['delay_time'])//par['dt']
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+        trial_info = {'desired_output'  :  np.zeros((par['n_output'], num_time_steps, par['batch_train_size']),dtype=np.float32),
+                      'train_mask'      :  np.ones((num_time_steps, par['batch_train_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'distractor'      :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'match'           :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'test'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size']))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], num_time_steps, par['batch_train_size']))}
 
         # set to mask equal to zero during the dead time
 
@@ -272,8 +270,7 @@ class Stimulus:
             Generate trial paramaters
             """
             sample_dir = np.random.randint(par['num_motion_dirs'])
-            if test_mode:
-                test_dir = np.random.randint(par['num_motion_dirs'])
+
             test_RF = np.random.choice([1,2]) if  par['trial_type'] == 'location_DMS' else 0
 
             rule = np.random.randint(par['num_rules']) if set_rule is None else set_rule
@@ -337,6 +334,11 @@ class Stimulus:
                     else:
                         possible_dirs = np.setdiff1d(list(range(par['num_motion_dirs'])), matching_dir)
                         test_dir = possible_dirs[np.random.randint(len(possible_dirs))]
+            else:
+                test_dir = np.random.randint(par['num_motion_dirs'])
+                # this next part only working for DMS, DMRS tasks
+                matching_dir = (sample_dir + match_rotation)%par['num_motion_dirs']
+                match = 1 if test_dir == matching_dir else 0
 
             """
             Calculate neural input based on sample, tests, fixation, rule, and probe
@@ -482,8 +484,24 @@ class Stimulus:
                     trial_info['desired_output'][1, test_time_rng[i], t] = 1
 
             trial_info['sample'][t] = sample_dir
+        """
+        plt.imshow(trial_info['neural_input'][:,:,0], aspect = 'auto')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,:,0], aspect = 'auto')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['neural_input'][:,:,1], aspect = 'auto')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['desired_output'][:,:,1], aspect = 'auto')
+        plt.colorbar()
+        plt.show()
+        plt.imshow(trial_info['train_mask'], aspect = 'auto')
+        plt.colorbar()
+        plt.show()
+        """
 
-        #trial_info['train_mask'] /= np.mean(trial_info['train_mask'][par['dead_time']//par['dt']:,:])
 
         return trial_info
 
