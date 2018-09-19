@@ -289,7 +289,7 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob']/par['num_receptive_fields'])
+    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob']/par['num_receptive_fields'], shape=0.2, scale=1.)
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -298,8 +298,8 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = par['weight_multiplier']*initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
         if par['balance_EI']:
-            par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=0.5, scale=1.)
-            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=0.5, scale=1.)
+            par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=0.2, scale=1.)
+            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=0.2, scale=1.)
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
@@ -387,7 +387,7 @@ def update_dependencies():
             par['syn_x_init'][i,0] = 1.
             par['syn_u_init'][i,0] = 1.
 
-def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
+def initialize(dims, connection_prob, shape=0.1, scale=1.0 ):
     w = np.random.gamma(shape, scale, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
 
