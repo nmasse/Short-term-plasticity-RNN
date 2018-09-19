@@ -861,16 +861,13 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     """
     if par['trial_type'] == 'dualDMS':
         test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']]
-    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-        #test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']]
+    elif  par['trial_type'] in ['ABBA','ABCA']:
         test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+i*par['ABBA_delay'])//par['dt'] for i in range(1,2)]
-    elif par['trial_type'] == 'DMRS90' or par['trial_type'] == 'DMRS90ccw':
+    elif  par['trial_type'] in ['DMS', 'DMC', 'DMRS90', 'DMRS90ccw']:
         test_onset = []
         test_onset.append((par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
         test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
-    else:
-        test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']]
-        test_onset.append((par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
+
 
     num_test_periods = len(test_onset)
     """
@@ -881,7 +878,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
     suppression_time_range = [range(test_onset[0]-200//par['dt'], test_onset[0])]
 
     neuron_groups = []
-    if par['trial_type'] in ['DMS', 'DMRS90', 'DMRS90ccw','ABBA','ABCA']:
+    if par['trial_type'] in ['DMS', 'DMC', 'DMRS90', 'DMRS90ccw','ABBA','ABCA']:
         neuron_groups.append(range(0,par['num_exc_units'],2))
         neuron_groups.append(range(1,par['num_exc_units'],2))
         neuron_groups.append(range(par['num_exc_units'],par['num_exc_units']+par['num_inh_units'],2))
@@ -928,11 +925,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
             test_length = trial_length - test_onset[t]
             trial_ind = np.where(trial_info['rule']==r)[0]
             train_mask = mask[test_onset[t]:,trial_ind]
-            print('h', h.shape)
-            print('trial_length',trial_length)
-            print('test_length',test_length)
-            print('test_onset',test_onset)
-            print('trial_info', trial_info['neural_input'].shape)
             x = np.split(trial_info['neural_input'][:,test_onset[t]:,trial_ind],test_length,axis=1)
             y = trial_info['desired_output'][:,test_onset[t]:,trial_ind]
 
@@ -981,7 +973,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                     simulation_results['accuracy_neural_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
 
-                    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
+                    if par['trial_type'] in ['ABBA','ABCA']:
                         syn_efficacy = syn_x_hist*syn_u_hist
                         for hidden_num in range(par['n_hidden']):
                             for t1 in range(test_length):
@@ -1001,7 +993,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
                     y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                     simulation_results['accuracy_syn_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
 
-                    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
+                    if par['trial_type'] in ['ABBA','ABCA']:
                         syn_efficacy = syn_x_hist*syn_u_hist
                         for hidden_num in range(par['n_hidden']):
                             for t1 in range(test_length):
