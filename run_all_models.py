@@ -41,10 +41,9 @@ elif spike_reg == 'L2':
 
 weight_cost = np.arange(81)
 lr = 0.02
-update_parameters({'simulation_reps':0,'analyze_tuning':False,'dt':10,'spike_cost':1e-2,'decoding_reps':5,'batch_train_size':1024, \
+update_parameters({'simulation_reps':0,'analyze_tuning':False,'decoding_reps':5,'batch_train_size':1024, \
     'learning_rate':lr,'noise_rnn_sd': 0.5, 'noise_in_sd': 0.1,'num_iterations': 2000, \
-    'savedir': './savedir_INIT/',\
-    'num_motion_tuned':36,'spike_regularization':spike_reg})
+    'savedir': './savedir_FINAL/','spike_regularization':spike_reg})
 
 tcm = 2
 bal_EI = 1
@@ -53,7 +52,7 @@ synaptic_config = 'full'
 
 #weight_cost = [0,0.5, 1]
 
-for n in range(0,20,2):
+for n in range(2,20,3):
     for sc in [5]:
         for wc in [0]:
             for task in task_list:

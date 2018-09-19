@@ -11,7 +11,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir_INIT/',
+    'save_dir'              : './savedir_FINAL/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
