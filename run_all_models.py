@@ -53,7 +53,7 @@ synaptic_config = 'full'
 
 #weight_cost = [0,0.5, 1]
 
-for n in range(1,20,2):
+for n in range(0,20,2):
     for sc in [5]:
         for wc in [0]:
             for task in task_list:
@@ -80,12 +80,12 @@ for n in range(1,20,2):
                         save_fn = task + '_wc' + str(wc)+ '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_DEP_v' + str(n) + '.pkl'
                     elif synaptic_config == 'full':
                         #save_fn = task  +  '_N200' + '_wc' + str(wc)+ '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_L2_lr' + str(int(lr*100)) + '_v' + str(n) + '.pkl'
-                        save_fn = task  + 'TH5_wc' + str(wc) + '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_L2_lr' + str(int(lr*100)) + '_v' + str(n) + '.pkl'
+                        save_fn = task  + '_wc' + str(wc) + '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_L2_lr' + str(int(lr*100)) + '_v' + str(n) + '.pkl'
                         print('save_fn ', save_fn)
                     elif synaptic_config is None:
                         save_fn = task  + '_wc' + str(wc)+ '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_L2_lr1_v' + str(n) + '.pkl'
                     update_parameters({'trial_type': task, 'save_fn': save_fn, 'simulation_reps':0, 'delay_time': d, \
-                        'num_iterations': 2000, 'weight_multiplier': 1., 'connection_prob': 1., 'membrane_time_constant': 100, 'n_hidden': 100, 'dead_time': 250})
+                        'num_iterations': 2000, 'weight_multiplier': 1., 'connection_prob': 1., 'membrane_time_constant': 100, 'n_hidden': 100, 'dead_time': 0})
                     try_model(gpu_id)
 
 1/0
