@@ -230,7 +230,6 @@ def main(gpu_id = None):
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
     config = tf.ConfigProto()
-    #config.gpu_options.allow_growth=True
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
     with tf.Session(config=config) as sess:
@@ -239,8 +238,7 @@ def main(gpu_id = None):
         with tf.device(device):
             model = Model(x, y, mask)
 
-        init = tf.global_variables_initializer()
-        sess.run(init)
+        sess.run(tf.global_variables_initializer())
 
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'weight_loss': [], 'trial': []}
@@ -283,7 +281,6 @@ def save_results(model_performance):
     for k,v in model_performance.items():
         results[k] = v
     fn = par['save_dir'] + par['save_fn']
-    #fn = fn[:-4] + '_iter' + str(iter) + '.pkl'
     pickle.dump(results, open(fn, 'wb'))
     print('Model results saved in ',fn)
 
@@ -312,7 +309,7 @@ def eval_weights():
 
     with tf.variable_scope('initial_activity', reuse=True):
         hidden_init = tf.get_variable('hidden_init')
-    
+
 
     weights = {
         'w_in'  : W_in.eval(),
@@ -320,8 +317,7 @@ def eval_weights():
         'w_out' : W_out.eval(),
         'b_rnn' : b_rnn.eval(),
         'b_out'  : b_out.eval(),
-        'hidden_init': hidden_init.eval()
-    }
+        'hidden_init': hidden_init.eval()}
 
     return weights
 

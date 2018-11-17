@@ -148,7 +148,8 @@ def update_trial_params():
         par['num_rules'] = 2
         par['probe_trial_pct'] = 0
         par['probe_time'] = 10
-        par['num_rule_tuned'] = 2
+        par['num_rule_tuned'] = 6
+        #par['num_rule_tuned'] = 2
         par['sample_time'] = 500
         par['test_time'] = 500
         par['delay_time'] = 1000
@@ -177,7 +178,7 @@ def update_trial_params():
     elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
 
         par['num_rules'] = 2
-        par['num_rule_tuned'] = 12
+        par['num_rule_tuned'] = 6
         if par['trial_type'] == 'DMS+DMRS':
             par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 500]
