@@ -11,7 +11,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir_FINAL/',
+    'save_dir'              : '/media/masse/MySSDataStor1/RNN_spike_weight_costs/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -20,6 +20,7 @@ par = {
     'synapse_config'        : 'full', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
+    'gamma_shape'           : 0.25,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -30,7 +31,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 2e-2,
+    'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
     'test_cost_multiplier'  : 1.,
@@ -42,7 +43,7 @@ par = {
     'clip_max_grad_val'     : 0.1,
     'input_mean'            : 0.0,
     'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5,
+    'noise_rnn_sd'          : 0.25,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -52,7 +53,8 @@ par = {
     # Cost parameters
     'spike_regularization'  : 'L2', # 'L1' or 'L2'
     'spike_cost'            : 2e-2,
-    'weight_cost'           : 0.,
+    'w_rnn_weight_cost'     : 0.,
+    'w_in_weight_cost'      : 0.,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -63,7 +65,7 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 2000,
-    'iters_between_outputs' : 10,
+    'iters_between_outputs' : 50,
 
     # Task specs
     'trial_type'            : 'DMS', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
@@ -184,9 +186,9 @@ def update_trial_params():
             par['rule_onset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 500]
             par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 750]
         else:
-            par['rotation_match'] = [0, 45]
+            par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = [par['dead_time']]
-            par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']]
+            par['rule_offset_time'] = [par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']]
 
     elif par['trial_type'] == 'DMS+DMC':
         par['num_rules'] = 2
@@ -290,7 +292,7 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob']/par['num_receptive_fields'], shape=0.2, scale=1.)
+    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob']/par['num_receptive_fields'], shape=2*par['gamma_shape'], scale=1.)
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -299,8 +301,10 @@ def update_dependencies():
     if par['EI']:
         par['w_rnn0'] = par['weight_multiplier']*initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
         if par['balance_EI']:
-            par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=0.2, scale=1.)
-            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], par['connection_prob'], shape=0.2, scale=1.)
+            par['w_rnn0'][:, par['ind_inh']] = par['weight_multiplier']*initialize([par['n_hidden'], par['num_inh_units']], \
+                par['connection_prob'], shape=2*par['gamma_shape'], scale=1.)
+            par['w_rnn0'][par['ind_inh'], :] = par['weight_multiplier']*initialize([ par['num_inh_units'], par['n_hidden']], \
+                par['connection_prob'], shape=2*par['gamma_shape'], scale=1.)
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
@@ -388,7 +392,12 @@ def update_dependencies():
             par['syn_x_init'][i,0] = 1.
             par['syn_u_init'][i,0] = 1.
 
-def initialize(dims, connection_prob, shape=0.1, scale=1.0 ):
+
+
+    print('MEAN W RNN')
+    print(np.mean(np.maximum(0, par['w_rnn0'])**2))
+
+def initialize(dims, connection_prob, shape=par['gamma_shape'], scale=1.0 ):
     w = np.random.gamma(shape, scale, size=dims)
     w *= (np.random.rand(*dims) < connection_prob)
 

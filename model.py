@@ -171,8 +171,10 @@ class Model:
 
         with tf.variable_scope('rnn_cell', reuse = True):
             W_rnn = tf.get_variable('W_rnn')
+            W_in = tf.get_variable('W_in')
 
-        self.weight_loss = par['weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_rnn)))
+        self.weight_loss = par['w_rnn_weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_rnn))) + \
+            par['w_in_weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_in)))
 
         self.loss = self.perf_loss + self.spike_loss + self.weight_loss
 
@@ -330,7 +332,7 @@ def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss,
 def print_important_params():
 
     important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
-        'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt',\
+        'spike_regularization', 'w_rnn_weight_cost', 'w_in_weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt',\
         'delay_time','weight_multiplier', 'connection_prob','synapse_config','tau_slow']
     for k in important_params:
         print(k, ': ', par[k])

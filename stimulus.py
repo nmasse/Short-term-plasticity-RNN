@@ -355,7 +355,8 @@ class Stimulus:
                 trial_info['neural_input'][:, fix_time_rng, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
 
             # RULE CUE
-            if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
+            #if par['num_rules']> 1 and par['num_rule_tuned'] > 0:
+            if par['num_rule_tuned'] > 0:
                 trial_info['neural_input'][:, par['rule_time_rng'][0], t] += np.reshape(self.rule_tuning[:,rule],(-1,1))
 
             """
