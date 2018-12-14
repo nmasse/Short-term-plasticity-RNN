@@ -30,7 +30,7 @@ par = {
     'n_output'              : 3,
 
     # Timings and rates
-    'dt'                    : 10,
+    'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -76,7 +76,7 @@ par = {
     'delay_time'            : 1000,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
-    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'mask_duration'         : 40,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -180,7 +180,7 @@ def update_trial_params():
     elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
 
         par['num_rules'] = 2
-        par['num_rule_tuned'] = 6
+        par['num_rule_tuned'] = 2
         if par['trial_type'] == 'DMS+DMRS':
             par['rotation_match'] = [0, 90]
             par['rule_onset_time'] = [par['dead_time']+par['fix_time']+par['sample_time'] + 500]

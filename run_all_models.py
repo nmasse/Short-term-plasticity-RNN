@@ -45,7 +45,7 @@ elif spike_reg == 'L2':
 
 lr = 0.02
 update_parameters({'simulation_reps':0,'analyze_tuning':False,'decoding_reps':5,'batch_train_size':1024, \
-    'learning_rate':lr,'noise_rnn_sd': 0.5, 'noise_in_sd': 0.1,'num_iterations': 4000, \
+    'learning_rate':lr,'noise_rnn_sd': 0.25, 'noise_in_sd': 0.1,'num_iterations': 4000, \
     'savedir': './savedir_FINAL/','spike_regularization':spike_reg})
 
 tcm = 2
@@ -53,14 +53,14 @@ bal_EI = 1
 synaptic_config = 'full'
 
 
-for n in [0]:
-    for sc in [2,3,4]:
+for n in range(3,20,4):
+    for sc in [0,1,2]:
         for wrnn_wc in [3,4,5,6,7]:
             for win_wc in [3,4,5,6,7]:
                 task = 'DMS+DMRS_early_cue'
                 update_parameters({'w_rnn_weight_cost':w_rnn_weight_cost[wrnn_wc],'w_in_weight_cost':w_in_weight_cost[win_wc], 'spike_cost':spike_cost[sc], \
                     'test_cost_multiplier': np.float32(tcm), 'balance_EI': (bal_EI>0), 'synapse_config': synaptic_config, \
-                    'tau_slow':1500, 'tau_fast': 200,'num_iterations': 1000})
+                    'tau_slow':1000, 'tau_fast': 200,'num_iterations': 500})
 
                 if synaptic_config == 'excitatory_facilitating':
                     save_fn = task + '_wc' + str(wc)+ '_sc' + str(sc) + '_tcm' + str(tcm) + '_balEI' + str(bal_EI) + '_EXC_FAC_lr1_v' + str(n) + '.pkl'

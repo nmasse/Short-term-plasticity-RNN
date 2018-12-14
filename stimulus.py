@@ -542,7 +542,9 @@ class Stimulus:
         for n in range(par['num_rule_tuned']):
             for i in range(par['num_rules']):
                 if n%par['num_rules'] == i:
-                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = par['tuning_height']*par['rule_cue_multiplier']
+                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = 1
+                else:
+                    rule_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = -1
 
 
         return motion_tuning, fix_tuning, rule_tuning

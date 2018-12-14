@@ -112,7 +112,7 @@ class Model:
         if par['EI']:
             # ensure excitatory neurons only have postive outgoing weights,
             # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
+            W_rnn_effective = tf.matmul(W_rnn, self.W_ei)
         else:
             W_rnn_effective = W_rnn_drop
 
@@ -137,7 +137,7 @@ class Model:
         All input and RNN activity will be non-negative
         """
         h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
+                       + par['alpha_neuron']*(tf.matmul(W_in, rnn_input)
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
                        + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
 
@@ -174,7 +174,7 @@ class Model:
             W_in = tf.get_variable('W_in')
 
         self.weight_loss = par['w_rnn_weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_rnn))) + \
-            par['w_in_weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_in)))
+            par['w_in_weight_cost']*tf.reduce_mean(tf.square(W_in))
 
         self.loss = self.perf_loss + self.spike_loss + self.weight_loss
 
