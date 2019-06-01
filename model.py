@@ -9,7 +9,7 @@ import stimulus
 import analysis
 import pickle
 import time
-from parameters import *
+from parameters import par
 import os, sys
 
 # Ignore "use compiled version of TensorFlow" errors
@@ -18,32 +18,17 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 print('Using EI Network:\t', par['EI'])
 print('Synaptic configuration:\t', par['synapse_config'], "\n")
 
-"""
-Model setup and execution
-"""
 
 class Model:
 
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
-        self.mask = tf.unstack(mask, axis=0)
+        self.input_data = tf.unstack(input_data, axis=0)
+        self.target_data = target_data
+        self.mask = mask
 
-        # Load the initial hidden state activity to be used at the start of each trial
-
-        #self.hidden_init = tf.constant(par['h_init'])
-
-        with tf.variable_scope('initial_activity'):
-            self.hidden_init = tf.get_variable('hidden_init', initializer = par['h_init'], trainable=True)
-
-        #self.hidden_init = tf.random_uniform([par['n_hidden'], 1], 0, 0.5)
-
-
-        # Load the initial synaptic depression and facilitation to be used at the start of each trial
-        self.synapse_x_init = tf.constant(par['syn_x_init'])
-        self.synapse_u_init = tf.constant(par['syn_u_init'])
+        self.initialize_weights()
 
         # Build the TensorFlow graph
         self.run_model()
@@ -51,70 +36,54 @@ class Model:
         # Train the model
         self.optimize()
 
+    def initialize_weights(self):
+
+        self.var_dict = {}
+        # all keys in par with a suffix of '0' are initial values of trainable variables
+        for k, v in par.items():
+            if k[-1] == '0':
+                name = k[:-1]
+                self.var_dict[name] = tf.Variable(par[k], name)
+
+        self.syn_x_init = tf.constant(par['syn_x_init'])
+        self.syn_u_init = tf.constant(par['syn_u_init'])
+        if par['EI']:
+            # ensure excitatory neurons only have postive outgoing weights,
+            # and inhibitory neurons have negative outgoing weights
+            self.w_rnn = tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['w_rnn'])
+        else:
+            self.w_rnn  = self.var_dict['w_rnn']
+
 
     def run_model(self):
 
-        """
-        Run the reccurent network
-        History of hidden state activity stored in self.hidden_state_hist
-        """
+        self.h = []
+        self.syn_x = []
+        self.syn_u = []
+        self.y = []
 
-
-
-        self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
-
-        with tf.variable_scope('output'):
-            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
-            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
-
-        """
-        Network output
-        Only use excitatory projections from the RNN to the output layer
-        """
-        self.y_hat = [tf.matmul(tf.nn.relu(W_out),h)+b_out for h in self.hidden_state_hist]
-
-
-    def rnn_cell_loop(self, x_unstacked, h, syn_x, syn_u):
-
-        """
-        Initialize weights and biases
-        """
-        with tf.variable_scope('rnn_cell'):
-            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-        self.W_ei = tf.constant(par['EI_matrix'])
-
-        self.hidden_state_hist = []
-        self.syn_x_hist = []
-        self.syn_u_hist = []
+        h = tf.tile(self.var_dict['h'], [par['batch_size'], 1])
+        syn_x = self.syn_x_init
+        syn_u = self.syn_u_init
 
         """
         Loop through the neural inputs to the RNN, indexed in time
         """
-        for rnn_input in x_unstacked:
+        for rnn_input in self.input_data:
             h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
-            self.hidden_state_hist.append(h)
-            self.syn_x_hist.append(syn_x)
-            self.syn_u_hist.append(syn_u)
+            self.h.append(h)
+            self.syn_x.append(syn_x)
+            self.syn_u.append(syn_u)
+            self.y.append(h @ tf.nn.relu(self.var_dict['w_out']) + self.var_dict['b_out'])
+
+        self.h = tf.stack(self.h)
+        self.syn_x = tf.stack(self.syn_x)
+        self.syn_u = tf.stack(self.syn_u)
+        self.y = tf.stack(self.y)
 
 
     def rnn_cell(self, rnn_input, h, syn_x, syn_u):
 
-        """
-        Main computation of the recurrent network
-        """
-        with tf.variable_scope('rnn_cell', reuse=True):
-            W_in = tf.get_variable('W_in')
-            W_rnn = tf.get_variable('W_rnn')
-            b_rnn = tf.get_variable('b_rnn')
-
-        if par['EI']:
-            # ensure excitatory neurons only have postive outgoing weights,
-            # and inhibitory neurons have negative outgoing weights
-            W_rnn_effective = tf.matmul(tf.nn.relu(W_rnn), self.W_ei)
-        else:
-            W_rnn_effective = W_rnn_drop
 
         """
         Update the synaptic plasticity paramaters
@@ -136,10 +105,10 @@ class Model:
         Only use excitatory projections from input layer to RNN
         All input and RNN activity will be non-negative
         """
-        h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
-                       + tf.matmul(W_rnn_effective, h_post) + b_rnn)
-                       + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
+        h = tf.nn.relu(h * (1-par['alpha_neuron']) \
+            + par['alpha_neuron'] * (rnn_input @ tf.nn.relu(self.var_dict['w_in']) \
+            + h_post @ self.w_rnn + self.var_dict['b_rnn']) \
+            + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u
 
@@ -155,26 +124,16 @@ class Model:
         """
         cross_entropy
         """
-        self.perf_loss = tf.reduce_mean(tf.stack([mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]))
-
+        self.perf_loss = tf.reduce_mean(self.mask*tf.nn.softmax_cross_entropy_with_logits_v2(\
+            logits = self.y, labels = self.target_data, axis = 2))
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
         #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
-        if par['spike_regularization'] == 'L1':
-            self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.stack([tf.reduce_mean(h) for h in self.hidden_state_hist]))
-        elif par['spike_regularization'] == 'L2':
-            self.spike_loss = par['spike_cost']*tf.reduce_mean(tf.stack([tf.reduce_mean(tf.square(h)) for h in self.hidden_state_hist]))
-        else:
-            error('Unrecognized spike regularization')
+        n = 2 if par['spike_regularization'] == 'L2' else 1
+        self.spike_loss = tf.reduce_mean(self.h**n)
+        self.weight_loss = tf.reduce_mean(tf.nn.relu(self.w_rnn)**n)
 
-
-        with tf.variable_scope('rnn_cell', reuse = True):
-            W_rnn = tf.get_variable('W_rnn')
-
-        self.weight_loss = par['weight_cost']*tf.reduce_mean(tf.square(tf.nn.relu(W_rnn)))
-
-        self.loss = self.perf_loss + self.spike_loss + self.weight_loss
+        self.loss = self.perf_loss + par['spike_cost']*self.spike_loss + par['weight_cost']*self.weight_loss
 
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
@@ -184,17 +143,13 @@ class Model:
         """
         capped_gvs = []
         for grad, var in grads_and_vars:
-            if var.name == "rnn_cell/W_rnn:0":
+            if 'w_rnn' in var.op.name:
                 grad *= par['w_rnn_mask']
-                print('Applied weight mask to w_rnn.')
-            elif var.name == "output/W_out:0":
+            elif 'w_out' in var.op.name:
                 grad *= par['w_out_mask']
-                print('Applied weight mask to w_out.')
-            elif var.name == "rnn_cell/W_in:0":
+            elif 'w_in' in var.op.name:
                 grad *= par['w_in_mask']
-                print('Applied weight mask to w_in.')
-            if not str(type(grad)) == "<class 'NoneType'>":
-                capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
+            capped_gvs.append((tf.clip_by_norm(grad, par['clip_max_grad_val']), var))
 
         self.train_op = opt.apply_gradients(capped_gvs)
 
@@ -219,29 +174,26 @@ def main(gpu_id = None):
     """
     stim = stimulus.Stimulus()
 
-    n_input, n_hidden, n_output = par['shape']
-    N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
-
     """
     Define all placeholder
     """
-    mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
-
-    config = tf.ConfigProto()
+    m = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size']], 'mask')
+    x = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size'], par['n_input']], 'input')
+    t = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size'], par['n_output']], 'target')
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
-    with tf.Session(config=config) as sess:
+    with tf.Session(config=tf.ConfigProto()) as sess:
 
         device = '/cpu:0' if gpu_id is None else '/gpu:0'
         with tf.device(device):
-            model = Model(x, y, mask)
+            model = Model(x, t, m)
 
         sess.run(tf.global_variables_initializer())
 
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'weight_loss': [], 'trial': []}
+        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], \
+            'weight_loss': [], 'iteration': []}
+
 
         for i in range(par['num_iterations']):
 
@@ -251,20 +203,20 @@ def main(gpu_id = None):
             """
             Run the model
             """
-            _, loss, perf_loss, spike_loss, weight_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.weight_loss, model.y_hat, \
-                model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
-                y: trial_info['desired_output'], mask: trial_info['train_mask']})
+            _, loss, perf_loss, spike_loss, weight_loss, y, h, syn_x, syn_u = \
+                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
+                model.weight_loss, model.y, model.h, model.syn_x, model.syn_u], \
+                {x: trial_info['neural_input'], t: trial_info['desired_output'], m: trial_info['train_mask']})
 
-            accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+            accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y, trial_info['train_mask'])
 
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, (i+1)*N)
+            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, i)
 
             """
             Save the network model and output model performance to screen
             """
             if i%par['iters_between_outputs']==0:
-                print_results(i, N, perf_loss, spike_loss, weight_loss, state_hist, accuracy)
+                print_results(i, perf_loss, spike_loss, weight_loss, h, accuracy)
 
 
         """
@@ -274,25 +226,28 @@ def main(gpu_id = None):
 
 
 
-def save_results(model_performance):
+def save_results(model_performance, save_fn = None):
 
     weights = eval_weights()
     results = {'weights': weights, 'parameters': par}
     for k,v in model_performance.items():
         results[k] = v
-    fn = par['save_dir'] + par['save_fn']
+    if save_fn is None:
+        fn = par['save_dir'] + par['save_fn']
+    else:
+        fn = par['save_dir'] + save_fn
     pickle.dump(results, open(fn, 'wb'))
     print('Model results saved in ',fn)
 
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, trial_num):
+def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, iteration):
 
     model_performance['accuracy'].append(accuracy)
     model_performance['loss'].append(loss)
     model_performance['perf_loss'].append(perf_loss)
     model_performance['spike_loss'].append(spike_loss)
     model_performance['weight_loss'].append(weight_loss)
-    model_performance['trial'].append(trial_num)
+    model_performance['iteration'].append(iteration)
 
     return model_performance
 
@@ -321,11 +276,11 @@ def eval_weights():
 
     return weights
 
-def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, weight_loss, state_hist, accuracy):
+def print_results(iter_num, perf_loss, spike_loss, weight_loss, h, accuracy):
 
     print(par['trial_type'] + ' Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
       ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
-      ' | Weight loss {:0.4f}'.format(weight_loss) + ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+      ' | Weight loss {:0.4f}'.format(weight_loss) + ' | Mean activity {:0.4f}'.format(np.mean(h)))
 
 def print_important_params():
 
