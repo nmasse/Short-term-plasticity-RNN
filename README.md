@@ -1,5 +1,6 @@
 # Short-term-plasticity-RNN
 
+UPDATES IN PROGRESS
 
 Code accompanying the paper:
 
