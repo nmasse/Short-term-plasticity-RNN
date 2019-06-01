@@ -22,8 +22,6 @@ class Stimulus:
             trial_info = self.generate_dualDMS_trial(test_mode)
         elif par['trial_type'] == 'distractor':
             trial_info = self.generate_distractor_trial()
-        elif par['trial_type'] == 'history':
-            trial_info = self.generate_history_trial()
 
         # input activity needs to be non-negative
         trial_info['neural_input'] = np.maximum(0., trial_info['neural_input'])
@@ -52,7 +50,6 @@ class Stimulus:
         5. probe_time (usually set to one time step, always presented 3/4 through delay
         """
 
-        trial_length = par['num_time_steps']
         test_time_rng = []
         mask_time_rng = []
 
@@ -73,8 +70,8 @@ class Stimulus:
         mask_duration = par['mask_duration']//par['dt']
 
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((trial_length, par['batch_size']),dtype=np.float32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_size'], par['n_output']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_size'],2),dtype=np.int8),
                       'test'            :  np.zeros((par['batch_size'],2,2),dtype=np.int8),
                       'test_mod'        :  np.zeros((par['batch_size'],2),dtype=np.int8),
@@ -82,7 +79,7 @@ class Stimulus:
                       'match'           :  np.zeros((par['batch_size'],2),dtype=np.int8),
                       'catch'           :  np.zeros((par['batch_size'],2),dtype=np.int8),
                       'probe'           :  np.zeros((par['batch_size'],2),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_size']))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_size'], par['n_input']))}
 
 
         for t in range(par['batch_size']):
@@ -129,25 +126,25 @@ class Stimulus:
             Calculate input neural activity based on trial params
             """
             # SAMPLE stimuli
-            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:,0,trial_info['sample'][t,0]],(-1,1))
-            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:,1,trial_info['sample'][t,1]],(-1,1))
+            trial_info['neural_input'][par['sample_time_rng'], t, :] += np.reshape(self.motion_tuning[:,0,trial_info['sample'][t,0]],(1,-1))
+            trial_info['neural_input'][par['sample_time_rng'], t, :] += np.reshape(self.motion_tuning[:,1,trial_info['sample'][t,1]],(1,-1))
 
             # Cued TEST stimuli
-            trial_info['neural_input'][:, test_time_rng[0], t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,0],trial_info['test'][t,0,0]],(-1,1))
-            trial_info['neural_input'][:, test_time_rng[1], t] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,1],trial_info['test'][t,1,0]],(-1,1))
+            trial_info['neural_input'][test_time_rng[0], t, :] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,0],trial_info['test'][t,0,0]],(1,-1))
+            trial_info['neural_input'][test_time_rng[1], t, :] += np.reshape(self.motion_tuning[:,trial_info['test_mod'][t,1],trial_info['test'][t,1,0]],(1,-1))
 
             # Non-cued TEST stimuli
-            trial_info['neural_input'][:, test_time_rng[0], t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,0])%2,trial_info['test'][t,0,1]],(-1,1))
-            trial_info['neural_input'][:, test_time_rng[1], t] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,1])%2,trial_info['test'][t,1,1]],(-1,1))
+            trial_info['neural_input'][test_time_rng[0], t, :] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,0])%2,trial_info['test'][t,0,1]],(1,-1))
+            trial_info['neural_input'][test_time_rng[1], t, :] += np.reshape(self.motion_tuning[:,(1+trial_info['test_mod'][t,1])%2,trial_info['test'][t,1,1]],(1,-1))
 
 
             # FIXATION
-            trial_info['neural_input'][:,fix_time_rng[0],t] += np.reshape(self.fix_tuning[:,0],(-1,1))
-            trial_info['neural_input'][:,fix_time_rng[1],t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+            trial_info['neural_input'][fix_time_rng[0], t, :] += np.reshape(self.fix_tuning[:,0],(1,-1))
+            trial_info['neural_input'][fix_time_rng[1], t, :] += np.reshape(self.fix_tuning[:,0],(1,-1))
 
             # RULE CUE
-            trial_info['neural_input'][:,par['rule_time_rng'][0],t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,0]],(-1,1))
-            trial_info['neural_input'][:,par['rule_time_rng'][1],t] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,1]],(-1,1))
+            trial_info['neural_input'][par['rule_time_rng'][0], t, :] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,0]],(1,-1))
+            trial_info['neural_input'][par['rule_time_rng'][1], t, :] += np.reshape(self.rule_tuning[:,trial_info['rule'][t,1]],(1,-1))
 
             # PROBE
             # increase reponse of all stim tuned neurons by 10
@@ -162,20 +159,20 @@ class Stimulus:
             Desired outputs
             """
             # FIXATION
-            trial_info['desired_output'][0,fix_time_rng[0], t] = 1
-            trial_info['desired_output'][0,fix_time_rng[1], t] = 1
+            trial_info['desired_output'][fix_time_rng[0], t, 0] = 1
+            trial_info['desired_output'][fix_time_rng[1], t, 0] = 1
             # TEST 1
             trial_info['train_mask'][ test_time_rng[0], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
             if trial_info['match'][t,0] == 1:
-                trial_info['desired_output'][2,test_time_rng[0], t] = 1
+                trial_info['desired_output'][test_time_rng[0], t, 2] = 1
             else:
-                trial_info['desired_output'][1,test_time_rng[0], t] = 1
+                trial_info['desired_output'][test_time_rng[0], t, 1] = 1
             # TEST 2
             trial_info['train_mask'][ test_time_rng[1], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
             if trial_info['match'][t,1] == 1:
-                trial_info['desired_output'][2,test_time_rng[1], t] = 1
+                trial_info['desired_output'][test_time_rng[1], t, 2] = 1
             else:
-                trial_info['desired_output'][1,test_time_rng[1], t] = 1
+                trial_info['desired_output'][test_time_rng[1], t, 1] = 1
 
             # set to mask equal to zero during the dead time, and during the first times of test stimuli
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
@@ -412,7 +409,7 @@ class Stimulus:
             mask_time_rng.append(range(eos+ABBA_delay*(2*n+1), eos+ABBA_delay*(2*n+1) + mask_duration))
 
 
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_size']),dtype=np.float32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_size']),dtype=np.float32),
                       'sample'          :  np.zeros((par['batch_size']),dtype=np.float32),
                       'test'            :  -1*np.ones((par['batch_size'],par['max_num_tests']),dtype=np.float32),
@@ -422,14 +419,14 @@ class Stimulus:
                       'probe'           :  np.zeros((par['batch_size']),dtype=np.int8),
                       'num_test_stim'   :  np.zeros((par['batch_size']),dtype=np.int8),
                       'repeat_test_stim':  np.zeros((par['batch_size']),dtype=np.int8),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_size']))}
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_size'], par['n_input']))}
 
 
         # set to mask equal to zero during the dead time
         trial_info['train_mask'][par['dead_time_rng'], :] = 0
 
         # set fixation equal to 1 for all times; will then change
-        trial_info['desired_output'][0, :, :] = 1
+        trial_info['desired_output'][:, :, 0] = 1
 
         for t in range(par['batch_size']):
 
@@ -469,22 +466,22 @@ class Stimulus:
             Calculate input neural activity based on trial params
             """
             # SAMPLE stimuli
-            trial_info['neural_input'][:, par['sample_time_rng'], t] += np.reshape(self.motion_tuning[:, RF, sample_dir],(-1,1))
+            trial_info['neural_input'][par['sample_time_rng'], t, :] += np.reshape(self.motion_tuning[:, RF, sample_dir],(1,-1))
 
             # TEST stimuli
             # first element of stim_dirs is the original sample stimulus
             for i, stim_dir in enumerate(stim_dirs[1:]):
                 trial_info['test'][t,i] = stim_dir
                 #test_time_rng = range(eos+(2*i+1)*ABBA_delay, eos+(2*i+2)*ABBA_delay)
-                trial_info['neural_input'][:, test_time_rng[i], t] += np.reshape(self.motion_tuning[:, RF, stim_dir],(-1,1))
+                trial_info['neural_input'][test_time_rng[i], t, :] += np.reshape(self.motion_tuning[:, RF, stim_dir],(1,-1))
                 trial_info['train_mask'][mask_time_rng[i], t] = 0
-                trial_info['desired_output'][0, test_time_rng[i], t] = 0
+                trial_info['desired_output'][test_time_rng[i], t, 0] = 0
                 trial_info['train_mask'][ test_time_rng[i], t] *= par['test_cost_multiplier'] # can use a greater weight for test period if needed
                 if stim_dir == sample_dir:
-                    trial_info['desired_output'][2, test_time_rng[i], t] = 1
+                    trial_info['desired_output'][test_time_rng[i], t, 2] = 1
                     trial_info['match'][t,i] = 1
                 else:
-                    trial_info['desired_output'][1, test_time_rng[i], t] = 1
+                    trial_info['desired_output'][test_time_rng[i], t, 1] = 1
 
             trial_info['sample'][t] = sample_dir
 
