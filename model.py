@@ -222,13 +222,13 @@ def main(gpu_id = None):
         """
         Save model, analyze the network model and save the results
         """
-        save_results(model_performance)
+        weights = sess.run(model.var_dict)
+        save_results(model_performance, weights)
 
 
 
-def save_results(model_performance, save_fn = None):
+def save_results(model_performance,weights,  save_fn = None):
 
-    weights = eval_weights()
     results = {'weights': weights, 'parameters': par}
     for k,v in model_performance.items():
         results[k] = v
@@ -251,30 +251,6 @@ def append_model_performance(model_performance, accuracy, loss, perf_loss, spike
 
     return model_performance
 
-def eval_weights():
-
-    with tf.variable_scope('rnn_cell', reuse=True):
-        W_in = tf.get_variable('W_in')
-        W_rnn = tf.get_variable('W_rnn')
-        b_rnn = tf.get_variable('b_rnn')
-
-    with tf.variable_scope('output', reuse=True):
-        W_out = tf.get_variable('W_out')
-        b_out = tf.get_variable('b_out')
-
-    with tf.variable_scope('initial_activity', reuse=True):
-        hidden_init = tf.get_variable('hidden_init')
-
-
-    weights = {
-        'w_in'  : W_in.eval(),
-        'w_rnn' : W_rnn.eval(),
-        'w_out' : W_out.eval(),
-        'b_rnn' : b_rnn.eval(),
-        'b_out'  : b_out.eval(),
-        'hidden_init': hidden_init.eval()}
-
-    return weights
 
 def print_results(iter_num, perf_loss, spike_loss, weight_loss, h, accuracy):
 
