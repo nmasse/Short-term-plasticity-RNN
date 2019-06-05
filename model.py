@@ -37,6 +37,7 @@ class Model:
         self.optimize()
 
     def initialize_weights(self):
+        # Initialize all weights. biases, and initial values
 
         self.var_dict = {}
         # all keys in par with a suffix of '0' are initial values of trainable variables
@@ -56,6 +57,7 @@ class Model:
 
 
     def run_model(self):
+        # Main model loop
 
         self.h = []
         self.syn_x = []
@@ -66,9 +68,8 @@ class Model:
         syn_x = self.syn_x_init
         syn_u = self.syn_u_init
 
-        """
-        Loop through the neural inputs to the RNN, indexed in time
-        """
+
+        # Loop through the neural inputs to the RNN, indexed in time
         for rnn_input in self.input_data:
             h, syn_x, syn_u = self.rnn_cell(rnn_input, h, syn_x, syn_u)
             self.h.append(h)
@@ -83,10 +84,9 @@ class Model:
 
 
     def rnn_cell(self, rnn_input, h, syn_x, syn_u):
+        # Update neural activity and short-term synaptic plasticity values
 
-        """
-        Update the synaptic plasticity paramaters
-        """
+        # Update the synaptic plasticity paramaters
         if par['synapse_config'] is not None:
             # implement both synaptic short term facilitation and depression
             syn_x += (par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h)*par['dynamic_synapse']
@@ -99,11 +99,8 @@ class Model:
             # no synaptic plasticity
             h_post = h
 
-        """
-        Update the hidden state
-        Only use excitatory projections from input layer to RNN
-        All input and RNN activity will be non-negative
-        """
+        # Update the hidden state. Only use excitatory projections from input layer to RNN
+        # All input and RNN activity will be non-negative
         h = tf.nn.relu(h * (1-par['alpha_neuron']) \
             + par['alpha_neuron'] * (rnn_input @ tf.nn.relu(self.var_dict['w_in']) \
             + h_post @ self.w_rnn + self.var_dict['b_rnn']) \
@@ -114,20 +111,11 @@ class Model:
 
     def optimize(self):
 
-        """
-        Calculate the loss functions and optimize the weights
-
-        perf_loss = [mask*tf.reduce_mean(tf.square(y_hat-desired_output),axis=0)
-                     for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
-        """
-        """
-        cross_entropy
-        """
+        # Calculate the loss functions and optimize the weights
         self.perf_loss = tf.reduce_mean(self.mask*tf.nn.softmax_cross_entropy_with_logits_v2(\
             logits = self.y, labels = self.target_data, axis = 2))
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
-        #spike_loss = [par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) for h in self.hidden_state_hist]
         n = 2 if par['spike_regularization'] == 'L2' else 1
         self.spike_loss = tf.reduce_mean(self.h**n)
         self.weight_loss = tf.reduce_mean(tf.nn.relu(self.w_rnn)**n)
@@ -137,9 +125,8 @@ class Model:
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
 
-        """
-        Apply any applicable weights masks to the gradient and clip
-        """
+
+        # Apply any applicable weights masks to the gradient and clip
         capped_gvs = []
         for grad, var in grads_and_vars:
             if 'w_rnn' in var.op.name:
@@ -207,9 +194,8 @@ def main(gpu_id = None):
                 print_results(i, perf_loss, spike_loss, weight_loss, h, accuracy)
 
 
-        """
-        Save model, analyze the network model and save the results
-        """
+
+        # Save model and results
         weights = sess.run(model.var_dict)
         save_results(model_performance, weights)
 
