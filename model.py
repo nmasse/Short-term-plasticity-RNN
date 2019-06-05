@@ -84,7 +84,6 @@ class Model:
 
     def rnn_cell(self, rnn_input, h, syn_x, syn_u):
 
-
         """
         Update the synaptic plasticity paramaters
         """
@@ -159,24 +158,17 @@ def main(gpu_id = None):
     if gpu_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
 
-    """
-    Print key parameters
-    """
+
+    # Print key parameters
     print_important_params()
 
-    """
-    Reset TensorFlow before running anything
-    """
+    # Reset TensorFlow before running anything
     tf.reset_default_graph()
 
-    """
-    Create the stimulus class to generate trial paramaters and input activity
-    """
+    #Create the stimulus class to generate trial paramaters and input activity
     stim = stimulus.Stimulus()
 
-    """
-    Define all placeholder
-    """
+    # Define all placeholder
     m = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size']], 'mask')
     x = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size'], par['n_input']], 'input')
     t = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_size'], par['n_output']], 'target')
@@ -200,9 +192,7 @@ def main(gpu_id = None):
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(set_rule = None)
 
-            """
-            Run the model
-            """
+            # Run the model
             _, loss, perf_loss, spike_loss, weight_loss, y, h, syn_x, syn_u = \
                 sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, \
                 model.weight_loss, model.y, model.h, model.syn_x, model.syn_u], \
@@ -212,9 +202,7 @@ def main(gpu_id = None):
 
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, weight_loss, i)
 
-            """
-            Save the network model and output model performance to screen
-            """
+            # Save the network model and output model performance to screen
             if i%par['iters_between_outputs']==0:
                 print_results(i, perf_loss, spike_loss, weight_loss, h, accuracy)
 
