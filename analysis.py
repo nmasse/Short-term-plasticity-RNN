@@ -30,7 +30,7 @@ def run_multiple():
 
     update_params = {
         'decode_stability':         False,
-        'decoding_reps':            3,
+        'decoding_reps':            20,
         'simulation_reps':          3,
         'analyze_tuning':           True,
         'calculate_resp_matrix':    False,
@@ -50,6 +50,9 @@ def run_multiple():
 
 
 def analyze_model_from_file(filename, savefile = None, update_params = {}):
+
+    """ The first section loads the model weights and simulates the network on
+        several different task conditions, saving the network activity and output """
 
     results = pickle.load(open(filename, 'rb'))
     print(results['weights'].keys())
@@ -90,6 +93,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     update_parameters(results['parameters']) # reset trial type to original value
     update_parameters(update_params)
 
+    """ The next section performs various analysis """
 
     # calculate task accuracy
     results['task_accuracy'],_,_ = get_perf(trial_info['desired_output'], y, trial_info['train_mask'])
@@ -107,10 +111,8 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
             if np.var(val) > 0:
                 results[key] = val
 
-    """
-    Decode the sample direction from neuronal activity and synaptic efficacies
-    using support vector machines
-    """
+
+    # Decode the sample direction from neuronal activity and synaptic efficacies using support vector machines
     trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
     trial_time_dms = np.arange(0,h_dms.shape[0]*par['dt'], par['dt'])
     if par['decoding_reps'] > 0:
@@ -128,8 +130,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
                     results[key + '_dms'] = val
 
         else:
-            # calculate decoding for a DMS trial,
-            # used to correlate persistent activity and manipulation
+            # Calculate decoding for a DMS trial, used to correlate persistent activity and manipulation
             update_parameters({'trial_type': 'DMS'})
             decoding_results = calculate_svms(h_dms, syn_x_dms, syn_u_dms, trial_info_dms, trial_time_dms, \
                 num_reps = par['decoding_reps'], num_reps_stability = 0, decode_test = par['decode_test'], decode_rule = par['decode_rule'])
@@ -140,9 +141,8 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
             update_parameters(update_params)
 
 
-    """
-    Calculate neuronal and synaptic sample motion tuning
-    """
+
+    # Calculate neuronal and synaptic sample motion tuning
     if par['analyze_tuning']:
         print('calculate tuning...')
 
@@ -152,8 +152,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
             if np.var(val) > 0:
                 results[key] = val
 
-        # calculate tuning for a DMS trial,
-        # used to correlate persistent activity and manipulation
+        # Calculate tuning for a DMS trial, used to correlate persistent activity and manipulation
         if par['trial_type'] in ['DMS', 'DMC', 'DMRS90', 'DMRS90ccw','DMRS45', 'DMRS180', 'location_DMS']:
             for key, val in tuning_results.items():
                 if np.var(val) > 0:
@@ -169,20 +168,14 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
             update_parameters(update_params)
 
 
-    """
-    Calculate mean sample traces
-    """
+    # Calculate mean sample traces
     results['h_sample_mean'] = np.zeros((results['parameters']['num_time_steps'], results['parameters']['n_hidden'], \
         results['parameters']['num_motion_dirs']), dtype = np.float32)
     for i in range(results['parameters']['num_motion_dirs']):
         ind = np.where(trial_info_decode['sample'] == i)[0]
         results['h_sample_mean'][:,:,i] = np.mean(h_decode[:,ind,:], axis = 1)
 
-
-
-    """
-    Calculate the neuronal and synaptic contributions towards solving the task
-    """
+    # Calculate the neuronal and synaptic contributions towards solving the task
     if par['simulation_reps'] > 0:
         print('simulating network...')
         simulation_results = simulate_network(trial_info, h, syn_x, \
@@ -191,7 +184,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
             if np.var(val) > 0:
                 results[key] = val
 
-
+    # Save the analysis results
     pickle.dump(results, open(savefile, 'wb') )
     print('Analysis results saved in ', savefile)
 
@@ -200,30 +193,21 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
 def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_reps_stability = 5, \
     decode_test = False, decode_rule = False, decode_match = False, decode_neuronal_groups = False):
 
-    """
-    Calculates neuronal and synaptic decoding accuracies uisng support vector machines
-    sample is the index of the sample motion direction for each trial_length
-    rule is the rule index for each trial_length
-    """
+    """ Calculates neuronal and synaptic decoding accuracies uisng support vector machines """
 
     lin_clf = svm.SVC(C=1, kernel='linear', decision_function_shape='ovr', shrinking=False, tol=1e-3)
-
-    #lin_clf_lda = lda(solver = 'svd', shrinkage=None)
 
     num_time_steps = len(trial_time)
     decoding_results = {}
 
-    """
-    The synaptic efficacy is the product of syn_x and syn_u, will decode sample
-    direction from this value
-    """
+    # The synaptic efficacy is the product of syn_x and syn_u. Will decode sample
+    # direction from this value
     syn_efficacy = syn_x*syn_u
 
     if par['trial_type'] == 'DMC':
-        """
-        Will also calculate the category decoding accuracies, assuming the first half of
-        the sample direction belong to category 1, and the second half belong to category 2
-        """
+
+        # Will also calculate the category decoding accuracies, assuming the first half of
+        # the sample direction belong to category 1, and the second half belong to category 2
         num_motion_dirs = len(np.unique(trial_info['sample']))
         sample = np.floor(trial_info['sample']/(num_motion_dirs/2)*np.ones_like(trial_info['sample']))
         test = np.floor(trial_info['test']/(num_motion_dirs/2)*np.ones_like(trial_info['sample']))
@@ -320,9 +304,6 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
             decoding_results['synaptic_match_decoding_group'].append(synaptic_decoding)
 
 
-
-
-
     return decoding_results
 
 
@@ -379,10 +360,9 @@ def svm_wraper_simple(lin_clf, h, syn_eff, stimulus, rule, num_reps, num_reps_st
 
 def svm_wraper(lin_clf, h, syn_eff, conds, rule, num_reps, num_reps_stability, trial_time):
 
-    """
-    Wraper function used to decode sample/test or rule information
-    from hidden activity (h) and synaptic efficacies (syn_eff)
-    """
+    """ Wraper function used to decode sample/test or rule information
+        from hidden activity (h) and synaptic efficacies (syn_eff) """
+
     train_pct = 0.75
     num_time_steps, num_trials, _ = h.shape
     num_rules = len(np.unique(rule))
@@ -531,9 +511,8 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
 
     epsilon = 1e-3
 
-    """
-    Simulation will start from the start of the test period until the end of trial
-    """
+
+    # Simulation will start from the start of the test period until the end of trial
     if par['trial_type'] == 'dualDMS':
         test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']]
     elif  par['trial_type'] in ['ABBA','ABCA']:
@@ -573,7 +552,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
         'synaptic_pref_dir_test_suppression': np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), n_hidden, trial_length))}
 
 
-
     mask = np.array(trial_info['train_mask'])
     if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         t0 = (par['dead_time']+par['fix_time']+par['sample_time'] + 2*par['ABBA_delay'])//par['dt']
@@ -592,34 +570,28 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
 
         for n in range(num_reps):
 
-            """
-            Calculating behavioral accuracy without shuffling
-            """
+            # Calculating behavioral accuracy without shuffling
             hidden_init = np.copy(h[test_onset[t]-1,trial_ind,:])
             syn_x_init = np.copy(syn_x[test_onset[t]-1,trial_ind,:])
             syn_u_init = np.copy(syn_u[test_onset[t]-1,trial_ind,:])
             y, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['simulation_accuracy'][r,t,n] ,_ ,_ = get_perf(desired_output, y, train_mask)
 
-            """
-            Keep the synaptic values fixed, permute the neural activity
-            """
+            # Keep the synaptic values fixed, permute the neural activity
             ind_shuffle = np.random.permutation(len(trial_ind))
             hidden_init = np.copy(hidden_init[ind_shuffle, :])
             y, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy_neural_shuffled'][r,t,n] ,_ ,_ = get_perf(desired_output, y, train_mask)
 
-            """
-            Keep the hidden values fixed, permute synaptic values
-            """
+
+            # Keep the hidden values fixed, permute synaptic values
             hidden_init = np.copy(h[test_onset[t]-1,trial_ind, :])
             syn_x_init = np.copy(syn_x_init[ind_shuffle, :])
             syn_u_init = np.copy(syn_u_init[ind_shuffle, :])
             y, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
             simulation_results['accuracy_syn_shuffled'][r,t,n] ,_ ,_ = get_perf(desired_output, y, train_mask)
 
-        for n in range(num_grp_reps):
-            #Neuron group shuffling
+        for n in range(num_grp_reps): # Neuron group shuffling
 
             for g in range(len(neuron_groups)):
 
@@ -726,10 +698,10 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20
 
 def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, calculate_test = False):
 
+    """ Calculates neuronal and synaptic sample motion direction tuning """
+
     epsilon = 1e-9
-    """
-    Calculates neuronal and synaptic sample motion direction tuning
-    """
+
     num_test_stimuli = 1 # only analyze the first test stimulus
     mask = np.array(trial_info['train_mask'])
 
@@ -790,12 +762,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
         'synaptic_pref_dir_test_suppression': np.zeros((par['num_rules'], len(suppression_time_range), len(neuron_groups), par['n_hidden'], num_time_steps))}
 
 
-    """
-    The synaptic efficacy is the product of syn_x and syn_u, will decode sample
-    direction from this value
-    """
     syn_efficacy = syn_x*syn_u
-
 
     sample_dir = np.ones((par['batch_train_size'], 3, par['num_receptive_fields']))
     for rf in range(par['num_receptive_fields']):
@@ -904,10 +871,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
 def run_model(x, h_init_org, syn_x_init_org, syn_u_init_org, weights, suppress_activity = None):
 
-    """
-    Run the reccurent network
-    History of hidden state activity stored in self.hidden_state_hist
-    """
+    """ Simulate the RNN """
 
     # copying data to ensure nothing gets changed upstream
     h_init = copy.copy(h_init_org)
@@ -922,10 +886,7 @@ def run_model(x, h_init_org, syn_x_init_org, syn_u_init_org, weights, suppress_a
     h, syn_x, syn_u = \
         rnn_cell_loop(x, h_init, syn_x_init, syn_u_init, weights, suppress_activity)
 
-    """
-    Network output
-    Only use excitatory projections from the RNN to the output layer
-    """
+    # Network output
     y = [h0 @ weights['w_out'] + weights['b_out'] for h0 in h]
 
     syn_x   = np.stack(syn_x)
@@ -942,9 +903,7 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights, suppress_activity):
     syn_x_hist = []
     syn_u_hist = []
 
-    """
-    Loop through the neural inputs to the RNN, indexed in time
-    """
+    # Loop through the neural inputs to the RNN
     for t, rnn_input in enumerate(x_unstacked):
 
         if suppress_activity is not None:
@@ -959,9 +918,7 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights, suppress_activity):
 
 def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
-    """
-    Update the synaptic plasticity paramaters
-    """
+    # Update the synaptic plasticity paramaters
     if par['synapse_config'] is not None:
         # implement both synaptic short term facilitation and depression
         syn_x_new = syn_x + (par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h)*par['dynamic_synapse']
@@ -974,13 +931,8 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
         # no synaptic plasticity
         h_post = h
 
-    """
-    Update the hidden state
-    All needed rectification has already occured
-    """
-    a1 = np.maximum(0, rnn_input) @ weights['w_in']
-    a2 = h_post @ weights['w_rnn']
 
+    # Update the hidden state
     h = np.maximum(0, h*(1-par['alpha_neuron'])
                    + par['alpha_neuron']*(np.maximum(0, rnn_input) @ weights['w_in']
                    + h_post @ weights['w_rnn'] + weights['b_rnn'])
@@ -993,10 +945,9 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
 def get_perf(target, output, mask):
 
-    """
-    Calculate task accuracy by comparing the actual network output to the desired output
-    only examine time points when test stimulus is on, e.g. when y[:,:,0] = 0
-    """
+    """ Calculate task accuracy by comparing the actual network output to the desired output
+        only examine time points when test stimulus is on, e.g. when y[:,:,0] = 0 """
+        
     mask = np.float32(mask > 0)
     mask_test = mask*(target[:,:,0]==0)
     mask_non_match = mask*(target[:,:,1]==1)
