@@ -194,8 +194,6 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
 
     pickle.dump(results, open(savefile, 'wb') )
     print('Analysis results saved in ', savefile)
-    print(results.keys())
-
 
 
 
@@ -272,10 +270,6 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
         decode_rule = False
 
 
-    print('sample decoding...num_reps = ', num_reps)
-    print('mean dyn synpase ', np.mean(par['dynamic_synapse']))
-
-
     decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'], \
         decoding_results['neuronal_sample_decoding_stability'], decoding_results['synaptic_sample_decoding_stability'] = \
         svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, num_reps_stability, trial_time)
@@ -287,18 +281,15 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
 
 
     if decode_test:
-        print('test decoding...')
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] ,_ ,_ = \
             svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, 0, trial_time)
 
     if decode_match:
-        print('match decoding...')
         print(match)
         decoding_results['neuronal_match_decoding'], decoding_results['synaptic_match_decoding'] ,_ ,_ = \
             svm_wraper(lin_clf, h, syn_efficacy, match, rule, num_reps, 0, trial_time)
 
     if decode_rule:
-        print('rule decoding...')
         decoding_results['neuronal_rule_decoding'], decoding_results['synaptic_rule_decoding'] ,_ ,_ = \
             svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(rule), num_reps, 0, trial_time)
 
@@ -818,17 +809,14 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
     for r in range(par['num_rules']):
         trial_ind = np.where((rule==r))[0]
-        print('RULE ', trial_ind)
         for n in range(par['n_hidden']):
             for t in range(num_time_steps):
 
                 # Mean sample response
                 for md in range(par['num_motion_dirs']):
                     for rf in range(par['num_receptive_fields']):
-                        #print('rule', rule.shape)
-                        #print('sample', sample.shape)
+
                         ind_motion_dir = np.where((rule==r)*(sample[:,rf]==md))[0]
-                        #print(tuning_results['neuronal_sample_tuning'].shape)
                         tuning_results['neuronal_sample_tuning'][n,r,md,rf,t] = np.mean(h[t,ind_motion_dir,n])
                         tuning_results['synaptic_sample_tuning'][n,r,md,rf,t] = np.mean(syn_efficacy[t,ind_motion_dir,n])
 
@@ -875,7 +863,6 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
         if par['suppress_analysis']:
 
-
             x = np.split(trial_info['neural_input'][:,trial_ind,:],num_time_steps,axis=0)
             y = trial_info['desired_output'][:,trial_ind,:]
             train_mask = np.array(mask[:,trial_ind])
@@ -911,8 +898,6 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
                             response_var = np.var(syn_efficacy[t1,trial_ind,hidden_num])
                             tuning_results['synaptic_pev_test_suppression'][r,k,k1, hidden_num,t1] = 1 - mse/(response_var+1e-9)
                             tuning_results['synaptic_pref_dir_test_suppression'][r,k,k1,hidden_num,t1] = np.arctan2(weights[2,0],weights[1,0])
-
-
 
     return tuning_results
 
@@ -961,9 +946,8 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights, suppress_activity):
     Loop through the neural inputs to the RNN, indexed in time
     """
     for t, rnn_input in enumerate(x_unstacked):
-        #print(t)
+
         if suppress_activity is not None:
-            #print('len sp', len(suppress_activity))
             h, syn_x, syn_u = rnn_cell(np.squeeze(rnn_input), h, syn_x, syn_u, weights, suppress_activity[t])
         else:
             h, syn_x, syn_u = rnn_cell(np.squeeze(rnn_input), h, syn_x, syn_u, weights, 1)
