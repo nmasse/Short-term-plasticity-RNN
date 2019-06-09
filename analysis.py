@@ -30,10 +30,10 @@ def run_multiple():
 
     update_params = {
         'decode_stability':         False,
-        'decoding_reps':            20,
+        'decoding_reps':            30,
         'simulation_reps':          3,
         'analyze_tuning':           True,
-        'calculate_resp_matrix':    False,
+        'calculate_resp_matrix':    True,
         'suppress_analysis':        True,
         'decode_test':              True,
         'decode_rule':              True,
@@ -43,8 +43,8 @@ def run_multiple():
 
 
     for t in task_list:
-        for j in range(20):
-            fn = data_dir + t + str(j) + '.pkl'
+        for j in range(30):
+            fn = data_dir + t + '_hbatch_ce_' + str(j) + '.pkl'
             print('Analyzing ', fn)
             analyze_model_from_file(fn, savefile = fn, update_params = update_params)
 
@@ -311,7 +311,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
 def svm_wraper_simple(lin_clf, h, syn_eff, stimulus, rule, num_reps, num_reps_stability, trial_time):
 
     train_pct = 0.75
-    _, num_time_steps, num_trials = h.shape
+    num_time_steps, num_trials, _ = h.shape
     num_rules = len(np.unique(rule))
 
     # 4 refers to four data_type, normalized neural activity and synaptic efficacy, and unnormalized neural activity and synaptic efficacy
@@ -432,9 +432,9 @@ def calc_svm_stability(lin_clf, y, train_conds, test_conds, train_ind, test_ind)
 
     t0 = time.time()
     for t in range(par['dead_time']//par['dt'], par['num_time_steps']):
-        lin_clf.fit(y[:,t,train_ind].T, train_conds[train_ind])
+        lin_clf.fit(y[t,train_ind,:], train_conds[train_ind])
         for t1 in range(par['dead_time']//par['dt'],par['num_time_steps']):
-            dec = lin_clf.predict(y[:,t1,test_ind].T)
+            dec = lin_clf.predict(y[t1,test_ind,:])
             score[t, t1] = np.mean(test_conds[test_ind] == dec)
 
     return score
@@ -510,7 +510,6 @@ def average_test_response(h, trial_info, test_onset):
 def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20):
 
     epsilon = 1e-3
-
 
     # Simulation will start from the start of the test period until the end of trial
     if par['trial_type'] == 'dualDMS':
@@ -947,7 +946,7 @@ def get_perf(target, output, mask):
 
     """ Calculate task accuracy by comparing the actual network output to the desired output
         only examine time points when test stimulus is on, e.g. when y[:,:,0] = 0 """
-        
+
     mask = np.float32(mask > 0)
     mask_test = mask*(target[:,:,0]==0)
     mask_non_match = mask*(target[:,:,1]==1)

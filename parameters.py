@@ -13,9 +13,6 @@ par = {
     # Setup parameters
     'save_dir'              : './savedir/',
     'save_fn'               : 'model_results.pkl',
-    'debug_model'           : False,
-    'load_previous_model'   : False,
-    'analyze_model'         : True,
 
     # Network configuration
     'synapse_config'        : 'full', # Full is 'std_stf'
@@ -42,7 +39,7 @@ par = {
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 4,        # magnitutde scaling factor for von Mises
+    'tuning_height'         : 5,        # magnitutde scaling factor for von Mises
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Loss parameters
@@ -113,7 +110,6 @@ def update_trial_params():
 
     if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
         par['rotation_match'] = 0
-        par['num_rule_tuned'] = 6
 
     elif par['trial_type'] == 'DMRS45':
         par['rotation_match'] = 45
@@ -196,25 +192,6 @@ def update_trial_params():
         par['rotation_match'] = 0
         par['num_motion_tuned'] = 24*3
 
-    elif par['trial_type'] == 'distractor':
-        # this task will not use the create_tuning_functions in stimulus.py
-        # instead, it will used a simplified neural input
-        par['n_output'] = par['num_motion_dirs'] + 1
-        par['sample_time'] = 300
-        par['distractor_time'] = 300
-        par['delay_time'] = 800
-        par['test_time'] = 500
-        par['num_fix_tuned'] = 4
-        par['simulation_reps'] = 0
-        par['analyze_tuning'] = False
-        par['num_receptive_fields'] = 1
-
-    elif par['trial_type'] == 'history':
-        par['n_output_steps'] = 6
-        par['n_output'] = 8*6
-
-
-
     else:
         print(par['trial_type'], ' not a recognized trial type')
         quit()
@@ -270,7 +247,8 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
     # initial neural activity
-    par['h0'] = 0.1*np.ones((1, par['n_hidden']), dtype=np.float32)
+    #par['h0'] = 0.3*np.ones((1, par['n_hidden']), dtype=np.float32)
+    par['h0'] = 0.1*np.ones((par['batch_size'], par['n_hidden']), dtype=np.float32)
 
     # initial input weights
     par['w_in0'] = initialize([par['n_input'], par['n_hidden']], par['connection_prob']/par['num_receptive_fields'], shape=0.2, scale=1.)
