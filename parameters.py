@@ -39,7 +39,7 @@ par = {
 
     # Tuning function data
     'num_motion_dirs'       : 8,
-    'tuning_height'         : 5,        # magnitutde scaling factor for von Mises
+    'tuning_height'         : 4,        # magnitutde scaling factor for von Mises
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Loss parameters
@@ -78,15 +78,11 @@ par = {
 }
 
 
-"""
-Dependent parameters
-"""
 
 def update_parameters(updates):
-    """
-    Takes a list of strings and values for updating parameters in the parameter dictionary
-    Example: updates = [(key, val), (key, val)]
-    """
+    """ Takes a list of strings and values for updating parameters in the parameter dictionary
+        Example: updates = [(key, val), (key, val)] """
+
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
@@ -96,10 +92,7 @@ def update_parameters(updates):
     update_dependencies()
 
 def update_trial_params():
-
-    """
-    Update all the trial parameters given trial_type
-    """
+    """ Update all the trial parameters given trial_type """
 
     par['num_rules'] = 1
     par['num_receptive_fields'] = 1
@@ -205,9 +198,7 @@ def update_trial_params():
 
 
 def update_dependencies():
-    """
-    Updates all parameter dependencies
-    """
+    """ Updates all parameter dependencies """
 
     # Number of input neurons
     par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
@@ -247,8 +238,8 @@ def update_dependencies():
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
 
     # initial neural activity
-    #par['h0'] = 0.3*np.ones((1, par['n_hidden']), dtype=np.float32)
-    par['h0'] = 0.1*np.ones((par['batch_size'], par['n_hidden']), dtype=np.float32)
+    par['h0'] = 0.1*np.ones((1, par['n_hidden']), dtype=np.float32)
+    #par['h0'] = 0.1*np.ones((par['batch_size'], par['n_hidden']), dtype=np.float32)
 
     # initial input weights
     par['w_in0'] = initialize([par['n_input'], par['n_hidden']], par['connection_prob']/par['num_receptive_fields'], shape=0.2, scale=1.)
