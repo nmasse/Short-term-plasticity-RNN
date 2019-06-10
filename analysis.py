@@ -26,25 +26,25 @@ neuron_groups.append(range(par['n_hidden']))
 
 def run_multiple():
 
-    task_list = ['dms']
+    task_list = ['DMS']
 
     update_params = {
         'decode_stability':         False,
-        'decoding_reps':            30,
-        'simulation_reps':          3,
+        'decoding_reps':            100,
+        'simulation_reps':          100,
         'analyze_tuning':           True,
         'calculate_resp_matrix':    True,
-        'suppress_analysis':        True,
-        'decode_test':              True,
-        'decode_rule':              True,
-        'decode_match':             True,
+        'suppress_analysis':        False,
+        'decode_test':              False,
+        'decode_rule':              False,
+        'decode_match':             False,
         'svm_normalize':            True}
 
 
 
     for t in task_list:
-        for j in range(30):
-            fn = data_dir + t + '_hbatch_ce_' + str(j) + '.pkl'
+        for j in range(20):
+            fn = data_dir + t + str(j) + '.pkl'
             print('Analyzing ', fn)
             analyze_model_from_file(fn, savefile = fn, update_params = update_params)
 
@@ -55,7 +55,6 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
         several different task conditions, saving the network activity and output """
 
     results = pickle.load(open(filename, 'rb'))
-    print(results['weights'].keys())
 
     if savefile is None:
         results['parameters']['save_fn'] = 'test.pkl'
@@ -71,7 +70,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     trial_info = stim.generate_trial(test_mode = True)
     input_data = np.squeeze(np.split(trial_info['neural_input'], par['num_time_steps'], axis=0))
 
-    h_init = np.array(results['weights']['h'])
+    h_init = results['weights']['h']
 
     y, h, syn_x, syn_u = run_model(input_data, h_init, \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
@@ -81,7 +80,6 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
     input_data = np.squeeze(np.split(trial_info_decode['neural_input'], par['num_time_steps'], axis=0))
     _, h_decode, syn_x_decode, syn_u_decode = run_model(input_data, h_init, \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
-
 
     # generate trials using DMS task, only used for measuring how neuronal and synaptic representations evolve in
     # a standardized way, used for figure correlating persistent activity and manipulation
@@ -103,6 +101,7 @@ def analyze_model_from_file(filename, savefile = None, update_params = {}):
         acc, _, _ = get_perf(trial_info['desired_output'][:,ind,:], y[:,ind,:], trial_info['train_mask'][:, ind])
         results['task_accuracy_per_rule'].append(acc)
 
+    print('Task accuracy',results['task_accuracy'])
 
     if par['calculate_resp_matrix']:
         print('calculate response matrix...')
@@ -259,17 +258,15 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, num_r
         svm_wraper(lin_clf, h, syn_efficacy, sample, rule, num_reps, num_reps_stability, trial_time)
 
     to = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-    print('DELAY NEURONAL SAMPLE DECODING')
-    print(np.mean(decoding_results['neuronal_sample_decoding'][0,0,:,to-10:to]))
-    print(np.sum(np.mean(decoding_results['neuronal_sample_decoding'][0,0,:,to-10:to],axis=1)>0.125))
-
+    print('Neuronal and synaptic delay period decoding', \
+        np.mean(decoding_results['neuronal_sample_decoding'][0,0,:,to-10:to]), \
+        np.mean(decoding_results['synaptic_sample_decoding'][0,0,:,to-10:to]))
 
     if decode_test:
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] ,_ ,_ = \
             svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, 0, trial_time)
 
     if decode_match:
-        print(match)
         decoding_results['neuronal_match_decoding'], decoding_results['synaptic_match_decoding'] ,_ ,_ = \
             svm_wraper(lin_clf, h, syn_efficacy, match, rule, num_reps, 0, trial_time)
 
@@ -877,16 +874,18 @@ def run_model(x, h_init_org, syn_x_init_org, syn_u_init_org, weights, suppress_a
     syn_x_init = copy.copy(syn_x_init_org)
     syn_u_init = copy.copy(syn_u_init_org)
 
+    network_weights = {k:v for k,v in weights.items()}
+
     if par['EI']:
-        weights['w_rnn'] = par['EI_matrix'] @ np.maximum(0,weights['w_rnn'])
-        weights['w_in'] = np.maximum(0,weights['w_in'])
-        weights['w_out'] = np.maximum(0,weights['w_out'])
+        network_weights['w_rnn'] = par['EI_matrix'] @ np.maximum(0,network_weights['w_rnn'])
+        network_weights['w_in'] = np.maximum(0,network_weights['w_in'])
+        network_weights['w_out'] = np.maximum(0,network_weights['w_out'])
 
     h, syn_x, syn_u = \
-        rnn_cell_loop(x, h_init, syn_x_init, syn_u_init, weights, suppress_activity)
+        rnn_cell_loop(x, h_init, syn_x_init, syn_u_init, network_weights, suppress_activity)
 
     # Network output
-    y = [h0 @ weights['w_out'] + weights['b_out'] for h0 in h]
+    y = [h0 @ network_weights['w_out'] + weights['b_out'] for h0 in h]
 
     syn_x   = np.stack(syn_x)
     syn_u   = np.stack(syn_u)
@@ -933,7 +932,7 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
     # Update the hidden state
     h = np.maximum(0, h*(1-par['alpha_neuron'])
-                   + par['alpha_neuron']*(np.maximum(0, rnn_input) @ weights['w_in']
+                   + par['alpha_neuron']*(rnn_input @ weights['w_in']
                    + h_post @ weights['w_rnn'] + weights['b_rnn'])
                    + np.random.normal(0, par['noise_rnn'],size = h.shape))
 
@@ -947,10 +946,10 @@ def get_perf(target, output, mask):
     """ Calculate task accuracy by comparing the actual network output to the desired output
         only examine time points when test stimulus is on, e.g. when y[:,:,0] = 0 """
 
-    mask = np.float32(mask > 0)
-    mask_test = mask*(target[:,:,0]==0)
-    mask_non_match = mask*(target[:,:,1]==1)
-    mask_match = mask*(target[:,:,2]==1)
+    mask_full = np.float32(mask > 0)
+    mask_test = mask_full*(target[:,:,0]==0)
+    mask_non_match = mask_full*(target[:,:,1]==1)
+    mask_match = mask_full*(target[:,:,2]==1)
     target_max = np.argmax(target, axis = 2)
     output_max = np.argmax(output, axis = 2)
     accuracy = np.sum(np.float32(target_max == output_max)*mask_test)/np.sum(mask_test)

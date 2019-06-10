@@ -64,10 +64,9 @@ class Model:
         self.syn_u = []
         self.y = []
 
-        h = tf.tile(self.var_dict['h'], [par['batch_size'], 1])
+        h = self.var_dict['h']
         syn_x = self.syn_x_init
         syn_u = self.syn_u_init
-
 
         # Loop through the neural inputs to the RNN, indexed in time
         for rnn_input in self.input_data:
@@ -125,7 +124,6 @@ class Model:
         opt = tf.train.AdamOptimizer(learning_rate = par['learning_rate'])
         grads_and_vars = opt.compute_gradients(self.loss)
 
-
         # Apply any applicable weights masks to the gradient and clip
         capped_gvs = []
         for grad, var in grads_and_vars:
@@ -144,7 +142,6 @@ def main(gpu_id = None):
 
     if gpu_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-
 
     # Print key parameters
     print_important_params()
@@ -193,15 +190,12 @@ def main(gpu_id = None):
             if i%par['iters_between_outputs']==0:
                 print_results(i, perf_loss, spike_loss, weight_loss, h, accuracy)
 
-
-
         # Save model and results
         weights = sess.run(model.var_dict)
         save_results(model_performance, weights)
 
 
-
-def save_results(model_performance,weights,  save_fn = None):
+def save_results(model_performance, weights,  save_fn = None):
 
     results = {'weights': weights, 'parameters': par}
     for k,v in model_performance.items():
