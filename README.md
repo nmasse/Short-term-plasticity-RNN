@@ -17,3 +17,5 @@ Code used to train recurrent neural networks endowed with short-term plasticity 
 Requires:  
 Python 3  
 TensorFlow 1+ 
+
+Please email masse@uchicago.edu to report any issues, bugs, etc.
