@@ -230,6 +230,6 @@ def print_important_params():
 
     important_params = ['num_iterations', 'learning_rate', 'noise_rnn_sd', 'noise_in_sd','spike_cost',\
         'spike_regularization', 'weight_cost','test_cost_multiplier', 'trial_type','balance_EI', 'dt',\
-        'delay_time','weight_multiplier', 'connection_prob','synapse_config','tau_slow']
+        'delay_time', 'connection_prob','synapse_config','tau_slow','tau_fast']
     for k in important_params:
         print(k, ': ', par[k])
