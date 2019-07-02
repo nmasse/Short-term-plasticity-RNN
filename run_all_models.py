@@ -19,7 +19,7 @@ except:
 
 
 update_parameters({ 'simulation_reps'       : 0,
-                    'batch_train_size'      : 1024,
+                    'batch_size'            : 1024,
                     'learning_rate'         : 0.02,
                     'noise_rnn_sd'          : 0.5,
                     'noise_in_sd'           : 0.1,
