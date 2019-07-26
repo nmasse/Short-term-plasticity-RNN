@@ -15,7 +15,7 @@ par = {
     'save_fn'               : 'model_results.pkl',
 
     # Network configuration
-    'synapse_config'        : 'full', # Full is 'std_stf'
+    'synapse_config'        : 'full', # full is half facilitating, half depressing. See line 295 for all options 
     'exc_inh_prop'          : 0.8,    # excitatory/inhibitory ratio, set to 1 so that units are neither exc or inh
     'balance_EI'            : True,
     'connection_prob'       : 1.,
