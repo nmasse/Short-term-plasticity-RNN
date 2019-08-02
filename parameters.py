@@ -15,7 +15,7 @@ par = {
     'save_fn'               : 'model_results.pkl',
 
     # Network configuration
-    'synapse_config'        : 'full', # full is half facilitating, half depressing. See line 295 for all options 
+    'synapse_config'        : 'None', # full is half facilitating, half depressing. See line 295 for all options
     'exc_inh_prop'          : 0.8,    # excitatory/inhibitory ratio, set to 1 so that units are neither exc or inh
     'balance_EI'            : True,
     'connection_prob'       : 1.,
@@ -312,7 +312,9 @@ def update_dependencies():
     par['dynamic_synapse'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
 
     for i in range(par['n_hidden']):
-        if synaptic_configurations[par['synapse_config']][i] == 'facilitating':
+        if not par['synapse_config'] in synaptic_configurations.keys():
+            par['dynamic_synapse'][0,i] = 0
+        elif synaptic_configurations[par['synapse_config']][i] == 'facilitating':
             par['alpha_stf'][0,i] = par['dt']/par['tau_slow']
             par['alpha_std'][0,i] = par['dt']/par['tau_fast']
             par['U'][0,i] = 0.15
