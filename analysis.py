@@ -713,7 +713,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
     elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
         test = trial_info['test'][:,:num_test_stimuli]
         rule = np.array(trial_info['rule'])
-        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
+        sample = np.reshape(np.array(trial_info['sample']),(par['batch_size'], 1))
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
         suppression_time_range = [range(test_onset-200//par['dt'], test_onset)]
         # onyl want to examine accuracy on 2nd pulse
@@ -724,17 +724,17 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
     elif par['trial_type'] == 'location_DMS':
         par['num_receptive_fields'] = 1
-        test = np.reshape(np.array(trial_info['test']),(par['batch_train_size'], 1))
+        test = np.reshape(np.array(trial_info['test']),(par['batch_size'], 1))
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
+        sample = np.reshape(np.array(trial_info['sample']),(par['batch_size'], 1))
         rule = np.array(trial_info['rule'])
         match = np.array(trial_info['match'])
         suppression_time_range = [range(test_onset-200//par['dt'], test_onset)]
     else:
         rule = np.array(trial_info['rule'])
         match = np.array(trial_info['match'])
-        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], 1))
-        test = np.reshape(np.array(trial_info['test']),(par['batch_train_size'], 1))
+        sample = np.reshape(np.array(trial_info['sample']),(par['batch_size'], 1))
+        test = np.reshape(np.array(trial_info['test']),(par['batch_size'], 1))
         test_onset = (par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
         suppression_time_range = [range(test_onset-50//par['dt'], test_onset)]
 
@@ -760,15 +760,15 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights, c
 
     syn_efficacy = syn_x*syn_u
 
-    sample_dir = np.ones((par['batch_train_size'], 3, par['num_receptive_fields']))
+    sample_dir = np.ones((par['batch_size'], 3, par['num_receptive_fields']))
     for rf in range(par['num_receptive_fields']):
         sample_dir[:,1, rf] = np.cos(2*np.pi*sample[:,rf]/par['num_motion_dirs'])
         sample_dir[:,2, rf] = np.sin(2*np.pi*sample[:,rf]/par['num_motion_dirs'])
 
-    test_dir = np.ones((par['batch_train_size'], 3, par['num_receptive_fields']))
+    test_dir = np.ones((par['batch_size'], 3, par['num_receptive_fields']))
     for rf in range(par['num_receptive_fields']):
-        test_dir[:,1, rf] = np.reshape(np.cos(2*np.pi*test[:, rf]/par['num_motion_dirs']), (par['batch_train_size']))
-        test_dir[:,2, rf] = np.reshape(np.sin(2*np.pi*test[:, rf]/par['num_motion_dirs']), (par['batch_train_size']))
+        test_dir[:,1, rf] = np.reshape(np.cos(2*np.pi*test[:, rf]/par['num_motion_dirs']), (par['batch_size']))
+        test_dir[:,2, rf] = np.reshape(np.sin(2*np.pi*test[:, rf]/par['num_motion_dirs']), (par['batch_size']))
 
     for r in range(par['num_rules']):
         trial_ind = np.where((rule==r))[0]
