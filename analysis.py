@@ -927,6 +927,8 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
     else:
         # no synaptic plasticity
+        syn_u_new = 1.
+        syn_x_new = 1.
         h_post = h
 
 
