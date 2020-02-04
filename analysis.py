@@ -908,6 +908,8 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights, suppress_activity):
             h, syn_x, syn_u = rnn_cell(np.squeeze(rnn_input), h, syn_x, syn_u, weights, suppress_activity[t])
         else:
             h, syn_x, syn_u = rnn_cell(np.squeeze(rnn_input), h, syn_x, syn_u, weights, 1)
+        print('h ', h.shape, ' syn_x ', syn_x.shape, ' syn_u ', syn_u.shape)
+
         h_hist.append(h)
         syn_x_hist.append(syn_x)
         syn_u_hist.append(syn_u)
@@ -927,8 +929,6 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
     else:
         # no synaptic plasticity
-        syn_u_new = np.ones_like(h)
-        syn_x_new =  np.ones_like(h)
         h_post = h
 
 
@@ -939,6 +939,10 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
                    + np.random.normal(0, par['noise_rnn'],size = h.shape))
 
     h *= suppress_activity
+
+    if par['synapse_config'] is None:
+        syn_x_new = np.ones_like(h)
+        syn_u_new = np.ones_like(h)
 
     return h, syn_x_new, syn_u_new
 
